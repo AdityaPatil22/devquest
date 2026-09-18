@@ -562,6 +562,11 @@ export class DecisionRoomScene extends Phaser.Scene {
         break;
       }
 
+      case 'SESSION_RESUMED':
+        // Reconnected to the same session — nothing to reset here,
+        // any queued messages will follow immediately.
+        break;
+
       case 'ERROR':
         console.error('Server error:', msg.message);
         break;

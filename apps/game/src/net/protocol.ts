@@ -56,6 +56,13 @@ export interface SessionStartedMsg {
   sessionId: string;
 }
 
+export interface SessionResumedMsg {
+  type: 'SESSION_RESUMED';
+  sessionId: string;
+  phase: string;
+  round: number;
+}
+
 export interface DecisionCreatedMsg {
   type: 'DECISION_CREATED';
   nodeId: string;
@@ -94,6 +101,7 @@ export interface ErrorMsg {
 
 export type ServerMessage =
   | SessionStartedMsg
+  | SessionResumedMsg
   | DecisionCreatedMsg
   | ChallengeMsg
   | EvaluationMsg

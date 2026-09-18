@@ -3,8 +3,14 @@ import type { ClientMessage, ServerMessage } from './protocol';
 
 type MessageHandler = (msg: ServerMessage) => void;
 
+const SESSION_STORAGE_KEY = 'devquest_session_id';
+
 /**
- * WebSocket client with auto-reconnect.
+ * WebSocket client with auto-reconnect and session persistence.
+ *
+ * On reconnect the client appends the stored session_id as a query
+ * parameter so the server can associate the new socket with the
+ * existing session instead of creating a brand-new one.
  */
 export class WebSocketClient {
   private ws?: WebSocket;
@@ -12,18 +18,47 @@ export class WebSocketClient {
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
-  private url: string;
+  private baseUrl: string;
+  private _sessionId?: string;
 
   constructor(url?: string) {
-    this.url = url ?? WS_URL;
+    this.baseUrl = url ?? WS_URL;
+    // Restore session from a previous page load
+    this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
+  }
+
+  get sessionId(): string | undefined {
+    return this._sessionId;
+  }
+
+  /** Store the session_id for future reconnects / page reloads. */
+  setSessionId(id: string): void {
+    this._sessionId = id;
+    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
+  }
+
+  /** Clear the stored session so the next connect creates a fresh one. */
+  clearSession(): void {
+    this._sessionId = undefined;
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
   connect(): void {
+    // Close any existing socket first to prevent duplicate connections
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+      this.ws.onclose = null; // prevent triggering reconnect
+      this.ws.close();
+    }
+
     try {
-      this.ws = new WebSocket(this.url);
+      const url = this._sessionId
+        ? `${this.baseUrl}?session_id=${this._sessionId}`
+        : this.baseUrl;
+
+      this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        console.log('[WS] Connected');
+        console.log('[WS] Connected', this._sessionId ? `(session ${this._sessionId})` : '(new)');
         this.reconnectAttempts = 0;
       };
 
@@ -66,7 +101,11 @@ export class WebSocketClient {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
-    this.ws?.close();
+    if (this.ws) {
+      this.ws.onclose = null; // prevent triggering reconnect
+      this.ws.close();
+      this.ws = undefined;
+    }
   }
 
   get connected(): boolean {

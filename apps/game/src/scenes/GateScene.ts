@@ -133,6 +133,12 @@ export class GateScene extends Phaser.Scene {
   private handleMessage(msg: ServerMessage): void {
     if (msg.type === 'SESSION_STARTED') {
       this.store.setSession(msg.sessionId);
+      this.ws.setSessionId(msg.sessionId);
+    }
+
+    if (msg.type === 'SESSION_RESUMED') {
+      this.store.setSession(msg.sessionId);
+      this.ws.setSessionId(msg.sessionId);
     }
 
     if (msg.type === 'DECISION_CREATED') {
@@ -160,5 +166,7 @@ export class GateScene extends Phaser.Scene {
 
   shutdown(): void {
     this.textInput?.hide();
+    // Don't disconnect — the WS is passed to the next scene.
+    // Only disconnect if we're not transitioning (e.g., game closing).
   }
 }

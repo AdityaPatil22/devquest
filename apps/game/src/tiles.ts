@@ -48,7 +48,7 @@ export const PATTERNS_CONFIG = {
 };
 
 /** Display scale for all tiles (16px × 2 = 32px on screen) */
-export const TILE_SCALE = 2;
+export const TILE_SCALE = 3;
 
 /** Effective tile size on screen after scaling */
 export const DISPLAY_TILE = 16 * TILE_SCALE; // 32px
