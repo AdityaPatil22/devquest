@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Build output
+dist/
+build/
+apps/server/app/static/
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Phaser
+apps/game/public/assets/tilesets/*.tmj
+apps/game/public/assets/tilesets/*.tmx
+
+# Alembic
+apps/server/migrations/versions/*.pyc

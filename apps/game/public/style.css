@@ -1,0 +1,45 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a1a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Press Start 2P', monospace;
+}
+
+#game-container {
+  position: relative;
+}
+
+/* Styled textarea for in-game text input */
+.devquest-textarea {
+  position: absolute;
+  display: none;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 2px solid #4a9eff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 8px;
+  resize: none;
+  outline: none;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+.devquest-textarea:focus {
+  border-color: #7bc4ff;
+  box-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
+}
+
+.devquest-textarea::placeholder {
+  color: #555577;
+}
