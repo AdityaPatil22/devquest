@@ -1,47 +1,73 @@
-import type { DecisionOption } from '../net/protocol';
+import type { DecisionOption, Recommendation } from '../net/protocol';
 
 export interface DecisionRecord {
   nodeId: string;
-  areaId: string;
   question: string;
   options: DecisionOption[];
+  recommendation?: Recommendation;
+  round: number;
   selectedOptionId?: string;
-  reasoning?: string;
+  context?: string;
+  challenge?: string;
+  defense?: string;
   feedback?: string;
   consequence?: string;
 }
 
 /**
- * Client-side store of the current session state.
- * The server is the source of truth — this is a local mirror.
+ * Client-side mirror of the session state.
+ * Server is the source of truth.
  */
 export class SessionStore {
   sessionId?: string;
-  decisions: Map<string, DecisionRecord> = new Map();
-  completedAreas: Set<string> = new Set();
+  problem?: string;
+  currentNodeId?: string;
+  decisions: DecisionRecord[] = [];
+  totalRounds = 0;
+  finished = false;
+  docContent?: string;
+  summary?: string;
+
+  reset(): void {
+    this.sessionId = undefined;
+    this.problem = undefined;
+    this.currentNodeId = undefined;
+    this.decisions = [];
+    this.totalRounds = 0;
+    this.finished = false;
+    this.docContent = undefined;
+    this.summary = undefined;
+  }
 
   setSession(sessionId: string): void {
+    this.reset();
     this.sessionId = sessionId;
-    this.decisions.clear();
-    this.completedAreas.clear();
+  }
+
+  setProblem(problem: string): void {
+    this.problem = problem;
   }
 
   addDecision(record: DecisionRecord): void {
-    this.decisions.set(record.nodeId, record);
+    this.decisions.push(record);
+    this.currentNodeId = record.nodeId;
+    this.totalRounds = Math.max(this.totalRounds, record.round);
   }
 
-  updateDecision(nodeId: string, update: Partial<DecisionRecord>): void {
-    const existing = this.decisions.get(nodeId);
-    if (existing) {
-      Object.assign(existing, update);
+  getCurrentDecision(): DecisionRecord | undefined {
+    return this.decisions.find((d) => d.nodeId === this.currentNodeId);
+  }
+
+  updateCurrent(update: Partial<DecisionRecord>): void {
+    const current = this.getCurrentDecision();
+    if (current) {
+      Object.assign(current, update);
     }
   }
 
-  markAreaCompleted(areaId: string): void {
-    this.completedAreas.add(areaId);
-  }
-
-  isAreaCompleted(areaId: string): boolean {
-    return this.completedAreas.has(areaId);
+  complete(summary: string, docContent: string): void {
+    this.finished = true;
+    this.summary = summary;
+    this.docContent = docContent;
   }
 }

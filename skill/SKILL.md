@@ -1,137 +1,312 @@
 ---
 name: devquest
-description: "Launch the DevQuest Interactive Engineering Decision Simulator. Use when the user wants to review engineering decisions, explore architecture choices in a game, or says 'devquest', 'grill me', 'decision review', or 'engineering review'."
+description: "Run an engineering decision grilling interview inside a 2D Phaser game. The player enters a problem statement at the Gate, then navigates Decision Rooms where doors represent options. The skill generates questions, challenges reasoning, and produces a final decision document as the player's trophy. Use when the user says 'devquest', 'grill me', invokes /devquest with a topic, or says '/devquest resume'."
 ---
 
-# DevQuest Skill
+# devquest
 
-Launch and manage the DevQuest Interactive Engineering Decision Simulator — a 2D game where developers explore a software office and defend their engineering decisions to an AI reviewer.
+The game is a 2D world the player walks through. Four areas in sequence:
 
-## How It Works
+1. **Common Room** — menu screen. Start new session, resume, settings.
+2. **Gate** — the player types what they want to be grilled on.
+3. **Decision Room** — a generic room with N doors, one per option the skill generated.
+   The player walks to a door, optionally adds context, and enters. The room resets with
+   the next question. This loops until the skill says the tree is walked.
+4. **Trophy Room** — the finished engineering document, displayed as a trophy.
 
-1. The skill starts a local FastAPI server that hosts the game
-2. The game opens in the browser at `http://localhost:8000`
-3. The player moves around a 2D office and interacts with areas (API Lab, Database Lab, Security, Deployment)
-4. When the player enters an area, the skill receives a notification and generates engineering questions
-5. The player answers in-game, and the skill challenges their reasoning
-6. Decisions are recorded in a visual decision graph
+The skill owns the grilling logic. Phaser owns the experience. The game never generates
+decisions — it receives them from the skill via the FastAPI broker and renders doors.
 
-## Activation
+Communication: skill polls `GET /api/skill/events/pending/long-poll` for player actions,
+then POSTs questions/challenges/evaluations back. The server pushes them to the game over
+WebSocket. The game sends player actions (problem statement, door selection, context,
+challenge response) over WebSocket to the server, which enqueues them for the skill.
 
-When the user asks to start a DevQuest session:
+## Start (`/devquest <topic>`, `$devquest <topic>`, or "devquest: <topic>")
 
-### Step 1: Start the server
+1. From the project directory start the FastAPI server (if not already running):
+   ```bash
+   cd <project_root>/apps/server
+   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+   ```
+   Confirm: `curl -s http://localhost:8000/api/health`
 
-```bash
-cd <project_root>
-devquest start --repo . --skill-mode --no-browser
-```
+2. Start the game dev server (if not already running):
+   ```bash
+   cd <project_root>/apps/game && npm run dev &
+   ```
 
-Or if not installed:
+3. If a `<topic>` was provided, pre-fill it: POST to `/api/skill/prefill` so the Gate
+   auto-populates. Otherwise the player types it in-game.
 
-```bash
-cd <project_root>/apps/server
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
+4. Print ONE line: the URL (`http://localhost:5173`), and tell the user to open the game.
+   End the turn.
 
-Tell the user: **"DevQuest is running. Open http://localhost:8000 in your browser."**
+5. Enter the event loop.
 
-### Step 2: Enter the grilling loop
+## Resume (`/devquest resume`)
 
-Continuously poll for player events and respond:
+1. Confirm the server is running. If not, start it.
+2. `curl -s http://localhost:8000/api/skill/sessions` — list active sessions.
+   One session: take it. Several: list them and ask. None: say so and stop.
+3. Drain pending events. Process each following "Handling an event".
+4. Enter the event loop.
 
-```bash
-# Poll for player events
-curl -s http://localhost:8000/api/skill/events/pending/long-poll?timeout=30
-```
-
-### Step 3: Handle events
-
-When you receive an event:
-
-#### ENTER_AREA
-The player entered a room. Generate a relevant engineering decision question based on:
-- The area (api-lab, database-lab, security-lab, deployment)
-- The repository context (if --repo was provided)
-- Previous decisions in this session
-
-Send the question:
-```bash
-curl -X POST http://localhost:8000/api/skill/decisions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "<session_id>",
-    "area_id": "<area_id>",
-    "question": "Your engineering question here",
-    "options": [
-      {"id": "option1", "label": "Option 1"},
-      {"id": "option2", "label": "Option 2"},
-      {"id": "option3", "label": "Option 3"}
-    ]
-  }'
-```
-
-#### REASONING_SUBMITTED
-The player chose an option and explained why. Read their reasoning, then challenge it:
+## The event loop
 
 ```bash
-curl -X POST http://localhost:8000/api/skill/challenge \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "<session_id>",
-    "node_id": "<node_id>",
-    "question": "Your follow-up challenge here"
-  }'
+curl -s "http://localhost:8000/api/skill/events/pending/long-poll?session_id=<sid>&timeout=30"
 ```
 
-#### CHALLENGE_RESPONSE
-The player responded to your challenge. Evaluate their complete decision:
+If `{"event": null}`, re-issue. When an event arrives, handle it immediately following
+"Handling an event", then loop.
 
-```bash
-curl -X POST http://localhost:8000/api/skill/evaluation \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "<session_id>",
-    "node_id": "<node_id>",
-    "feedback": "Your evaluation of their decision",
-    "consequence": "What this means for their architecture"
-  }'
+**Every event is user input.** The player did something in the game on purpose. Act on it
+immediately. Never wait for terminal confirmation. Never merely summarize it.
+
+## Handling an event
+
+### PROBLEM_SUBMITTED
+The player typed their problem statement at the Gate and walked through.
+
+`{ "type": "PROBLEM_SUBMITTED", "sessionId": "...", "problem": "Should I rewrite the auth service in Go?" }`
+
+1. Read the problem statement.
+2. If `--repo` was provided, scan the codebase for context relevant to this problem.
+3. Generate the **first question** following Interview method. This is the first fork in
+   the decision tree.
+4. POST the question:
+   ```bash
+   curl -X POST http://localhost:8000/api/skill/decisions \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "<sid>",
+       "question": "Which language should the rewrite target?",
+       "options": [
+         {"id": "A", "label": "Go"},
+         {"id": "B", "label": "Rust"},
+         {"id": "C", "label": "Stay with Node.js"},
+         {"id": "D", "label": "Python"}
+       ],
+       "recommendation": {"option": "C", "why": "The current service works. Rewrites carry risk."},
+       "round": 1
+     }'
+   ```
+5. The game renders a Decision Room with 4 doors labeled A–D.
+6. Print one terminal line: the problem and the first question. Continue polling.
+
+### OPTION_SELECTED
+The player walked to a door and selected an option, optionally with additional context.
+
+`{ "type": "OPTION_SELECTED", "sessionId": "...", "nodeId": "...", "optionId": "A", "context": "I was also thinking about Zig but it felt too early" }`
+
+1. Read the selected option and any additional context.
+2. **Challenge the choice.** This is the core of the skill. Follow Challenge guidelines:
+   - POST a challenge:
+     ```bash
+     curl -X POST http://localhost:8000/api/skill/challenge \
+       -H "Content-Type: application/json" \
+       -d '{
+         "session_id": "<sid>",
+         "node_id": "<nid>",
+         "question": "Go is fast, but your team has zero Go experience. How do you plan to handle the 3-6 month learning curve during a rewrite?"
+       }'
+     ```
+3. The game shows the challenge with a text input for the player to respond.
+4. Print one terminal line. Continue polling.
+
+### CHALLENGE_RESPONSE
+The player defended their choice.
+
+`{ "type": "CHALLENGE_RESPONSE", "sessionId": "...", "nodeId": "...", "response": "We'll pair with a Go consultant for the first month..." }`
+
+1. Evaluate the defense. Grade honestly.
+2. POST the evaluation:
+   ```bash
+   curl -X POST http://localhost:8000/api/skill/evaluation \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "<sid>",
+       "node_id": "<nid>",
+       "feedback": "Hiring a consultant mitigates the initial risk, but knowledge transfer is the hard part.",
+       "consequence": "Budget for 2 months of pairing, not 1. The team needs to own the code by month 3."
+     }'
+   ```
+3. **Immediately generate the next question.** The evaluation and the next question arrive
+   together. The game shows the evaluation briefly, then transitions to the next Decision
+   Room with new doors.
+   ```bash
+   curl -X POST http://localhost:8000/api/skill/decisions \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "<sid>",
+       "question": "Given you chose Go: which HTTP framework?",
+       "options": [
+         {"id": "A", "label": "Standard library net/http"},
+         {"id": "B", "label": "Gin"},
+         {"id": "C", "label": "Echo"}
+       ],
+       "recommendation": {"option": "A", "why": "Standard library is stable and needs no dependency management."},
+       "round": 2,
+       "depends_on": "<previous node_id>"
+     }'
+   ```
+4. If the decision tree is fully walked (no more meaningful questions to ask), send a
+   `finish` signal instead of a next question:
+   ```bash
+   curl -X POST http://localhost:8000/api/skill/finish \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "<sid>",
+       "summary": "Rewrite auth service in Go with net/http, PostgreSQL, JWT auth...",
+       "doc_content": "<full markdown document>"
+     }'
+   ```
+   The game transitions to the Trophy Room.
+5. Print one terminal line. Continue polling.
+
+### RECONSIDER
+The player wants to revisit a previous decision.
+
+1. GET the session to see the previous choice and reasoning.
+2. Reframe: "You chose X because [reason]. Given [consequence], reconsider."
+3. POST a new decision with the same or updated options.
+4. Continue polling.
+
+## Interview method
+
+Walk the decision tree relentlessly. Each answer opens the next branch:
+
+```
+Problem: "Should I rewrite the auth service in Go?"
+  │
+  ├── Q1: Which language? → Go
+  │     ├── Q2: Which HTTP framework? → net/http
+  │     │     ├── Q3: How do you handle middleware? → ...
+  │     │     └── ...
+  │     ├── Q4: Database driver? → pgx
+  │     └── Q5: Error handling strategy? → ...
+  │
+  ├── Q6: How do you migrate existing users? → ...
+  └── Q7: Rollback plan? → ...
 ```
 
-#### RECONSIDER
-The player wants to reconsider a previous decision. Generate a new question for the same area, acknowledging their previous choice.
+Rules:
+- **Each answer determines the next question.** If they chose Go, ask Go-specific questions.
+  If they chose "Stay with Node.js", the next question is about improving the existing
+  service, not about Go frameworks.
+- **Every question must have** 2–4 concrete options, each a real choice an engineer would
+  consider. Never vague ("A relational database"). Always specific ("PostgreSQL").
+- **Include a recommendation** with every question: the option you'd pick, and a one-paragraph
+  why. The game can display this as a hint. The player is free to disagree.
+- **Durable vs routine**: language choice, database engine, auth model — these are durable
+  (hard to reverse). Challenge them harder. Log format, folder structure — routine. One
+  question, move on.
+- **Repository context**: when available, reference actual files. Don't ask "which database?"
+  if `schema.prisma` already says PostgreSQL. Ask "why Prisma over raw SQL for this use
+  case?"
+- **Cross-question dependencies**: track `depends_on`. If they chose JWT in Q3, Q7 about
+  session management should reference JWT's stateless nature.
+- **Stop when done.** When the tree is fully walked — every branch resolved — finish. Four
+  hard questions are better than twelve soft ones. Don't pad.
 
-### Step 4: Continue the loop
+## Challenge guidelines
 
-After handling each event, go back to polling. Continue until the user says they're done or all areas are completed.
+Every decision gets challenged. Every one. Including correct ones.
 
-## Question Generation Guidelines
+- **Shallow reasoning gets pushed back:**
+  - "It's popular" → "Popular doesn't mean correct for your constraints. What specific
+    requirement does X satisfy?"
+  - "I've always used it" → "Familiarity is valid, but what happens when [edge case]?"
+  - "It's the best" → "Best by what metric? Latency? Maintainability? Cost?"
+- **Strong reasoning still gets tested from the other side:**
+  - "Solid argument. But the strongest case against X is [counter]. How do you address it?"
+- **Contradictions get called out immediately:**
+  - "You chose stateless JWT in Q3, but now you want server-side session revocation. Those
+    conflict. How do you reconcile?"
+- **2 sentences max for challenges.** This is a game. Walls of text kill the flow.
+- **2 sentences feedback + 2 sentences consequence for evaluations.** Crisp.
 
-- Make questions specific to the repository when context is available
-- Offer 3-4 realistic options per question
-- Challenge weak reasoning — don't accept "it's popular" as sufficient
-- Connect consequences to real architectural impacts
-- Keep responses under 3 sentences — this is a game, not a lecture
-- Reference previous decisions when relevant ("Given you chose PostgreSQL...")
+## Finish
 
-## Example Questions by Area
+When the decision tree is fully walked, or the player says "finish":
 
-### API Lab
-- "How should we handle API versioning?"
-- "What authentication mechanism should we use?"
-- "Should we use REST, GraphQL, or gRPC?"
+1. GET the full session graph:
+   ```bash
+   curl -s http://localhost:8000/api/skill/sessions/<sid>
+   ```
 
-### Database Lab
-- "Which database should we use for the user service?"
-- "How should we handle data migrations?"
-- "What caching strategy should we implement?"
+2. Generate the decision document. Structure:
+   - **Problem Statement**: what the player entered at the Gate.
+   - **Summary**: one paragraph of the key decisions and their relationships.
+   - **Decision Chain**: for each question in order:
+     - Question, chosen option, reasoning, challenge, defense, evaluation, consequence.
+     - Mark reconsidered decisions — show both old and new branches.
+   - **Architecture Outcome**: what the final system looks like given all decisions.
+   - **Trade-offs Accepted**: what they knowingly gave up.
+   - **Risks**: weak defenses, contradictions, unresolved consequences.
+   - **Open Questions**: things that remain undecided.
 
-### Security
-- "How should we store user credentials?"
-- "What authorization model should we use?"
-- "How do we handle API rate limiting?"
+3. POST the finished document:
+   ```bash
+   curl -X POST http://localhost:8000/api/skill/finish \
+     -H "Content-Type: application/json" \
+     -d '{
+       "session_id": "<sid>",
+       "summary": "one-line summary",
+       "doc_content": "<full markdown>",
+       "decisions_count": 7,
+       "reconsidered_count": 1
+     }'
+   ```
 
-### Deployment
-- "What container orchestration should we use?"
-- "How should we handle CI/CD?"
-- "What's our rollback strategy?"
+4. Write the doc to `docs/<topic-slug>-decisions.md` in the project root.
+
+5. The game transitions to the Trophy Room showing the document summary and a
+   "Download Doc" option.
+
+6. Print the doc path. End.
+
+## The door mechanic — how Phaser renders options
+
+The skill sends options as an ordered list. The game renders exactly that many doors:
+
+```
+Skill sends:
+  options: [{id: "A", label: "Redis"}, {id: "B", label: "PostgreSQL"}, {id: "C", label: "CDN"}]
+
+Game renders:
+  ┌──────────────────────────────────┐
+  │         Decision Room            │
+  │                                  │
+  │            🧑 Player             │
+  │                                  │
+  │    🚪 A      🚪 B      🚪 C      │
+  │   Redis   PostgreSQL    CDN      │
+  └──────────────────────────────────┘
+```
+
+When the player approaches a door, the game shows:
+- The option label
+- The recommendation (if this door matches the recommended option)
+- An optional text input: "Add context before entering?"
+- An [Enter] button
+
+The player walks through the door. The room transitions. New doors appear.
+
+The game never needs to know what Redis is. It just renders doors with labels.
+
+## Terminal input
+
+During a session:
+- "finish" → trigger Finish.
+- "status" → print decision count, current question, rounds completed.
+- Anything else → "Use the game. Type 'finish' to end the session."
+
+## Error handling
+
+- Server not responding → start it. If it fails, print error and stop.
+- Game not running → tell user to open `http://localhost:5173`.
+- Malformed event → skip, log warning, continue.
+- Player idle 5+ minutes → one terminal nudge. Do not spam.
+- Skill generates no more questions but hasn't called finish → auto-finish.

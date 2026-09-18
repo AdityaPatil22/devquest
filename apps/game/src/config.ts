@@ -29,10 +29,10 @@ export const COLORS = {
 export const FONTS = {
   pixel: '"Press Start 2P"',
   size: {
-    sm: '8px',
-    md: '10px',
-    lg: '12px',
-    xl: '14px',
-    title: '16px',
+    sm: '10px',
+    md: '12px',
+    lg: '14px',
+    xl: '16px',
+    title: '18px',
   },
 } as const;

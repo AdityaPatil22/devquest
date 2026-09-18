@@ -1,4 +1,4 @@
-"""Session state machine — tracks the phase of a game session."""
+"""Session state machine — tracks the phase of a grilling session."""
 
 from __future__ import annotations
 
@@ -9,53 +9,49 @@ from app.engine.decision_graph import DecisionGraph
 
 class SessionPhase(str, Enum):
     IDLE = "idle"
-    EXPLORING = "exploring"
-    DECISION = "decision"
-    AWAITING_REASONING = "awaiting_reasoning"
-    CHALLENGING = "challenging"
-    EVALUATING = "evaluating"
+    AWAITING_PROBLEM = "awaiting_problem"
+    AWAITING_QUESTION = "awaiting_question"
+    AWAITING_SELECTION = "awaiting_selection"
+    AWAITING_CHALLENGE = "awaiting_challenge"
+    AWAITING_DEFENSE = "awaiting_defense"
+    AWAITING_EVALUATION = "awaiting_evaluation"
     COMPLETE = "complete"
 
 
 class Session:
-    def __init__(self, session_id: str, project: str | None = None) -> None:
+    def __init__(self, session_id: str) -> None:
         self.session_id = session_id
-        self.project = project
+        self.problem: str | None = None
         self.phase = SessionPhase.IDLE
         self.graph = DecisionGraph()
         self.current_node_id: str | None = None
-        self.current_area_id: str | None = None
-        self.completed_areas: set[str] = set()
+        self.current_round = 0
 
     def start(self) -> None:
-        self.phase = SessionPhase.EXPLORING
+        self.phase = SessionPhase.AWAITING_PROBLEM
 
-    def enter_area(self, area_id: str) -> None:
-        self.current_area_id = area_id
-        self.phase = SessionPhase.DECISION
+    def set_problem(self, problem: str) -> None:
+        self.problem = problem
+        self.phase = SessionPhase.AWAITING_QUESTION
 
     def set_decision_node(self, node_id: str) -> None:
         self.current_node_id = node_id
+        self.phase = SessionPhase.AWAITING_SELECTION
 
-    def move_to_reasoning(self) -> None:
-        self.phase = SessionPhase.AWAITING_REASONING
+    def move_to_awaiting_challenge(self) -> None:
+        self.phase = SessionPhase.AWAITING_CHALLENGE
 
-    def move_to_challenging(self) -> None:
-        self.phase = SessionPhase.CHALLENGING
+    def move_to_awaiting_defense(self) -> None:
+        self.phase = SessionPhase.AWAITING_DEFENSE
 
-    def move_to_evaluating(self) -> None:
-        self.phase = SessionPhase.EVALUATING
+    def move_to_awaiting_evaluation(self) -> None:
+        self.phase = SessionPhase.AWAITING_EVALUATION
 
-    def complete_area(self, area_id: str) -> None:
-        self.completed_areas.add(area_id)
-        self.current_area_id = None
-        self.current_node_id = None
-        self.phase = SessionPhase.EXPLORING
+    def move_to_awaiting_question(self) -> None:
+        self.phase = SessionPhase.AWAITING_QUESTION
+
+    def advance_round(self) -> None:
+        self.current_round += 1
 
     def finish(self) -> None:
         self.phase = SessionPhase.COMPLETE
-
-    def back_to_exploring(self) -> None:
-        self.current_node_id = None
-        self.current_area_id = None
-        self.phase = SessionPhase.EXPLORING

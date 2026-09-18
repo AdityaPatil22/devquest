@@ -1,11 +1,9 @@
 """
 Skill-facing API — the Claude Code skill communicates with these endpoints.
-These endpoints bridge the skill's responses to the game client via WebSocket.
+Bridges skill responses to the game client via WebSocket.
 """
 
 from __future__ import annotations
-
-import asyncio
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -17,14 +15,14 @@ router = APIRouter()
 
 # ─── Request models ───
 
-
 class DecisionPayload(BaseModel):
     """Skill sends a new decision question."""
     session_id: str
-    area_id: str
     question: str
     options: list[dict]
-    context: str | None = None
+    recommendation: dict | None = None
+    round: int = 1
+    depends_on: str | None = None
 
 
 class ChallengePayload(BaseModel):
@@ -42,8 +40,16 @@ class EvaluationPayload(BaseModel):
     consequence: str
 
 
-# ─── Skill-facing endpoints ───
+class FinishPayload(BaseModel):
+    """Skill says the session is complete."""
+    session_id: str
+    summary: str
+    doc_content: str
+    decisions_count: int | None = None
+    reconsidered_count: int | None = None
 
+
+# ─── Skill-facing endpoints ───
 
 @router.get("/events/pending")
 async def get_pending_events(session_id: str | None = None):
@@ -59,10 +65,8 @@ async def get_pending_events_long_poll(
     session_id: str | None = None,
     timeout: int = 30,
 ):
-    """Long-poll variant — blocks until a player event arrives or timeout."""
-    event = await session_service.wait_for_player_event(
-        session_id, timeout=timeout
-    )
+    """Long-poll — blocks until a player event arrives or timeout."""
+    event = await session_service.wait_for_player_event(session_id, timeout=timeout)
     if event is None:
         return {"event": None}
     return {"event": event}
@@ -70,12 +74,14 @@ async def get_pending_events_long_poll(
 
 @router.post("/decisions")
 async def create_decision(payload: DecisionPayload):
-    """Skill sends a new question for the player."""
+    """Skill sends a new question with doors for the player."""
     await session_service.skill_create_decision(
         session_id=payload.session_id,
-        area_id=payload.area_id,
         question=payload.question,
         options=payload.options,
+        recommendation=payload.recommendation,
+        round_num=payload.round,
+        depends_on=payload.depends_on,
     )
     return {"status": "sent"}
 
@@ -103,9 +109,20 @@ async def send_evaluation(payload: EvaluationPayload):
     return {"status": "sent"}
 
 
+@router.post("/finish")
+async def finish_session(payload: FinishPayload):
+    """Skill says the grilling is done. Send trophy to player."""
+    await session_service.skill_finish(
+        session_id=payload.session_id,
+        summary=payload.summary,
+        doc_content=payload.doc_content,
+    )
+    return {"status": "sent"}
+
+
 @router.get("/sessions")
 async def list_sessions():
-    """List all active sessions."""
+    """List all sessions."""
     sessions = session_service.list_sessions()
     return {"sessions": sessions}
 

@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
-import { OfficeScene } from './scenes/OfficeScene';
-import { UIScene } from './scenes/UIScene';
+import { CommonRoomScene } from './scenes/CommonRoomScene';
+import { GateScene } from './scenes/GateScene';
+import { DecisionRoomScene } from './scenes/DecisionRoomScene';
+import { TrophyScene } from './scenes/TrophyScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './config';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -18,7 +20,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, OfficeScene, UIScene],
+  scene: [BootScene, CommonRoomScene, GateScene, DecisionRoomScene, TrophyScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

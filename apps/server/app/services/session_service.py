@@ -15,16 +15,12 @@ class SessionService:
     def __init__(self) -> None:
         self.engine = DecisionEngine()
         self.ws_manager = ConnectionManager()
-
-        # Queues for skill polling: session_id -> queue of player events
         self._player_events: dict[str, asyncio.Queue] = {}
-        # Track which option the player selected (before reasoning is submitted)
-        self._pending_options: dict[str, str] = {}
 
     # ─── Session lifecycle ───
 
-    def create_session(self, project: str | None = None) -> tuple[str, EngineEvent]:
-        session, event = self.engine.create_session(project)
+    def create_session(self) -> tuple[str, EngineEvent]:
+        session, event = self.engine.create_session()
         self._player_events[session.session_id] = asyncio.Queue()
         return session.session_id, event
 
@@ -32,9 +28,10 @@ class SessionService:
         return [
             {
                 "session_id": s.session_id,
-                "project": s.project,
+                "problem": s.problem,
                 "phase": s.phase.value,
-                "node_count": s.graph.node_count,
+                "round": s.current_round,
+                "decided_count": s.graph.decided_count,
             }
             for s in self.engine.sessions.values()
         ]
@@ -45,29 +42,25 @@ class SessionService:
             return None
         return {
             "session_id": session.session_id,
-            "project": session.project,
+            "problem": session.problem,
             "phase": session.phase.value,
+            "round": session.current_round,
             "graph": session.graph.to_dict(),
-            "completed_areas": list(session.completed_areas),
         }
 
     # ─── Player events (game → skill) ───
 
     async def enqueue_player_event(self, session_id: str, event: dict) -> None:
-        """Game client action → enqueue for skill to pick up."""
         queue = self._player_events.get(session_id)
         if queue:
             await queue.put(event)
 
     async def get_pending_player_event(self, session_id: str | None) -> dict | None:
-        """Skill polls: return next player event or None."""
         if session_id is None:
-            # Return from any session
             for q in self._player_events.values():
                 if not q.empty():
                     return q.get_nowait()
             return None
-
         queue = self._player_events.get(session_id)
         if queue and not queue.empty():
             return queue.get_nowait()
@@ -76,16 +69,13 @@ class SessionService:
     async def wait_for_player_event(
         self, session_id: str | None, timeout: int = 30
     ) -> dict | None:
-        """Long-poll: block until a player event arrives or timeout."""
         if session_id is None:
-            # For simplicity, pick the first session with a queue
             for sid, q in self._player_events.items():
                 try:
                     return await asyncio.wait_for(q.get(), timeout=timeout)
                 except asyncio.TimeoutError:
                     return None
             return None
-
         queue = self._player_events.get(session_id)
         if not queue:
             return None
@@ -97,89 +87,77 @@ class SessionService:
     # ─── Game WebSocket message handling ───
 
     async def handle_game_message(self, session_id: str, msg: dict) -> None:
-        """Process a message from the game client."""
         session = self.engine.get_session(session_id)
         if not session:
             await self.ws_manager.send_to_session(
-                session_id,
-                {"type": "ERROR", "message": "Session not found"},
+                session_id, {"type": "ERROR", "message": "Session not found"}
             )
             return
 
         msg_type = msg.get("type")
 
-        if msg_type == "ENTER_AREA":
-            area_id = msg["areaId"]
-            self.engine.enter_area(session, area_id)
-            # Notify skill that player entered an area
+        if msg_type == "PROBLEM_SUBMITTED":
+            problem = msg["problem"]
+            self.engine.submit_problem(session, problem)
             await self.enqueue_player_event(session_id, {
-                "type": "ENTER_AREA",
-                "areaId": area_id,
+                "type": "PROBLEM_SUBMITTED",
                 "sessionId": session_id,
+                "problem": problem,
             })
 
-        elif msg_type == "SELECT_OPTION":
+        elif msg_type == "OPTION_SELECTED":
             node_id = msg["nodeId"]
             option_id = msg["optionId"]
-            # Store pending option, ask for reasoning
-            self._pending_options[node_id] = option_id
-            event = self.engine.select_option(session, node_id, option_id)
-            await self.ws_manager.send_to_session(
-                session_id, event.to_ws_message()
-            )
-
-        elif msg_type == "SUBMIT_REASONING":
-            node_id = msg["nodeId"]
-            text = msg["text"]
-            option_id = self._pending_options.pop(node_id, "")
-            self.engine.submit_reasoning(session, node_id, option_id, text)
-            # Notify skill with the reasoning
+            context = msg.get("context")
+            self.engine.select_option(session, node_id, option_id, context)
             await self.enqueue_player_event(session_id, {
-                "type": "REASONING_SUBMITTED",
+                "type": "OPTION_SELECTED",
+                "sessionId": session_id,
                 "nodeId": node_id,
                 "optionId": option_id,
-                "reasoning": text,
-                "sessionId": session_id,
+                "context": context,
             })
 
-        elif msg_type == "RESPOND_TO_CHALLENGE":
+        elif msg_type == "CHALLENGE_RESPONSE":
             node_id = msg["nodeId"]
-            text = msg["text"]
-            # Forward to skill
+            response = msg["response"]
+            self.engine.submit_defense(session, node_id, response)
             await self.enqueue_player_event(session_id, {
                 "type": "CHALLENGE_RESPONSE",
-                "nodeId": node_id,
-                "response": text,
                 "sessionId": session_id,
+                "nodeId": node_id,
+                "response": response,
             })
-
-        elif msg_type == "CONTINUE":
-            self.engine.continue_exploring(session)
 
         elif msg_type == "RECONSIDER":
             node_id = msg["nodeId"]
-            event = self.engine.reconsider(session, node_id)
-            # Notify skill
+            self.engine.reconsider(session, node_id)
             await self.enqueue_player_event(session_id, {
                 "type": "RECONSIDER",
-                "nodeId": node_id,
                 "sessionId": session_id,
+                "nodeId": node_id,
             })
+
+        elif msg_type == "CONTINUE":
+            pass  # No action needed — skill decides next step
 
     # ─── Skill → Game (pushed via WebSocket) ───
 
     async def skill_create_decision(
         self,
         session_id: str,
-        area_id: str,
         question: str,
         options: list[dict],
+        recommendation: dict | None = None,
+        round_num: int = 1,
+        depends_on: str | None = None,
     ) -> None:
         session = self.engine.get_session(session_id)
         if not session:
             return
-
-        event = self.engine.create_decision(session, area_id, question, options)
+        event = self.engine.create_decision(
+            session, question, options, recommendation, round_num, depends_on
+        )
         await self.ws_manager.send_to_session(session_id, event.to_ws_message())
 
     async def skill_send_challenge(
@@ -188,7 +166,6 @@ class SessionService:
         session = self.engine.get_session(session_id)
         if not session:
             return
-
         event = self.engine.receive_challenge(session, node_id, question)
         await self.ws_manager.send_to_session(session_id, event.to_ws_message())
 
@@ -198,10 +175,18 @@ class SessionService:
         session = self.engine.get_session(session_id)
         if not session:
             return
-
         event = self.engine.receive_evaluation(session, node_id, feedback, consequence)
         await self.ws_manager.send_to_session(session_id, event.to_ws_message())
 
+    async def skill_finish(
+        self, session_id: str, summary: str, doc_content: str
+    ) -> None:
+        session = self.engine.get_session(session_id)
+        if not session:
+            return
+        event = self.engine.finish_session(session, summary, doc_content)
+        await self.ws_manager.send_to_session(session_id, event.to_ws_message())
 
-# Singleton instance
+
+# Singleton
 session_service = SessionService()

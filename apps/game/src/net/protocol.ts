@@ -1,26 +1,25 @@
 // ─── Client → Server Messages ───
 
-export interface EnterAreaMsg {
-  type: 'ENTER_AREA';
-  areaId: string;
+export interface StartSessionMsg {
+  type: 'START_SESSION';
 }
 
-export interface SelectOptionMsg {
-  type: 'SELECT_OPTION';
+export interface SubmitProblemMsg {
+  type: 'PROBLEM_SUBMITTED';
+  problem: string;
+}
+
+export interface OptionSelectedMsg {
+  type: 'OPTION_SELECTED';
   nodeId: string;
   optionId: string;
+  context?: string;
 }
 
-export interface SubmitReasoningMsg {
-  type: 'SUBMIT_REASONING';
+export interface ChallengeResponseMsg {
+  type: 'CHALLENGE_RESPONSE';
   nodeId: string;
-  text: string;
-}
-
-export interface RespondToChallengeMsg {
-  type: 'RESPOND_TO_CHALLENGE';
-  nodeId: string;
-  text: string;
+  response: string;
 }
 
 export interface ReconsiderMsg {
@@ -32,30 +31,24 @@ export interface ContinueMsg {
   type: 'CONTINUE';
 }
 
-export interface StartSessionMsg {
-  type: 'START_SESSION';
-  project?: string;
-}
-
-export interface RequestHistoryMsg {
-  type: 'REQUEST_HISTORY';
-}
-
 export type ClientMessage =
-  | EnterAreaMsg
-  | SelectOptionMsg
-  | SubmitReasoningMsg
-  | RespondToChallengeMsg
-  | ReconsiderMsg
-  | ContinueMsg
   | StartSessionMsg
-  | RequestHistoryMsg;
+  | SubmitProblemMsg
+  | OptionSelectedMsg
+  | ChallengeResponseMsg
+  | ReconsiderMsg
+  | ContinueMsg;
 
 // ─── Server → Client Messages ───
 
 export interface DecisionOption {
   id: string;
   label: string;
+}
+
+export interface Recommendation {
+  option: string;
+  why: string;
 }
 
 export interface SessionStartedMsg {
@@ -68,13 +61,9 @@ export interface DecisionCreatedMsg {
   nodeId: string;
   question: string;
   options: DecisionOption[];
-  context?: string;
-}
-
-export interface ReasoningRequestedMsg {
-  type: 'REASONING_REQUESTED';
-  nodeId: string;
-  prompt: string;
+  recommendation?: Recommendation;
+  round: number;
+  dependsOn?: string;
 }
 
 export interface ChallengeMsg {
@@ -88,17 +77,14 @@ export interface EvaluationMsg {
   nodeId: string;
   feedback: string;
   consequence: string;
-  nextAction: 'CONTINUE' | 'MORE_QUESTIONS';
-}
-
-export interface AreaCompletedMsg {
-  type: 'AREA_COMPLETED';
-  areaId: string;
 }
 
 export interface SessionCompleteMsg {
   type: 'SESSION_COMPLETE';
-  summary: Record<string, unknown>;
+  summary: string;
+  decisionsCount: number;
+  reconsideredCount: number;
+  docContent: string;
 }
 
 export interface ErrorMsg {
@@ -109,9 +95,7 @@ export interface ErrorMsg {
 export type ServerMessage =
   | SessionStartedMsg
   | DecisionCreatedMsg
-  | ReasoningRequestedMsg
   | ChallengeMsg
   | EvaluationMsg
-  | AreaCompletedMsg
   | SessionCompleteMsg
   | ErrorMsg;
