@@ -10,16 +10,16 @@ const PC = 25; // columns per row
 
 export const PATTERNS = {
   // ─── Common Room (warm, welcoming) ───
-  COMMON_FLOOR: 575,          // warm light wood
-  COMMON_FLOOR_ALT: 576,     // slightly lighter wood
-  COMMON_WALL: 0,             // dark blue-gray stone
-  COMMON_WALL_ALT: 1,        // dark blue-gray stone variant
+  COMMON_FLOOR: 390,          // warm light wood
+  COMMON_FLOOR_ALT: 390,     // slightly lighter wood
+  COMMON_WALL: 377,             // dark blue-gray stone
+  COMMON_WALL_ALT: 377,        // dark blue-gray stone variant
 
   // ─── Gate (dark, mysterious) ───
-  GATE_FLOOR: 178,            // very dark blue stone
-  GATE_FLOOR_ALT: 179,       // very dark blue stone variant
-  GATE_WALL: 3,               // dark stone
-  GATE_WALL_ALT: 4,          // darker stone
+  GATE_FLOOR: 58,            // very dark blue stone
+  GATE_FLOOR_ALT: 58,       // very dark blue stone variant
+  GATE_WALL: 377,               // dark stone
+  GATE_WALL_ALT: 377,          // darker stone
 
   // ─── Decision Room (neutral, focused) ───
   DECISION_FLOOR: 107,        // brown stone
@@ -34,8 +34,8 @@ export const PATTERNS = {
   TROPHY_WALL_ALT: 81,       // dark stone variant
 
   // ─── Doors (dark wood-like pattern for door frames) ───
-  DOOR: 604,                  // dark brown
-  DOOR_ALT: 605,             // dark brown variant
+  DOOR: 599,                  // dark brown
+  DOOR_ALT: 271,             // dark brown variant
 } as const;
 
 export const PATTERNS_KEY = 'pattern-tiles';

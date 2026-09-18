@@ -8,6 +8,7 @@ const ROWS = Math.floor(GAME_HEIGHT / DISPLAY_TILE);  // 24
 
 export class CommonRoomScene extends Phaser.Scene {
   private player!: Player;
+  private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private interactKey!: Phaser.Input.Keyboard.Key;
   private promptText?: Phaser.GameObjects.Text;
@@ -20,9 +21,11 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.walls = this.physics.add.staticGroup();
     this.buildRoom();
     this.createUI();
     this.createPlayer();
+    this.physics.add.collider(this.player.sprite, this.walls);
     this.setupInput();
   }
 
@@ -44,63 +47,66 @@ export class CommonRoomScene extends Phaser.Scene {
       }
     }
 
-    // Walls — top & bottom
+    // Walls — top & bottom (physics)
     for (let x = 0; x < COLS; x++) {
       const frame = x % 2 === 0 ? PATTERNS.COMMON_WALL : PATTERNS.COMMON_WALL_ALT;
-      this.add.image(
-        x * DISPLAY_TILE + DISPLAY_TILE / 2, DISPLAY_TILE / 2,
-        PATTERNS_KEY, frame
-      ).setScale(TILE_SCALE).setDepth(1);
-      this.add.image(
-        x * DISPLAY_TILE + DISPLAY_TILE / 2, (ROWS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2,
-        PATTERNS_KEY, frame
-      ).setScale(TILE_SCALE).setDepth(1);
+      this.walls.add(
+        this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, DISPLAY_TILE / 2, PATTERNS_KEY, frame)
+          .setScale(TILE_SCALE).setDepth(1)
+      );
+      this.walls.add(
+        this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, (ROWS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
+          .setScale(TILE_SCALE).setDepth(1)
+      );
     }
 
-    // Walls — left & right
+    // Walls — left & right (physics)
     for (let y = 1; y < ROWS - 1; y++) {
       const frame = y % 2 === 0 ? PATTERNS.COMMON_WALL : PATTERNS.COMMON_WALL_ALT;
-      this.add.image(
-        DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2,
-        PATTERNS_KEY, frame
-      ).setScale(TILE_SCALE).setDepth(1);
-      this.add.image(
-        (COLS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2,
-        PATTERNS_KEY, frame
-      ).setScale(TILE_SCALE).setDepth(1);
+      this.walls.add(
+        this.add.image(DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
+          .setScale(TILE_SCALE).setDepth(1)
+      );
+      this.walls.add(
+        this.add.image((COLS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
+          .setScale(TILE_SCALE).setDepth(1)
+      );
     }
 
-    // ─── Gate at bottom center ───
+    // ─── Gate at top center, one tile inside the wall ───
     this.gateX = GAME_WIDTH / 2;
-    this.gateY = (ROWS - 2) * DISPLAY_TILE + DISPLAY_TILE / 2; // one tile ABOVE the bottom wall
+    this.gateY = 1 * DISPLAY_TILE + DISPLAY_TILE / 2;
 
     // Gate tile
     this.add.image(this.gateX, this.gateY, PATTERNS_KEY, PATTERNS.DOOR)
       .setScale(TILE_SCALE).setDepth(2);
 
-    // Gate label ABOVE the door
-    this.add.text(this.gateX, this.gateY - DISPLAY_TILE, 'GATE', {
+    // Gate label BELOW the door
+    this.add.text(this.gateX, this.gateY + DISPLAY_TILE, 'GATE', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.lg, color: COLORS.textHighlight,
     }).setOrigin(0.5).setDepth(10);
+
+    // Refresh all static bodies so scaled sizes are used for collision
+    this.walls.refresh();
   }
 
   private createUI(): void {
-    this.add.text(GAME_WIDTH / 2, DISPLAY_TILE * 2, 'DEVQUEST', {
+    this.add.text(GAME_WIDTH / 2, (ROWS - 4) * DISPLAY_TILE, 'DEVQUEST', {
       fontFamily: FONTS.pixel, fontSize: '24px', color: COLORS.textHighlight,
     }).setOrigin(0.5).setDepth(10);
 
-    this.add.text(GAME_WIDTH / 2, DISPLAY_TILE * 3, 'Engineering Decision Simulator', {
+    this.add.text(GAME_WIDTH / 2, (ROWS - 3) * DISPLAY_TILE, 'Engineering Decision Simulator', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textSecondary,
     }).setOrigin(0.5).setDepth(10);
 
-    this.add.text(GAME_WIDTH / 2, DISPLAY_TILE * 3 + 30, 'Walk to the Gate and press E', {
+    this.add.text(GAME_WIDTH / 2, (ROWS - 3) * DISPLAY_TILE + 30, 'Walk to the Gate and press E', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textPrimary,
     }).setOrigin(0.5).setDepth(10);
   }
 
   private createPlayer(): void {
-    // Start in upper center — player walks down to the gate
-    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 3);
+    // Start in lower center — player walks up to the gate
+    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT * 2 / 3);
   }
 
   private setupInput(): void {
@@ -138,7 +144,7 @@ export class CommonRoomScene extends Phaser.Scene {
     }
     this.promptText.setPosition(
       this.gateX - this.promptText.width / 2,
-      this.gateY - DISPLAY_TILE * 2
+      this.gateY + DISPLAY_TILE * 2
     );
     this.promptText.setVisible(true);
   }

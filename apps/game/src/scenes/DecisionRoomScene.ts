@@ -160,11 +160,11 @@ export class DecisionRoomScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(10);
     }
 
-    // Create doors along the bottom wall
+    // Create doors along the top wall (one tile inside)
     const opts = decision.options;
     const totalWidth = GAME_WIDTH - 200;
     const spacing = totalWidth / (opts.length + 1);
-    const doorY = GAME_HEIGHT - DISPLAY_TILE * 2;
+    const doorY = 2 * DISPLAY_TILE + DISPLAY_TILE / 2;
 
     opts.forEach((option, i) => {
       const doorX = 100 + spacing * (i + 1);
@@ -175,14 +175,14 @@ export class DecisionRoomScene extends Phaser.Scene {
         .setScale(TILE_SCALE);
 
       // Door letter (A, B, C, D)
-      const letterText = this.add.text(doorX, doorY - 30, option.id, {
+      const letterText = this.add.text(doorX, doorY + 30, option.id, {
         fontFamily: FONTS.pixel,
         fontSize: '16px',
         color: isRec ? COLORS.textWarning : COLORS.textHighlight,
       }).setOrigin(0.5).setDepth(10);
 
       // Door label
-      const labelText = this.add.text(doorX, doorY + 24, option.label, {
+      const labelText = this.add.text(doorX, doorY + 50, option.label, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: isRec ? COLORS.textWarning : COLORS.textPrimary,
@@ -192,7 +192,7 @@ export class DecisionRoomScene extends Phaser.Scene {
 
       // Star for recommended
       if (isRec) {
-        this.add.text(doorX + 20, doorY - 40, '⭐', {
+        this.add.text(doorX + 20, doorY + 70, '⭐', {
           fontSize: '12px',
         }).setOrigin(0.5).setDepth(10);
       }
@@ -273,7 +273,7 @@ export class DecisionRoomScene extends Phaser.Scene {
       }).setDepth(100);
     }
     this.promptText.setText(`Press E: Door ${door.option.id} — ${door.option.label}`);
-    this.promptText.setPosition(door.x - this.promptText.width / 2, door.y - 55);
+    this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 90);
     this.promptText.setVisible(true);
 
     // Highlight the door

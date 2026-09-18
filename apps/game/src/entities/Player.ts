@@ -29,7 +29,7 @@ export class Player {
     this.sprite = scene.physics.add.sprite(x, y, PLAYER_IDLE.key);
     this.sprite.setDepth(5);
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.setScale(2.5);
+    this.sprite.setScale(3);
 
     this.sprite.body!.setSize(20, 20);
     this.sprite.body!.setOffset(38, 65);
