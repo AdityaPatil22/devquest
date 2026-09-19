@@ -6,9 +6,6 @@
 
 body {
   background: #0a0a1a;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   height: 100vh;
   overflow: hidden;
   font-family: 'Press Start 2P', monospace;
@@ -16,6 +13,13 @@ body {
 
 #game-container {
   position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#game-container canvas {
+  display: block;
 }
 
 /* Styled textarea for in-game text input */

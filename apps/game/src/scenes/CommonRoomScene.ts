@@ -112,8 +112,23 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   private createUI(): void {
+    const HEADER_HEIGHT = 76;
+    const FOOTER_HEIGHT = 40;
+
+    // Dark HUD bars behind the text so it stays readable over the busy
+    // tilemap, fixed to the camera (not the world) like the text itself.
     this.add
-      .text(GAME_WIDTH / 2, 20, 'DEVQUEST', {
+      .rectangle(GAME_WIDTH / 2, HEADER_HEIGHT / 2, GAME_WIDTH, HEADER_HEIGHT, 0x0a0a1a, 0.75)
+      .setScrollFactor(0)
+      .setDepth(98);
+
+    this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - FOOTER_HEIGHT / 2, GAME_WIDTH, FOOTER_HEIGHT, 0x0a0a1a, 0.75)
+      .setScrollFactor(0)
+      .setDepth(98);
+
+    this.add
+      .text(GAME_WIDTH / 2, 24, 'DEVQUEST', {
         fontFamily: FONTS.pixel,
         fontSize: '24px',
         color: COLORS.textHighlight,
@@ -123,7 +138,7 @@ export class CommonRoomScene extends Phaser.Scene {
       .setDepth(100);
 
     this.add
-      .text(GAME_WIDTH / 2, 48, 'Engineering Decision Simulator', {
+      .text(GAME_WIDTH / 2, 56, 'Engineering Decision Simulator', {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.md,
         color: COLORS.textSecondary,
@@ -133,7 +148,7 @@ export class CommonRoomScene extends Phaser.Scene {
       .setDepth(100);
 
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, 'Walk to the Gate and press E', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - FOOTER_HEIGHT / 2, 'Walk to the Gate and press E', {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: COLORS.textPrimary,

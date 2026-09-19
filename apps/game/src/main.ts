@@ -8,8 +8,6 @@ import { GAME_WIDTH, GAME_HEIGHT } from './config';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: GAME_WIDTH,
-  height: GAME_HEIGHT,
   parent: 'game-container',
   pixelArt: true,
   backgroundColor: '#0a0a1a',
@@ -22,9 +20,17 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [BootScene, CommonRoomScene, GateScene, DecisionRoomScene, TrophyScene],
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // Canvas always exactly matches the window/container size (no
+    // letterboxing black bars like FIT produces on non-4:3 screens).
+    mode: Phaser.Scale.RESIZE,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
   },
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// Keep the canvas filling the viewport if the browser window is resized.
+window.addEventListener('resize', () => {
+  game.scale.resize(window.innerWidth, window.innerHeight);
+});
