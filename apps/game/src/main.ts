@@ -10,7 +10,8 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   pixelArt: true,
-  backgroundColor: '#0a0a1a',
+  transparent: true,
+  backgroundColor: 'rgba(0, 0, 0, 0)',
   physics: {
     default: 'arcade',
     arcade: {
