@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
+import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemap';
 import {
   Player,
   PLAYER_ATLAS_KEY,
@@ -15,12 +16,26 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     this.createLoadingBar();
 
-    // Pattern tileset
+    // Pattern tileset (still used by Gate / Decision / Trophy scenes)
     this.load.spritesheet(
       PATTERNS_KEY,
       PATTERNS_PATH,
       PATTERNS_CONFIG,
     );
+
+    // Common Room world map (Tiled JSON) + its tileset images.
+    // Loaded as spritesheets (not plain images) so each tile gets its own
+    // numbered frame — required for object-layer furniture to render
+    // correctly via createFromObjects.
+    this.load.tilemapTiledJSON(TILEMAP_KEY, TILEMAP_PATH);
+    MAP_TILESETS.forEach(({ key, path, frameWidth, frameHeight }) => {
+      this.load.spritesheet(key, path, {
+        frameWidth,
+        frameHeight,
+        margin: 0,
+        spacing: 0,
+      });
+    });
 
     // Ash character atlas
     this.load.atlas(

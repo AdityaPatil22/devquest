@@ -1,13 +1,24 @@
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS } from '../config';
-import { PATTERNS_KEY, PATTERNS, TILE_SCALE, DISPLAY_TILE } from '../tiles';
+import {
+  TILEMAP_KEY,
+  MAP_TILESETS,
+  MAP_TILE_SIZE,
+  COLLIDABLE_OBJECT_LAYERS,
+  DECOR_OBJECT_LAYERS,
+  SPAWN_TILE,
+  GATE_TILE,
+} from '../tilemap';
 
-const COLS = Math.floor(GAME_WIDTH / DISPLAY_TILE);   // 32
-const ROWS = Math.floor(GAME_HEIGHT / DISPLAY_TILE);  // 24
-
+/**
+ * Common Room — the hub. Rendered directly from the hand-authored Tiled map
+ * (public/assets/map/map.json) instead of procedurally-generated tiles.
+ */
 export class CommonRoomScene extends Phaser.Scene {
   private player!: Player;
+  private map!: Phaser.Tilemaps.Tilemap;
+  private groundLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
   private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private interactKey!: Phaser.Input.Keyboard.Key;
@@ -26,6 +37,9 @@ export class CommonRoomScene extends Phaser.Scene {
     this.createUI();
     this.createPlayer();
     this.physics.add.collider(this.player.sprite, this.walls);
+    if (this.groundLayer) {
+      this.physics.add.collider(this.player.sprite, this.groundLayer);
+    }
     this.setupInput();
   }
 
@@ -35,105 +49,105 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   private buildRoom(): void {
-    const FLOOR = [
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-      "####################",
-    ];
-    
-    // Warm wood floor
-    for (let y = 0; y < FLOOR.length; y++) {
-      for (let x = 0; x < FLOOR[y].length; x++) {
-    
-        if (FLOOR[y][x] !== "#") continue;
-    
-        const frame =
-          (x + y) % 2 === 0
-            ? PATTERNS.COMMON_FLOOR
-            : PATTERNS.COMMON_FLOOR_ALT;
-    
-        this.add.image(
-          x * DISPLAY_TILE + DISPLAY_TILE / 2,
-          y * DISPLAY_TILE + DISPLAY_TILE / 2,
-          PATTERNS_KEY,
-          frame
-        )
-        .setScale(TILE_SCALE)
-        .setDepth(0);
-      }
+    this.map = this.make.tilemap({ key: TILEMAP_KEY });
+
+    const tilesets = MAP_TILESETS.map((t) =>
+      this.map.addTilesetImage(t.name, t.key),
+    ).filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
+
+    this.groundLayer = this.map.createLayer('Ground', tilesets, 0, 0) ?? undefined;
+    this.groundLayer?.setDepth(0);
+
+    // Some walls/pillars are baked directly into the Ground tile layer
+    // (not separate "Wall" objects) and flagged with a `collides` tile
+    // property in the tileset. Without this, the player can walk straight
+    // through them.
+    this.groundLayer?.setCollisionByProperty({ collides: true });
+
+    // Objects that should block the player (walls, desks, etc.)
+    for (const layerName of COLLIDABLE_OBJECT_LAYERS) {
+      const objects = this.map.createFromObjects(layerName, {
+        classType: Phaser.GameObjects.Image,
+      }) as Phaser.GameObjects.Image[];
+
+      objects.forEach((obj) => {
+        this.physics.add.existing(obj, true);
+        obj.setDepth(5);
+        this.walls.add(obj);
+      });
     }
 
-    // Walls — top & bottom (physics)
-    for (let x = 0; x < COLS; x++) {
-      const frame = x % 2 === 0 ? PATTERNS.COMMON_WALL : PATTERNS.COMMON_WALL_ALT;
-      this.walls.add(
-        this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, DISPLAY_TILE / 2, PATTERNS_KEY, frame)
-          .setScale(TILE_SCALE).setDepth(1)
-      );
-      this.walls.add(
-        this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, (ROWS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
-          .setScale(TILE_SCALE).setDepth(1)
-      );
+    // Pure decoration — chairs, computers, whiteboards, vending machines, etc.
+    for (const layerName of DECOR_OBJECT_LAYERS) {
+      const objects = this.map.createFromObjects(layerName, {
+        classType: Phaser.GameObjects.Image,
+      }) as Phaser.GameObjects.Image[];
+
+      objects.forEach((obj) => obj.setDepth(4));
     }
 
-    // Walls — left & right (physics)
-    for (let y = 1; y < ROWS - 1; y++) {
-      const frame = y % 2 === 0 ? PATTERNS.COMMON_WALL : PATTERNS.COMMON_WALL_ALT;
-      this.walls.add(
-        this.add.image(DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
-          .setScale(TILE_SCALE).setDepth(1)
-      );
-      this.walls.add(
-        this.add.image((COLS - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame)
-          .setScale(TILE_SCALE).setDepth(1)
-      );
-    }
+    // World & camera bounds match the map's real pixel size
+    const mapWidthPx = this.map.widthInPixels;
+    const mapHeightPx = this.map.heightInPixels;
+    this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
+    this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
 
-    // ─── Gate at top center, one tile inside the wall ───
-    this.gateX = GAME_WIDTH / 2;
-    this.gateY = 1 * DISPLAY_TILE + DISPLAY_TILE / 2;
+    // ─── Gate marker, placed on a verified open tile ───
+    this.gateX = GATE_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    this.gateY = GATE_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    // Gate tile
-    this.add.image(this.gateX, this.gateY, PATTERNS_KEY, PATTERNS.DOOR).setScale(TILE_SCALE).setDepth(2);
+    this.add
+      .rectangle(this.gateX, this.gateY, MAP_TILE_SIZE, MAP_TILE_SIZE, 0x4a9eff, 0.35)
+      .setStrokeStyle(2, 0x4a9eff)
+      .setDepth(3);
 
-    // Gate label BELOW the door
-    this.add.text(this.gateX, this.gateY + DISPLAY_TILE, 'GATE', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.lg, color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(10);
-
-    // Refresh all static bodies so scaled sizes are used for collision
-    this.walls.refresh();
+    this.add
+      .text(this.gateX, this.gateY - MAP_TILE_SIZE, 'GATE', {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textHighlight,
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
   }
 
   private createUI(): void {
-    this.add.text(GAME_WIDTH / 2, (ROWS - 4) * DISPLAY_TILE, 'DEVQUEST', {
-      fontFamily: FONTS.pixel, fontSize: '24px', color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(10);
+    this.add
+      .text(GAME_WIDTH / 2, 20, 'DEVQUEST', {
+        fontFamily: FONTS.pixel,
+        fontSize: '24px',
+        color: COLORS.textHighlight,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(100);
 
-    this.add.text(GAME_WIDTH / 2, (ROWS - 3) * DISPLAY_TILE, 'Engineering Decision Simulator', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(10);
+    this.add
+      .text(GAME_WIDTH / 2, 48, 'Engineering Decision Simulator', {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.md,
+        color: COLORS.textSecondary,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(100);
 
-    this.add.text(GAME_WIDTH / 2, (ROWS - 3) * DISPLAY_TILE + 30, 'Walk to the Gate and press E', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textPrimary,
-    }).setOrigin(0.5).setDepth(10);
+    this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 24, 'Walk to the Gate and press E', {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textPrimary,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(100);
   }
 
   private createPlayer(): void {
-    // Start in lower center — player walks up to the gate
-    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT * 2 / 3);
+    const spawnX = SPAWN_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    const spawnY = SPAWN_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    this.player = new Player(this, spawnX, spawnY);
+    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
   }
 
   private setupInput(): void {
@@ -146,7 +160,7 @@ export class CommonRoomScene extends Phaser.Scene {
       this.player.sprite.x, this.player.sprite.y, this.gateX, this.gateY
     );
 
-    if (dist < DISPLAY_TILE * 3) {
+    if (dist < MAP_TILE_SIZE * 3) {
       if (!this.nearGate) {
         this.nearGate = true;
         this.showPrompt();
@@ -171,7 +185,7 @@ export class CommonRoomScene extends Phaser.Scene {
     }
     this.promptText.setPosition(
       this.gateX - this.promptText.width / 2,
-      this.gateY + DISPLAY_TILE * 2
+      this.gateY + MAP_TILE_SIZE * 2
     );
     this.promptText.setVisible(true);
   }
