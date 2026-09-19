@@ -1,24 +1,19 @@
 import Phaser from 'phaser';
 import { PLAYER_SPEED } from '../config';
 
-/** Spritesheet config */
-export const PLAYER_SPRITE_PATH = 'assets/sprites/player';
+export const PLAYER_ATLAS_KEY = 'player-ash';
+export const PLAYER_ATLAS_PATH = 'assets/character/ash.png';
+export const PLAYER_ATLAS_JSON = 'assets/character/ash.json';
 
-export const PLAYER_IDLE = {
-  key: 'player-idle',
-  path: `${PLAYER_SPRITE_PATH}/Human_Soldier_Sword_Shield_Idle-Sheet.png`,
-  frameWidth: 96,
-  frameHeight: 96,
-  frames: 6,
-};
+const IDLE_FRAMES = Array.from(
+  { length: 24 },
+  (_, i) => `Ash_idle_anim_${i + 1}.png`,
+);
 
-export const PLAYER_WALK = {
-  key: 'player-walk',
-  path: `${PLAYER_SPRITE_PATH}/Human_Soldier_Sword_Shield_Walk-Sheet.png`,
-  frameWidth: 96,
-  frameHeight: 96,
-  frames: 8,
-};
+const RUN_FRAMES = Array.from(
+  { length: 24 },
+  (_, i) => `Ash_run_${i + 1}.png`,
+);
 
 export class Player {
   public sprite: Phaser.Physics.Arcade.Sprite;
@@ -26,40 +21,59 @@ export class Player {
   private isMoving = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    this.sprite = scene.physics.add.sprite(x, y, PLAYER_IDLE.key);
+    this.sprite = scene.physics.add.sprite(
+      x,
+      y,
+      PLAYER_ATLAS_KEY,
+      IDLE_FRAMES[0],
+    );
+  
     this.sprite.setDepth(5);
+  
+    // Prevent any rotation
+    this.sprite.setRotation(0);
+  
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.setScale(3);
-
-    this.sprite.body!.setSize(20, 20);
-    this.sprite.body!.setOffset(38, 65);
-
+  
+    this.sprite.setScale(2);
+  
+    this.sprite.body!.setSize(16, 12);
+    this.sprite.body!.setOffset(8, 32);
+  
     this.sprite.play('player-idle-anim');
   }
 
-  /** Register animations — call once in BootScene */
   static createAnimations(scene: Phaser.Scene): void {
     scene.anims.create({
       key: 'player-idle-anim',
-      frames: scene.anims.generateFrameNumbers(PLAYER_IDLE.key, {
-        start: 0, end: PLAYER_IDLE.frames - 1,
-      }),
-      frameRate: 6,
-      repeat: -1,
-    });
-
-    scene.anims.create({
-      key: 'player-walk-anim',
-      frames: scene.anims.generateFrameNumbers(PLAYER_WALK.key, {
-        start: 0, end: PLAYER_WALK.frames - 1,
+      frames: scene.anims.generateFrameNames(PLAYER_ATLAS_KEY, {
+        prefix: 'Ash_idle_anim_',
+        start: 1,
+        end: 24,
+        suffix: '.png',
       }),
       frameRate: 8,
       repeat: -1,
     });
+  
+    scene.anims.create({
+      key: 'player-walk-anim',
+      frames: scene.anims.generateFrameNames(PLAYER_ATLAS_KEY, {
+        prefix: 'Ash_run_',
+        start: 1,
+        end: 24,
+        suffix: '.png',
+      }),
+      frameRate: 12,
+      repeat: -1,
+    });
   }
 
-  handleMovement(cursors: Phaser.Types.Input.Keyboard.CursorKeys): void {
+  handleMovement(
+    cursors: Phaser.Types.Input.Keyboard.CursorKeys,
+  ): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+
     body.setVelocity(0);
 
     let moving = false;
@@ -97,6 +111,7 @@ export class Player {
 
   stop(): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+
     body.setVelocity(0);
 
     if (this.isMoving) {
