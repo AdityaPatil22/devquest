@@ -10,10 +10,10 @@ const PC = 25; // columns per row
 
 export const PATTERNS = {
   // ─── Common Room (warm, welcoming) ───
-  COMMON_FLOOR: 390,          // warm light wood
-  COMMON_FLOOR_ALT: 390,     // slightly lighter wood
-  COMMON_WALL: 377,             // dark blue-gray stone
-  COMMON_WALL_ALT: 377,        // dark blue-gray stone variant
+  COMMON_FLOOR: 376,          // warm light wood
+  COMMON_FLOOR_ALT: 376,     // slightly lighter wood
+  COMMON_WALL: 376,             // dark blue-gray stone
+  COMMON_WALL_ALT: 376,        // dark blue-gray stone variant
 
   // ─── Gate (dark, mysterious) ───
   GATE_FLOOR: 58,            // very dark blue stone

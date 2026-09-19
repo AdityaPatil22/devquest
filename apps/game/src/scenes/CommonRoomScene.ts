@@ -35,15 +35,43 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   private buildRoom(): void {
+    const FLOOR = [
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+      "####################",
+    ];
+    
     // Warm wood floor
-    for (let y = 1; y < ROWS - 1; y++) {
-      for (let x = 1; x < COLS - 1; x++) {
-        const frame = (x + y) % 2 === 0 ? PATTERNS.COMMON_FLOOR : PATTERNS.COMMON_FLOOR_ALT;
+    for (let y = 0; y < FLOOR.length; y++) {
+      for (let x = 0; x < FLOOR[y].length; x++) {
+    
+        if (FLOOR[y][x] !== "#") continue;
+    
+        const frame =
+          (x + y) % 2 === 0
+            ? PATTERNS.COMMON_FLOOR
+            : PATTERNS.COMMON_FLOOR_ALT;
+    
         this.add.image(
           x * DISPLAY_TILE + DISPLAY_TILE / 2,
           y * DISPLAY_TILE + DISPLAY_TILE / 2,
-          PATTERNS_KEY, frame
-        ).setScale(TILE_SCALE).setDepth(0);
+          PATTERNS_KEY,
+          frame
+        )
+        .setScale(TILE_SCALE)
+        .setDepth(0);
       }
     }
 
@@ -78,8 +106,7 @@ export class CommonRoomScene extends Phaser.Scene {
     this.gateY = 1 * DISPLAY_TILE + DISPLAY_TILE / 2;
 
     // Gate tile
-    this.add.image(this.gateX, this.gateY, PATTERNS_KEY, PATTERNS.DOOR)
-      .setScale(TILE_SCALE).setDepth(2);
+    this.add.image(this.gateX, this.gateY, PATTERNS_KEY, PATTERNS.DOOR).setScale(TILE_SCALE).setDepth(2);
 
     // Gate label BELOW the door
     this.add.text(this.gateX, this.gateY + DISPLAY_TILE, 'GATE', {

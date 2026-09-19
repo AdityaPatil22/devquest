@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { PLAYER_SPEED } from '../config';
 
 /** Spritesheet config */
-export const PLAYER_SPRITE_PATH = 'assets/sprites/With_Shadows';
+export const PLAYER_SPRITE_PATH = 'assets/sprites/player';
 
 export const PLAYER_IDLE = {
   key: 'player-idle',
