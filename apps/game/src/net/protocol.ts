@@ -1,4 +1,6 @@
-// ─── Client → Server Messages ───
+// ─────────────────────────────────────────────
+// Client → Server Messages
+// ─────────────────────────────────────────────
 
 export interface StartSessionMsg {
   type: 'START_SESSION';
@@ -39,7 +41,9 @@ export type ClientMessage =
   | ReconsiderMsg
   | ContinueMsg;
 
-// ─── Server → Client Messages ───
+// ─────────────────────────────────────────────
+// Decision types
+// ─────────────────────────────────────────────
 
 export interface DecisionOption {
   id: string;
@@ -51,6 +55,51 @@ export interface Recommendation {
   why: string;
 }
 
+export interface DecisionSnapshot {
+  id: string;
+  question: string;
+  options: DecisionOption[];
+  recommendation?: Recommendation;
+  round: number;
+  parentId?: string;
+  dependsOn?: string;
+  status: string;
+
+  decision?: {
+    optionId: string;
+    context?: string;
+    defense?: string;
+  };
+
+  challenge?: string;
+
+  evaluation?: {
+    feedback: string;
+    consequence: string;
+  };
+}
+
+// ─────────────────────────────────────────────
+// Complete server-side session snapshot
+// ─────────────────────────────────────────────
+
+export interface SessionSnapshot {
+  sessionId: string;
+  problem?: string;
+  phase: string;
+  round: number;
+  currentNodeId?: string;
+
+  decisions: DecisionSnapshot[];
+
+  summary?: string;
+  docContent?: string;
+}
+
+// ─────────────────────────────────────────────
+// Server → Client Messages
+// ─────────────────────────────────────────────
+
 export interface SessionStartedMsg {
   type: 'SESSION_STARTED';
   sessionId: string;
@@ -61,6 +110,7 @@ export interface SessionResumedMsg {
   sessionId: string;
   phase: string;
   round: number;
+  snapshot: SessionSnapshot;
 }
 
 export interface DecisionCreatedMsg {

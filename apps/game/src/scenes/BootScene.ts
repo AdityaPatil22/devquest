@@ -26,7 +26,21 @@ import {
 
 import { Player } from '../entities/Player';
 
+import { WebSocketClient } from '../net/WebSocketClient';
+import { SessionStore } from '../state/SessionStore';
+
+import type {
+  ServerMessage,
+  SessionResumedMsg,
+  DecisionCreatedMsg,
+} from '../net/protocol';
+
 export class BootScene extends Phaser.Scene {
+  private ws!: WebSocketClient;
+  private store!: SessionStore;
+
+  private restoring = false;
+
   constructor() {
     super({
       key: 'BootScene',
@@ -36,31 +50,18 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     this.createLoadingBar();
 
-    // ==================================================
-    // Pattern tileset
-    // ==================================================
-    //
-    // Still used by the Gate / Decision / Trophy scenes.
-    //
     this.load.spritesheet(
       PATTERNS_KEY,
       PATTERNS_PATH,
       PATTERNS_CONFIG,
     );
 
-    // ==================================================
     // Common Room
-    // ==================================================
-
     this.load.tilemapTiledJSON(
       TILEMAP_KEY,
       TILEMAP_PATH,
     );
 
-    /*
-     * Common Room tilesets are loaded as spritesheets
-     * because the Tiled map references individual frames.
-     */
     MAP_TILESETS.forEach(
       ({
         key,
@@ -68,28 +69,25 @@ export class BootScene extends Phaser.Scene {
         frameWidth,
         frameHeight,
       }) => {
-        this.load.spritesheet(key, path, {
-          frameWidth,
-          frameHeight,
-          margin: 0,
-          spacing: 0,
-        });
+        this.load.spritesheet(
+          key,
+          path,
+          {
+            frameWidth,
+            frameHeight,
+            margin: 0,
+            spacing: 0,
+          },
+        );
       },
     );
 
-    // ==================================================
     // Decision Room
-    // ==================================================
-
     this.load.tilemapTiledJSON(
       DECISION_TILEMAP_KEY,
       DECISION_TILEMAP_PATH,
     );
 
-    /*
-     * Some Decision Room tilesets use the same texture
-     * more than once. Prevent duplicate asset loads.
-     */
     const seenKeys = new Set<string>();
 
     DECISION_TILESETS.forEach(
@@ -107,8 +105,10 @@ export class BootScene extends Phaser.Scene {
           key,
           path,
           {
-            frameWidth: DECISION_MAP_TILE_SIZE,
-            frameHeight: DECISION_MAP_TILE_SIZE,
+            frameWidth:
+              DECISION_MAP_TILE_SIZE,
+            frameHeight:
+              DECISION_MAP_TILE_SIZE,
             margin: 0,
             spacing: 0,
           },
@@ -116,60 +116,275 @@ export class BootScene extends Phaser.Scene {
       },
     );
 
-    // ==================================================
-    // Gate Scene
-    // ==================================================
-
-    /*
-     * Gate Scene uses the already-loaded pattern tileset.
-     * Only the Tiled map itself needs to be loaded here.
-     */
+    // Gate
     this.load.tilemapTiledJSON(
       GATE_TILEMAP_KEY,
       GATE_TILEMAP_PATH,
     );
 
-    // ==================================================
     // Player
-    // ==================================================
-
-    /*
-     * Load individual Ash PNG frames instead of the
-     * TexturePacker atlas.
-     *
-     * Assets:
-     *
-     * public/assets/character/singular-frames/
-     *
-     * Ash_idle_anim_1.png ... Ash_idle_anim_24.png
-     * Ash_run_1.png       ... Ash_run_24.png
-     */
     Player.preload(this);
   }
 
   create(): void {
-    /*
-     * Create the player's directional walking
-     * animations after all individual PNGs have loaded.
-     */
     Player.createAnimations(this);
 
+    this.store =
+      new SessionStore();
+
+    this.ws =
+      new WebSocketClient();
+
+    this.ws.onMessage(
+      this.handleMessage.bind(this),
+    );
+
     /*
-     * Start the game in the Common Room.
+     * IMPORTANT:
+     *
+     * BootScene now owns the initial WebSocket.
+     *
+     * If sessionStorage contains a session ID,
+     * WebSocketClient reconnects to that session.
+     *
+     * If there is no session ID, the server creates
+     * a brand-new session.
      */
-    this.scene.start('CommonRoomScene');
+    this.ws.connect();
+  }
+
+  private handleMessage(
+    msg: ServerMessage,
+  ): void {
+    if (
+      msg.type ===
+      'SESSION_STARTED'
+    ) {
+      /*
+       * Brand-new session.
+       *
+       * Always begin in Common Room.
+       */
+      this.ws.setSessionId(
+        msg.sessionId,
+      );
+
+      this.store.setSession(
+        msg.sessionId,
+      );
+
+      this.restoring = false;
+
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+        },
+      );
+
+      return;
+    }
+
+    if (
+      msg.type ===
+      'SESSION_RESUMED'
+    ) {
+      this.restoreSession(msg);
+
+      return;
+    }
+
+    /*
+     * Normally DECISION_CREATED is handled by the
+     * active scene.
+     *
+     * This fallback handles a decision that arrives
+     * immediately after Boot reconnects.
+     */
+    if (
+      msg.type ===
+      'DECISION_CREATED'
+    ) {
+      this.restoreDecision(
+        msg,
+      );
+    }
+  }
+
+  private restoreSession(
+    msg: SessionResumedMsg,
+  ): void {
+    if (this.restoring) {
+      return;
+    }
+
+    this.restoring = true;
+
+    console.log(
+      '[BOOT] Restoring session:',
+      msg.snapshot,
+    );
+
+    this.ws.setSessionId(
+      msg.sessionId,
+    );
+
+    this.store.hydrate(
+      msg.snapshot,
+    );
+
+    const phase =
+      msg.snapshot.phase;
+
+    /*
+     * Session hasn't started yet.
+     */
+    if (
+      phase ===
+      'idle' ||
+      phase ===
+      'awaiting_problem'
+    ) {
+      this.scene.start(
+        'GateScene',
+        {
+          ws: this.ws,
+          store: this.store,
+          restored: true,
+        },
+      );
+
+      return;
+    }
+
+    /*
+     * Skill is generating the next decision.
+     *
+     * Keep the player in the Gate waiting screen.
+     */
+    if (
+      phase ===
+      'awaiting_question'
+    ) {
+      this.scene.start(
+        'GateScene',
+        {
+          ws: this.ws,
+          store: this.store,
+          restored: true,
+          waitingForQuestion: true,
+        },
+      );
+
+      return;
+    }
+
+    /*
+     * Session is complete.
+     */
+    if (
+      phase ===
+      'complete'
+    ) {
+      this.scene.start(
+        'TrophyScene',
+        {
+          store: this.store,
+        },
+      );
+
+      return;
+    }
+
+    /*
+     * Active decision.
+     */
+    const currentDecision =
+      this.store.getCurrentDecision();
+
+    if (!currentDecision) {
+      /*
+       * Defensive fallback.
+       */
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+        },
+      );
+
+      return;
+    }
+
+    const decision: DecisionCreatedMsg =
+      {
+        type: 'DECISION_CREATED',
+        nodeId:
+          currentDecision.nodeId,
+        question:
+          currentDecision.question,
+        options:
+          currentDecision.options,
+        recommendation:
+          currentDecision.recommendation,
+        round:
+          currentDecision.round,
+        dependsOn:
+          msg.snapshot.decisions.find(
+            (d) =>
+              d.id ===
+              currentDecision.nodeId,
+          )?.dependsOn,
+      };
+
+    this.scene.start(
+      'DecisionRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        decision,
+        restored: true,
+      },
+    );
+  }
+
+  private restoreDecision(
+    decision: DecisionCreatedMsg,
+  ): void {
+    this.store.addDecision({
+      nodeId:
+        decision.nodeId,
+      question:
+        decision.question,
+      options:
+        decision.options,
+      recommendation:
+        decision.recommendation,
+      round:
+        decision.round,
+    });
+
+    this.scene.start(
+      'DecisionRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        decision,
+      },
+    );
   }
 
   private createLoadingBar(): void {
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const width =
+      this.cameras.main.width;
+
+    const height =
+      this.cameras.main.height;
 
     const barWidth = 320;
     const barHeight = 20;
-
-    // ==================================================
-    // Loading bar outline
-    // ==================================================
 
     this.add
       .rectangle(
@@ -183,26 +398,21 @@ export class BootScene extends Phaser.Scene {
         0x4a9eff,
       );
 
-    // ==================================================
-    // Loading bar fill
-    // ==================================================
-
-    const fill = this.add
-      .rectangle(
-        width / 2 - barWidth / 2 + 2,
-        height / 2,
-        0,
-        barHeight,
-        0x4a9eff,
-      )
-      .setOrigin(
-        0,
-        0.5,
-      );
-
-    // ==================================================
-    // Loading text
-    // ==================================================
+    const fill =
+      this.add
+        .rectangle(
+          width / 2 -
+            barWidth / 2 +
+            2,
+          height / 2,
+          0,
+          barHeight,
+          0x4a9eff,
+        )
+        .setOrigin(
+          0,
+          0.5,
+        );
 
     this.add
       .text(
@@ -210,21 +420,19 @@ export class BootScene extends Phaser.Scene {
         height / 2 - 24,
         'LOADING...',
         {
-          fontFamily: '"Press Start 2P"',
+          fontFamily:
+            '"Press Start 2P"',
           fontSize: '12px',
           color: '#4a9eff',
         },
       )
       .setOrigin(0.5);
 
-    // ==================================================
-    // Loading progress
-    // ==================================================
-
     this.load.on(
       'progress',
       (value: number) => {
-        fill.width = barWidth * value;
+        fill.width =
+          barWidth * value;
       },
     );
   }

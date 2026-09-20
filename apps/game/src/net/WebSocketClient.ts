@@ -1,127 +1,214 @@
 import { WS_URL } from '../config';
-import type { ClientMessage, ServerMessage } from './protocol';
+import type {
+  ClientMessage,
+  ServerMessage,
+} from './protocol';
 
-type MessageHandler = (msg: ServerMessage) => void;
+type MessageHandler = (
+  msg: ServerMessage,
+) => void;
 
-const SESSION_STORAGE_KEY = 'devquest_session_id';
+const SESSION_STORAGE_KEY =
+  'devquest_session_id';
 
-/**
- * WebSocket client with auto-reconnect and session persistence.
- *
- * On reconnect the client appends the stored session_id as a query
- * parameter so the server can associate the new socket with the
- * existing session instead of creating a brand-new one.
- */
 export class WebSocketClient {
   private ws?: WebSocket;
+
   private handlers: MessageHandler[] = [];
-  private reconnectTimer?: ReturnType<typeof setTimeout>;
+
+  private reconnectTimer?: ReturnType<
+    typeof setTimeout
+  >;
+
   private reconnectAttempts = 0;
+
   private maxReconnectAttempts = 10;
+
   private baseUrl: string;
+
   private _sessionId?: string;
 
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
-    // Restore session from a previous page load
-    this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
+
+    this._sessionId =
+      sessionStorage.getItem(
+        SESSION_STORAGE_KEY,
+      ) ?? undefined;
   }
 
   get sessionId(): string | undefined {
     return this._sessionId;
   }
 
-  /** Store the session_id for future reconnects / page reloads. */
   setSessionId(id: string): void {
     this._sessionId = id;
-    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
+
+    sessionStorage.setItem(
+      SESSION_STORAGE_KEY,
+      id,
+    );
   }
 
-  /** Clear the stored session so the next connect creates a fresh one. */
   clearSession(): void {
     this._sessionId = undefined;
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+
+    sessionStorage.removeItem(
+      SESSION_STORAGE_KEY,
+    );
   }
 
   connect(): void {
-    // Close any existing socket first to prevent duplicate connections
-    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
-      this.ws.onclose = null; // prevent triggering reconnect
+    if (
+      this.ws &&
+      this.ws.readyState !== WebSocket.CLOSED
+    ) {
+      this.ws.onclose = null;
       this.ws.close();
     }
 
     try {
       const url = this._sessionId
-        ? `${this.baseUrl}?session_id=${this._sessionId}`
+        ? `${this.baseUrl}?session_id=${encodeURIComponent(
+            this._sessionId,
+          )}`
         : this.baseUrl;
+
+      console.log(
+        '[WS] Connecting:',
+        url,
+      );
 
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        console.log('[WS] Connected', this._sessionId ? `(session ${this._sessionId})` : '(new)');
+        console.log(
+          '[WS] Connected',
+          this._sessionId
+            ? `(session ${this._sessionId})`
+            : '(new session)',
+        );
+
         this.reconnectAttempts = 0;
       };
 
       this.ws.onmessage = (event) => {
         try {
-          const msg: ServerMessage = JSON.parse(event.data);
-          this.handlers.forEach((h) => h(msg));
-        } catch (err) {
-          console.error('[WS] Failed to parse message:', err);
+          const msg =
+            JSON.parse(
+              event.data,
+            ) as ServerMessage;
+
+          this.handlers.forEach(
+            (handler) => handler(msg),
+          );
+        } catch (error) {
+          console.error(
+            '[WS] Failed to parse message:',
+            error,
+          );
         }
       };
 
       this.ws.onclose = () => {
-        console.log('[WS] Disconnected');
+        console.log(
+          '[WS] Disconnected',
+        );
+
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = (err) => {
-        console.error('[WS] Error:', err);
+      this.ws.onerror = (error) => {
+        console.error(
+          '[WS] Error:',
+          error,
+        );
       };
-    } catch (err) {
-      console.error('[WS] Connection failed:', err);
+    } catch (error) {
+      console.error(
+        '[WS] Connection failed:',
+        error,
+      );
+
       this.scheduleReconnect();
     }
   }
 
   send(msg: ClientMessage): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
+    if (
+      this.ws?.readyState ===
+      WebSocket.OPEN
+    ) {
+      this.ws.send(
+        JSON.stringify(msg),
+      );
     } else {
-      console.warn('[WS] Not connected, message dropped:', msg.type);
+      console.warn(
+        '[WS] Message dropped because socket is not connected:',
+        msg.type,
+      );
     }
   }
 
-  onMessage(handler: MessageHandler): void {
+  onMessage(
+    handler: MessageHandler,
+  ): void {
     this.handlers.push(handler);
   }
 
   disconnect(): void {
     if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
+      clearTimeout(
+        this.reconnectTimer,
+      );
+
+      this.reconnectTimer =
+        undefined;
     }
+
     if (this.ws) {
-      this.ws.onclose = null; // prevent triggering reconnect
+      this.ws.onclose = null;
       this.ws.close();
       this.ws = undefined;
     }
   }
 
   get connected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return (
+      this.ws?.readyState ===
+      WebSocket.OPEN
+    );
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('[WS] Max reconnect attempts reached');
+    if (
+      this.reconnectAttempts >=
+      this.maxReconnectAttempts
+    ) {
+      console.error(
+        '[WS] Maximum reconnect attempts reached',
+      );
+
       return;
     }
 
-    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
-    this.reconnectAttempts++;
-    console.log(`[WS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    const delay = Math.min(
+      1000 *
+        2 **
+          this.reconnectAttempts,
+      30000,
+    );
 
-    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+    this.reconnectAttempts += 1;
+
+    console.log(
+      `[WS] Reconnecting in ${delay}ms`,
+    );
+
+    this.reconnectTimer =
+      setTimeout(
+        () => this.connect(),
+        delay,
+      );
   }
 }

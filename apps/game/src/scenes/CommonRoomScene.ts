@@ -10,6 +10,13 @@ import {
   SPAWN_TILE,
   GATE_TILE,
 } from '../tilemaps/commonRoomTilemap';
+import { WebSocketClient } from '../net/WebSocketClient';
+import { SessionStore } from '../state/SessionStore';
+
+interface SceneData {
+  ws: WebSocketClient;
+  store: SessionStore;
+}
 
 /**
  * Common Room — the hub. Rendered directly from the hand-authored Tiled map
@@ -25,20 +32,35 @@ export class CommonRoomScene extends Phaser.Scene {
   private nearGate = false;
   private gateX = 0;
   private gateY = 0;
+  private ws!: WebSocketClient;
+  private store!: SessionStore;
 
   constructor() {
     super({ key: 'CommonRoomScene' });
   }
 
-  create(): void {
+  create(data: SceneData): void {
+    this.ws = data.ws;
+    this.store = data.store;
+
     this.walls = this.physics.add.staticGroup();
+
     this.buildRoom();
     this.createUI();
     this.createPlayer();
-    this.physics.add.collider(this.player.sprite, this.walls);
+
+    this.physics.add.collider(
+      this.player.sprite,
+      this.walls,
+    );
+
     if (this.groundLayer) {
-      this.physics.add.collider(this.player.sprite, this.groundLayer);
+      this.physics.add.collider(
+        this.player.sprite,
+        this.groundLayer,
+      );
     }
+
     this.setupInput();
   }
 
@@ -180,7 +202,13 @@ export class CommonRoomScene extends Phaser.Scene {
         this.showPrompt();
       }
       if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-        this.scene.start('GateScene');
+        this.scene.start(
+          'GateScene',
+          {
+            ws: this.ws,
+            store: this.store,
+          },
+        );
       }
     } else if (this.nearGate) {
       this.nearGate = false;

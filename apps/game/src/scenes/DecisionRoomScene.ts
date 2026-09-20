@@ -43,6 +43,7 @@ interface SceneData {
   ws: WebSocketClient;
   store: SessionStore;
   decision: DecisionCreatedMsg;
+  restored?: boolean;
 }
 
 /**
@@ -83,32 +84,70 @@ export class DecisionRoomScene extends Phaser.Scene {
   init(data: SceneData): void {
     this.ws = data.ws;
     this.store = data.store;
-    this.phase = GamePhase.EXPLORING_DOORS;
-    this.currentDoor = undefined;
+
+    this.phase =
+      GamePhase.EXPLORING_DOORS;
+
+    this.currentDoor =
+      undefined;
+
     this.doors = [];
 
-    this.ws.onMessage(this.handleMessage.bind(this));
+    this.currentNodeId =
+      data.decision.nodeId;
 
-    this.currentNodeId = data.decision.nodeId;
-    // We'll render the decision in create()
-    this.data.set('decision', data.decision);
-  }
+    this.data.set(
+      'decision',
+      data.decision,
+  );
+
+  this.data.set(
+    'restored',
+    data.restored ?? false,
+  );
+
+  this.ws.onMessage(
+    this.handleMessage.bind(this),
+  );
+}
 
   create(): void {
-    this.textInput = new GameTextInput(
-      this.game.canvas.parentElement as HTMLElement
-    );
+    this.textInput =
+      new GameTextInput(
+        this.game.canvas
+          .parentElement as HTMLElement,
+      );
 
     this.buildRoom();
+
     this.createPlayer();
+
     this.setupInput();
 
     if (this.wallsLayer) {
-      this.physics.add.collider(this.player.sprite, this.wallsLayer);
+      this.physics.add.collider(
+        this.player.sprite,
+        this.wallsLayer,
+      );
     }
 
-    const decision = this.data.get('decision') as DecisionCreatedMsg;
-    this.renderDecision(decision);
+    const decision =
+      this.data.get(
+        'decision',
+      ) as DecisionCreatedMsg;
+
+    this.renderDecision(
+      decision,
+    );
+
+    const restored =
+      this.data.get(
+        'restored',
+      ) as boolean;
+
+    if (restored) {
+      this.restoreCurrentPhase();
+    }
   }
 
   update(): void {
@@ -119,6 +158,101 @@ export class DecisionRoomScene extends Phaser.Scene {
       this.player.stop();
     }
   }
+
+  /**
+ * Restore the UI based on the authoritative server state
+ * after a browser reload.
+ */
+private restoreCurrentPhase(): void {
+  const decision =
+    this.store.getCurrentDecision();
+
+  if (!decision) {
+    return;
+  }
+
+  /*
+   * Option selected, waiting for skill challenge.
+   */
+  if (
+    decision.selectedOptionId &&
+    !decision.challenge
+  ) {
+    this.phase =
+      GamePhase.WAITING_FOR_CHALLENGE;
+
+    this.player.stop();
+
+    this.showWaiting(
+      'Waiting for the challenge...',
+    );
+
+    return;
+  }
+
+  /*
+   * Challenge received, waiting for player's defense.
+   */
+  if (
+    decision.challenge &&
+    !decision.defense
+  ) {
+    this.phase =
+      GamePhase.RESPONDING_TO_CHALLENGE;
+
+    this.player.stop();
+
+    this.showChallengePanel(
+      decision.challenge,
+    );
+
+    return;
+  }
+
+  /*
+   * Defense submitted, waiting for evaluation.
+   */
+  if (
+    decision.defense &&
+    !decision.feedback
+  ) {
+    this.phase =
+      GamePhase.WAITING_FOR_EVALUATION;
+
+    this.player.stop();
+
+    this.showWaiting(
+      'Waiting for evaluation...',
+    );
+
+    return;
+  }
+
+  /*
+   * Evaluation already exists.
+   */
+  if (
+    decision.feedback
+  ) {
+    this.phase =
+      GamePhase.SHOWING_EVALUATION;
+
+    this.player.stop();
+
+    this.showEvaluationPanel(
+      decision.feedback,
+      decision.consequence ?? '',
+    );
+
+    return;
+  }
+
+  /*
+   * Nothing has been selected yet.
+   */
+  this.phase =
+    GamePhase.EXPLORING_DOORS;
+}
 
   // ─── Room building ───
 
@@ -549,22 +683,44 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   // ─── Waiting state ───
 
-  private showWaiting(message: string): void {
-    this.hideWaiting();
-    this.waitingText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, message, {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.lg,
-      color: COLORS.textHighlight,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+  private showWaiting(
+  message: string,
+): void {
+  this.waitingText?.destroy();
 
-    this.tweens.add({
-      targets: this.waitingText,
-      alpha: 0.3,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
-  }
+  this.waitingText =
+    this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      message,
+      {
+        fontFamily:
+          FONTS.pixel,
+        fontSize:
+          FONTS.size.lg,
+        color:
+          COLORS.textHighlight,
+        backgroundColor:
+          '#1a1a2e',
+        padding: {
+          x: 12,
+          y: 10,
+        },
+      },
+    )
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(200);
+
+  this.tweens.add({
+    targets:
+      this.waitingText,
+    alpha: 0.35,
+    duration: 600,
+    yoyo: true,
+    repeat: -1,
+  });
+}
 
   private hideWaiting(): void {
     if (this.waitingText) {

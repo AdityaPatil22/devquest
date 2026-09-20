@@ -129,18 +129,18 @@ class DecisionEngine:
         session: Session,
         summary: str,
         doc_content: str,
-    ) -> EngineEvent:
-        """Skill says the session is complete."""
-        session.finish()
+        ) -> EngineEvent:
+            """Skill says the session is complete."""
+            session.finish()
 
-        return EngineEvent(
-            type=EventType.SESSION_COMPLETE,
-            data={
-                "summary": summary,
-                "decisionsCount": session.graph.decided_count,
-                "reconsideredCount": session.graph.reconsidered_count,
-                "docContent": doc_content,
-            },
+            return EngineEvent(
+                type=EventType.SESSION_COMPLETE,
+                data={
+                    "summary": summary,
+                    "decisionsCount": session.graph.decided_count,
+                    "reconsideredCount": session.graph.reconsidered_count,
+                    "docContent": doc_content,
+                },
         )
 
     def reconsider(self, session: Session, node_id: str) -> None:
