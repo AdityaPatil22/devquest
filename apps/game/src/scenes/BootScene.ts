@@ -7,6 +7,7 @@ import {
   DECISION_TILESETS,
   DECISION_MAP_TILE_SIZE,
 } from '../decisionRoomTilemap';
+import { GATE_TILEMAP_KEY, GATE_TILEMAP_PATH } from '../gateSceneTilemap';
 import {
   Player,
   PLAYER_ATLAS_KEY,
@@ -57,6 +58,11 @@ export class BootScene extends Phaser.Scene {
         spacing: 0,
       });
     });
+
+    // Gate Scene world map (Tiled JSON). Reuses the same FloorAndGround 16×16
+    // spritesheet already queued above for the Decision Room — no new image
+    // to load, just the map data (see gateSceneTilemap.ts for details).
+    this.load.tilemapTiledJSON(GATE_TILEMAP_KEY, GATE_TILEMAP_PATH);
 
     // Ash character atlas
     this.load.atlas(
