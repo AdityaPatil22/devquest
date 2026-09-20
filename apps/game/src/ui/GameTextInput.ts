@@ -8,6 +8,25 @@ export class GameTextInput {
   constructor(parentElement: HTMLElement) {
     this.textarea = document.createElement('textarea');
     this.textarea.className = 'devquest-textarea';
+
+    /*
+     * Phaser listens for keyboard events globally.
+     *
+     * Stop keyboard events originating from this textarea from bubbling
+     * to Phaser so keys such as E and SPACE behave normally while typing.
+     */
+    this.textarea.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+    });
+
+    this.textarea.addEventListener('keyup', (event) => {
+      event.stopPropagation();
+    });
+
+    this.textarea.addEventListener('keypress', (event) => {
+      event.stopPropagation();
+    });
+
     parentElement.appendChild(this.textarea);
   }
 
@@ -26,7 +45,9 @@ export class GameTextInput {
     this.textarea.placeholder = placeholder;
     this.textarea.value = '';
 
-    requestAnimationFrame(() => this.textarea.focus());
+    requestAnimationFrame(() => {
+      this.textarea.focus();
+    });
   }
 
   hide(): void {
@@ -39,7 +60,6 @@ export class GameTextInput {
     return this.textarea.value;
   }
 
-  /** Check if the textarea currently has keyboard focus */
   hasFocus(): boolean {
     return document.activeElement === this.textarea;
   }
