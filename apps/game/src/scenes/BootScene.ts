@@ -1,13 +1,13 @@
 import Phaser from 'phaser';
 import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
-import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemap';
+import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
 import {
   DECISION_TILEMAP_KEY,
   DECISION_TILEMAP_PATH,
   DECISION_TILESETS,
   DECISION_MAP_TILE_SIZE,
-} from '../decisionRoomTilemap';
-import { GATE_TILEMAP_KEY, GATE_TILEMAP_PATH } from '../gateSceneTilemap';
+} from '../tilemaps/decisionRoomTilemap';
+import { GATE_TILEMAP_KEY, GATE_TILEMAP_PATH } from '../tilemaps/gateSceneTilemap';
 import {
   Player,
   PLAYER_ATLAS_KEY,

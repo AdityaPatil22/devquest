@@ -1,4 +1,4 @@
-import { DECISION_TILESETS } from './decisionRoomTilemap';
+import { DECISION_TILESETS } from '../tilemaps/decisionRoomTilemap';
 
 /**
  * Config + helpers for the Gate Scene's hand-authored Tiled map

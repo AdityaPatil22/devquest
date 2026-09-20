@@ -9,7 +9,7 @@ import {
   GATE_TILESET,
   GATE_TILE_LAYERS,
   patchGateSceneTileset,
-} from '../gateSceneTilemap';
+} from '../tilemaps/gateSceneTilemap';
 import type { ServerMessage, DecisionCreatedMsg } from '../net/protocol';
 
 // Fixed HUD layout constants (viewport-relative, independent of the map's

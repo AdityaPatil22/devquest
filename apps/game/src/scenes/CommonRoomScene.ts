@@ -9,11 +9,10 @@ import {
   DECOR_OBJECT_LAYERS,
   SPAWN_TILE,
   GATE_TILE,
-} from '../tilemap';
+} from '../tilemaps/commonRoomTilemap';
 
 /**
  * Common Room — the hub. Rendered directly from the hand-authored Tiled map
- * (public/assets/map/map.json) instead of procedurally-generated tiles.
  */
 export class CommonRoomScene extends Phaser.Scene {
   private player!: Player;

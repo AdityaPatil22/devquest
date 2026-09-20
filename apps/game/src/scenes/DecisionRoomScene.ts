@@ -19,7 +19,7 @@ import {
   DECISION_DOOR_ROW_TILE_Y,
   DECISION_DOOR_ROW_X_RANGE,
   patchDecisionRoomTilesets,
-} from '../decisionRoomTilemap';
+} from '../tilemaps/decisionRoomTilemap';
 import type {
   ServerMessage,
   DecisionCreatedMsg,
@@ -130,7 +130,6 @@ export class DecisionRoomScene extends Phaser.Scene {
   private buildRoom(): void {
     // The map's tilesets are only referenced as external .tsx files, which
     // Phaser can't load — patch in embedded tileset definitions before
-    // parsing (see decisionRoomTilemap.ts for why this is safe).
     const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
     if (cached?.data) {
       patchDecisionRoomTilesets(cached.data);
@@ -162,7 +161,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     // This is an infinite map, so `map.widthInPixels`/`heightInPixels`
     // (derived from the map's nominal, not-quite-accurate top-level
     // width/height) can't be trusted for bounds/centering — use the real
-    // measured content bounds instead (see decisionRoomTilemap.ts).
+    // measured content bounds instead
     const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
     const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
     const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
@@ -212,7 +211,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     // Create doors along a verified-open row near the top of the room
     // (in-world, so they scroll/collide like any other map object the
     // player walks to). Uses the room's real measured open span rather
-    // than the map's nominal pixel size (see decisionRoomTilemap.ts).
+    // than the map's nominal pixel size
     const opts = decision.options;
     const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
     const rangeWidthPx =

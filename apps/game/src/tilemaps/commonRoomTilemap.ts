@@ -8,7 +8,7 @@
  */
 
 export const TILEMAP_KEY = 'office-map';
-export const TILEMAP_PATH = 'assets/map/map.json';
+export const TILEMAP_PATH = 'assets/map/commonroom/map.json';
 
 /** Tiled map + tile grid size, in pixels (matches map.json tilewidth/height) */
 export const MAP_TILE_SIZE = 32;
