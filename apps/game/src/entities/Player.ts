@@ -40,7 +40,7 @@ export class Player {
     this.sprite.body!.setSize(16, 12);
     this.sprite.body!.setOffset(8, 32);
   
-    this.sprite.play('player-idle-anim');
+    this.sprite.play(IDLE_FRAMES[0]);
   }
 
   static createAnimations(scene: Phaser.Scene): void {
@@ -104,7 +104,8 @@ export class Player {
       this.sprite.play('player-walk-anim');
       this.isMoving = true;
     } else if (!moving && this.isMoving) {
-      this.sprite.play('player-idle-anim');
+      this.sprite.stop();
+      this.sprite.setFrame(IDLE_FRAMES[0]);
       this.isMoving = false;
     }
   }
