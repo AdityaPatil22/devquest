@@ -2,12 +2,10 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { GameTextInput } from '../ui/GameTextInput';
 import { TextButton } from '../ui/TextButton';
-import { Panel } from '../ui/Panel';
 import { GamePhase } from '../state/GameState';
 import { SessionStore, DecisionRecord } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS } from '../config';
-import { PATTERNS_KEY, PATTERNS } from '../tiles';
 import {
   DECISION_TILEMAP_KEY,
   DECISION_TILESETS,
@@ -37,6 +35,7 @@ interface DoorObject {
   doorSprite: Phaser.GameObjects.Image;
   labelText: Phaser.GameObjects.Text;
   isRecommended: boolean;
+  isOpen: boolean;
 }
 
 interface SceneData {
@@ -52,7 +51,8 @@ interface SceneData {
  * Reused for every question — just resets with new doors.
  */
 /** Visual scale applied to the door/prop overlays (native art is 16px) */
-const DOOR_SCALE = 2;
+const DOOR_SCALE = 0.191;
+const DOOR_OPEN_SCALE = 0.191;
 
 export class DecisionRoomScene extends Phaser.Scene {
   private player!: Player;
@@ -85,6 +85,18 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'DecisionRoomScene' });
+  }
+
+  preload(): void {
+    this.load.image(
+      'door-closed',
+      'assets/items/door-closed.png',
+    );
+
+    this.load.image(
+      'door-open',
+      'assets/items/door-open.png',
+    );
   }
 
   init(data: SceneData): void {
@@ -358,26 +370,32 @@ private restoreCurrentPhase(): void {
     const rangeWidthPx =
       (DECISION_DOOR_ROW_X_RANGE.maxTileX - DECISION_DOOR_ROW_X_RANGE.minTileX + 1) *
       DECISION_MAP_TILE_SIZE;
-    const spacing = rangeWidthPx / (opts.length + 1);
+    const spacing = 120;
     const doorY = DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
     opts.forEach((option, i) => {
       const doorX = rangeStartPx + spacing * (i + 1);
       const isRec = decision.recommendation?.option === option.id;
 
-      const doorSprite = this.add.image(doorX, doorY, PATTERNS_KEY, PATTERNS.DOOR)
+      const doorSprite = this.add
+        .image(
+          doorX,
+          doorY,
+          'door-closed',
+        )
+        .setOrigin(0.5, 1.42)
         .setDepth(5)
         .setScale(DOOR_SCALE);
 
       // Door letter (A, B, C, D)
-      const letterText = this.add.text(doorX, doorY + 30, option.id, {
+      const letterText = this.add.text(doorX, doorY - 100, option.id, {
         fontFamily: FONTS.pixel,
         fontSize: '16px',
         color: isRec ? COLORS.textWarning : COLORS.textHighlight,
       }).setOrigin(0.5).setDepth(10);
 
       // Door label
-      const labelText = this.add.text(doorX, doorY + 50, option.label, {
+      const labelText = this.add.text(doorX, doorY - 20, option.label, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: isRec ? COLORS.textWarning : COLORS.textPrimary,
@@ -387,7 +405,7 @@ private restoreCurrentPhase(): void {
 
       // Star for recommended
       if (isRec) {
-        this.add.text(doorX + 20, doorY + 70, '⭐', {
+        this.add.text(doorX + 20, doorY - 100, '⭐', {
           fontSize: '12px',
         }).setOrigin(0.5).setDepth(10);
       }
@@ -399,6 +417,7 @@ private restoreCurrentPhase(): void {
         doorSprite,
         labelText,
         isRecommended: isRec,
+        isOpen: false,
       });
     });
 
@@ -492,6 +511,17 @@ private restoreCurrentPhase(): void {
     this.currentDoor = door;
     this.hideDoorPrompt();
 
+    // Open the selected door visually.
+    if (!door.isOpen) {
+      door.isOpen = true;
+
+      door.doorSprite
+        .setTexture('door-open')
+        .setOrigin(0.5, 1.32)
+        .setDepth(5)
+        .setScale(DOOR_OPEN_SCALE);
+    }
+
     // Show a panel: "You chose [X]. Add context?" — fixed to screen so it
     // stays put no matter where the camera has scrolled to.
     const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 620, 280, COLORS.panelBg, 0.95)
@@ -535,14 +565,20 @@ private restoreCurrentPhase(): void {
       height: 36,
       onClick: () => {
         const context = this.textInput.getValue().trim();
+
         this.textInput.hide();
         this.panelContainer?.destroy();
+
         enterBtn.destroy();
         skipBtn.destroy();
+
         this.selectDoor(door, context || undefined);
       },
     });
-    enterBtn.container.setScrollFactor(0);
+
+    enterBtn.container
+      .setScrollFactor(0)
+      .setDepth(160);
 
     const skipBtn = new TextButton(this, {
       x: GAME_WIDTH / 2 + 80,
@@ -553,13 +589,17 @@ private restoreCurrentPhase(): void {
       onClick: () => {
         this.textInput.hide();
         this.panelContainer?.destroy();
+
         enterBtn.destroy();
         skipBtn.destroy();
+
         this.selectDoor(door, undefined);
       },
     });
-    skipBtn.container.setScrollFactor(0);
-  }
+    skipBtn.container
+      .setScrollFactor(0)
+      .setDepth(160);
+    }
 
   /** Send the selection to the server */
   private selectDoor(door: DoorObject, context?: string): void {
