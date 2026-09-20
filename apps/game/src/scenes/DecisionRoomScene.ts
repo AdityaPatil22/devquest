@@ -75,6 +75,8 @@ export class DecisionRoomScene extends Phaser.Scene {
   private promptText?: Phaser.GameObjects.Text;
   private panelContainer?: Phaser.GameObjects.Container;
   private waitingText?: Phaser.GameObjects.Text;
+  private errorContainer?: Phaser.GameObjects.Container;
+  private lastFailedAction?: () => void;
 
   constructor() {
     super({ key: 'DecisionRoomScene' });
@@ -88,6 +90,16 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.doors = [];
 
     this.ws.onMessage(this.handleMessage.bind(this));
+    this.ws.onConnectionChange((connected) => {
+      if (connected) {
+        this.hideError();
+      } else if (this.phase !== GamePhase.EXPLORING_DOORS) {
+        this.showError(
+          'Connection lost. Your current decision is still safe. We will reconnect automatically.',
+          this.lastFailedAction,
+        );
+      }
+    });
 
     this.currentNodeId = data.decision.nodeId;
     // We'll render the decision in create()
@@ -424,6 +436,8 @@ export class DecisionRoomScene extends Phaser.Scene {
   /** Send the selection to the server */
   private selectDoor(door: DoorObject, context?: string): void {
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
+    this.lastFailedAction = () => this.selectDoor(door, context);
+    this.hideError();
     this.showWaiting('Entering door...');
 
     this.store.updateCurrent({
@@ -434,7 +448,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.ws.send({
       type: 'OPTION_SELECTED',
       nodeId: this.currentNodeId,
-      optionId: door.option.id,
+      optionId: this.currentNodeId ? door.option.id : door.option.id,
       context,
     });
   }
@@ -493,6 +507,15 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.panelContainer?.destroy();
         submitBtn.destroy();
         this.phase = GamePhase.WAITING_FOR_EVALUATION;
+        this.lastFailedAction = () => {
+          this.phase = GamePhase.WAITING_FOR_EVALUATION;
+          this.ws.send({
+            type: 'CHALLENGE_RESPONSE',
+            nodeId: this.currentNodeId,
+            response,
+          });
+        };
+        this.hideError();
         this.showWaiting('AI is evaluating...');
 
         this.store.updateCurrent({ defense: response });
@@ -546,6 +569,58 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Next room loading...', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+  }
+
+  private showError(message: string, retry?: () => void): void {
+    this.hideError();
+
+    const width = Math.min(560, Math.max(280, GAME_WIDTH - 48));
+    const height = retry ? 150 : 115;
+
+    const bg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, width, height, 0x3a1717, 0.98)
+      .setStrokeStyle(2, COLORS.error)
+      .setScrollFactor(0);
+
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 42, 'ACTION FAILED', {
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.md,
+      color: COLORS.error,
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    const text = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, message, {
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.sm,
+      color: COLORS.textPrimary,
+      wordWrap: { width: width - 36 },
+      align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    this.errorContainer = this.add.container(0, 0, [bg, title, text])
+      .setDepth(250)
+      .setScrollFactor(0);
+
+    if (retry) {
+      const retryButton = new TextButton(this, {
+        x: GAME_WIDTH / 2,
+        y: GAME_HEIGHT / 2 + 43,
+        text: 'RETRY',
+        width: 120,
+        height: 32,
+        onClick: () => {
+          const action = this.lastFailedAction;
+          if (!action) return;
+          this.hideError();
+          action();
+        },
+      });
+      retryButton.container.setScrollFactor(0);
+      this.errorContainer.add(retryButton.container);
+    }
+  }
+
+  private hideError(): void {
+    this.errorContainer?.destroy(true);
+    this.errorContainer = undefined;
   }
 
   // ─── Waiting state ───
@@ -634,11 +709,17 @@ export class DecisionRoomScene extends Phaser.Scene {
 
       case 'ERROR':
         console.error('Server error:', msg.message);
+        this.hideWaiting();
+        this.showError(
+          'The server could not complete that action. Your session is still intact.',
+          this.lastFailedAction,
+        );
         break;
     }
   }
 
   shutdown(): void {
+    this.hideError();
     this.textInput?.hide();
   }
 }
