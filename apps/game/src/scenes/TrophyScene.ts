@@ -13,6 +13,9 @@ interface SceneData {
  */
 export class TrophyScene extends Phaser.Scene {
   private store!: SessionStore;
+  private decisionHistoryContainer?: Phaser.GameObjects.Container;
+  private historyScrollOffset = 0;
+  private historyContentHeight = 0;
 
   constructor() {
     super({ key: 'TrophyScene' });
@@ -82,9 +85,13 @@ export class TrophyScene extends Phaser.Scene {
       fontStyle: 'italic',
     }).setOrigin(0.5, 0).setDepth(10);
 
-    // Decision summary panel
+    // Decision summary panel remains fixed; only the decision history scrolls.
     const panelY = 240;
-    this.add.rectangle(GAME_WIDTH / 2, panelY + 100, 600, 220, COLORS.panelBg, 0.9)
+    const panelWidth = Math.min(600, GAME_WIDTH - 48);
+    const panelHeight = 220;
+    const panelLeft = GAME_WIDTH / 2 - panelWidth / 2;
+
+    this.add.rectangle(GAME_WIDTH / 2, panelY + 100, panelWidth, panelHeight, COLORS.panelBg, 0.9)
       .setStrokeStyle(2, COLORS.panelBorder)
       .setDepth(9);
 
@@ -94,33 +101,75 @@ export class TrophyScene extends Phaser.Scene {
       color: COLORS.textHighlight,
     }).setOrigin(0.5).setDepth(10);
 
-    // List each decision
     const decisions = this.store.decisions.filter((d) => d.selectedOptionId);
-    const startY = panelY + 40;
-    decisions.forEach((d, i) => {
-      const selectedLabel = d.options.find((o) => o.id === d.selectedOptionId)?.label ?? '?';
-      const text = `${d.selectedOptionId}. ${selectedLabel}`;
+    const historyTop = panelY + 40;
+    const historyHeight = 150;
+    const contentX = panelLeft + 20;
+    const contentWidth = panelWidth - 40;
 
-      this.add.text(220, startY + i * 28, `Round ${d.round}:`, {
+    const maskShape = this.make.graphics({ x: 0, y: 0 });
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(contentX, historyTop, contentWidth, historyHeight);
+    const historyMask = maskShape.createGeometryMask();
+
+    this.decisionHistoryContainer = this.add.container(0, 0).setDepth(10);
+    this.historyContentHeight = decisions.length * 28;
+    const maxOffset = Math.max(0, this.historyContentHeight - historyHeight);
+
+    decisions.forEach((d, i) => {
+      const y = historyTop + i * 28;
+      const selectedLabel = d.options.find((o) => o.id === d.selectedOptionId)?.label ?? '?';
+
+      const roundText = this.add.text(contentX, y, `Round ${d.round}:`, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: COLORS.textSecondary,
-      }).setDepth(10);
+      }).setOrigin(0, 0.5);
 
-      this.add.text(380, startY + i * 28, text, {
+      const optionText = this.add.text(contentX + 150, y, `${d.selectedOptionId}. ${selectedLabel}`, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: COLORS.textPrimary,
-      }).setDepth(10);
+        wordWrap: { width: Math.max(100, contentWidth - 150) },
+      }).setOrigin(0, 0.5);
+
+      this.decisionHistoryContainer!.add([roundText, optionText]);
     });
 
-    // Summary
+    this.decisionHistoryContainer.setMask(historyMask);
+
+    if (maxOffset > 0) {
+      const scrollbarX = panelLeft + panelWidth - 10;
+      this.add.rectangle(scrollbarX, historyTop + historyHeight / 2, 4, historyHeight, 0x34344f, 0.9)
+        .setDepth(11);
+
+      const thumbHeight = Math.max(24, historyHeight * historyHeight / this.historyContentHeight);
+      const thumb = this.add.rectangle(
+        scrollbarX,
+        historyTop + thumbHeight / 2,
+        6,
+        thumbHeight,
+        COLORS.panelBorder,
+        0.95,
+      ).setOrigin(0.5).setDepth(12);
+
+      this.input.on('wheel', (
+        _pointer: Phaser.Input.Pointer,
+        _gameObjects: Phaser.GameObjects.GameObject[],
+        _dx: number,
+        dy: number,
+      ) => {
+        this.scrollDecisionHistory(dy, maxOffset, historyTop, historyHeight, thumb);
+      });
+    }
+
+    // Summary stays outside the scroll region.
     if (this.store.summary) {
       this.add.text(GAME_WIDTH / 2, panelY + 230, this.store.summary, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: COLORS.textWarning,
-        wordWrap: { width: 560 },
+        wordWrap: { width: Math.min(560, GAME_WIDTH - 48) },
         align: 'center',
         lineSpacing: 6,
       }).setOrigin(0.5, 0).setDepth(10);
