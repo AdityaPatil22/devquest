@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
 import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemap';
 import {
+  DECISION_TILEMAP_KEY,
+  DECISION_TILEMAP_PATH,
+  DECISION_TILESETS,
+  DECISION_MAP_TILE_SIZE,
+} from '../decisionRoomTilemap';
+import {
   Player,
   PLAYER_ATLAS_KEY,
   PLAYER_ATLAS_PATH,
@@ -32,6 +38,21 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(key, path, {
         frameWidth,
         frameHeight,
+        margin: 0,
+        spacing: 0,
+      });
+    });
+
+    // Decision Room world map (Tiled JSON) + its tileset images.
+    // Its tilesets are only referenced as external .tsx files in the JSON
+    // (Phaser can't load those), so we separately load the same shared
+    // images at 16×16 frames here and patch the tileset data at runtime —
+    // see decisionRoomTilemap.ts for details.
+    this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
+    DECISION_TILESETS.forEach(({ key, path }) => {
+      this.load.spritesheet(key, path, {
+        frameWidth: DECISION_MAP_TILE_SIZE,
+        frameHeight: DECISION_MAP_TILE_SIZE,
         margin: 0,
         spacing: 0,
       });

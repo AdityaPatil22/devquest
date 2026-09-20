@@ -7,7 +7,17 @@ import { GamePhase } from '../state/GameState';
 import { SessionStore, DecisionRecord } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS } from '../config';
-import { PATTERNS_KEY, PATTERNS, TILE_SCALE, DISPLAY_TILE } from '../tiles';
+import { PATTERNS_KEY, PATTERNS } from '../tiles';
+import {
+  DECISION_TILEMAP_KEY,
+  DECISION_TILESETS,
+  DECISION_MAP_TILE_SIZE,
+  DECISION_TILE_LAYERS,
+  DECISION_COLLIDABLE_LAYER,
+  DECISION_SPAWN_TILE,
+  DECISION_DOOR_ROW_TILE_Y,
+  patchDecisionRoomTilesets,
+} from '../decisionRoomTilemap';
 import type {
   ServerMessage,
   DecisionCreatedMsg,
@@ -38,6 +48,9 @@ interface SceneData {
  * Renders N doors from the skill's options. Player walks to a door to select.
  * Reused for every question — just resets with new doors.
  */
+/** Visual scale applied to the door/prop overlays (native art is 16px) */
+const DOOR_SCALE = 2;
+
 export class DecisionRoomScene extends Phaser.Scene {
   private player!: Player;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -45,6 +58,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   private ws!: WebSocketClient;
   private store!: SessionStore;
   private textInput!: GameTextInput;
+
+  private map!: Phaser.Tilemaps.Tilemap;
+  private wallsLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
 
   private doors: DoorObject[] = [];
   private phase = GamePhase.EXPLORING_DOORS;
@@ -85,6 +101,10 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.createPlayer();
     this.setupInput();
 
+    if (this.wallsLayer) {
+      this.physics.add.collider(this.player.sprite, this.wallsLayer);
+    }
+
     const decision = this.data.get('decision') as DecisionCreatedMsg;
     this.renderDecision(decision);
   }
@@ -100,33 +120,46 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   // ─── Room building ───
 
+  /**
+   * Builds the room directly from the hand-authored Tiled map
+   * (public/assets/map/decisionroom/decision-room.json) instead of the old
+   * procedurally-generated tile grid.
+   */
   private buildRoom(): void {
-    const cols = Math.floor(GAME_WIDTH / DISPLAY_TILE);
-    const rows = Math.floor(GAME_HEIGHT / DISPLAY_TILE);
+    // The map's tilesets are only referenced as external .tsx files, which
+    // Phaser can't load — patch in embedded tileset definitions before
+    // parsing (see decisionRoomTilemap.ts for why this is safe).
+    const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
+    if (cached?.data) {
+      patchDecisionRoomTilesets(cached.data);
+    }
 
-    // Brown stone floor
-    for (let y = 1; y < rows - 1; y++) {
-      for (let x = 1; x < cols - 1; x++) {
-        const frame = (x + y) % 2 === 0 ? PATTERNS.DECISION_FLOOR : PATTERNS.DECISION_FLOOR_ALT;
-        this.add.image(
-          x * DISPLAY_TILE + DISPLAY_TILE / 2,
-          y * DISPLAY_TILE + DISPLAY_TILE / 2,
-          PATTERNS_KEY, frame
-        ).setScale(TILE_SCALE).setDepth(0);
+    this.map = this.make.tilemap({ key: DECISION_TILEMAP_KEY });
+
+    const tilesets = DECISION_TILESETS.map((t) =>
+      this.map.addTilesetImage(t.name, t.key),
+    ).filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
+
+    DECISION_TILE_LAYERS.forEach((layerName, depth) => {
+      const layer = this.map.createLayer(layerName, tilesets, 0, 0);
+      layer?.setDepth(depth);
+
+      if (layerName === DECISION_COLLIDABLE_LAYER) {
+        // Every non-empty tile on the Walls layer blocks the player.
+        layer?.setCollisionByExclusion([-1]);
+        this.wallsLayer = layer ?? undefined;
       }
-    }
+    });
 
-    // Walls — all sides
-    for (let x = 0; x < cols; x++) {
-      const frame = x % 2 === 0 ? PATTERNS.DECISION_WALL : PATTERNS.DECISION_WALL_ALT;
-      this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, DISPLAY_TILE / 2, PATTERNS_KEY, frame).setScale(TILE_SCALE).setDepth(1);
-      this.add.image(x * DISPLAY_TILE + DISPLAY_TILE / 2, (rows - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame).setScale(TILE_SCALE).setDepth(1);
-    }
-    for (let y = 1; y < rows - 1; y++) {
-      const frame = y % 2 === 0 ? PATTERNS.DECISION_WALL : PATTERNS.DECISION_WALL_ALT;
-      this.add.image(DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame).setScale(TILE_SCALE).setDepth(1);
-      this.add.image((cols - 1) * DISPLAY_TILE + DISPLAY_TILE / 2, y * DISPLAY_TILE + DISPLAY_TILE / 2, PATTERNS_KEY, frame).setScale(TILE_SCALE).setDepth(1);
-    }
+    const mapWidthPx = this.map.widthInPixels;
+    const mapHeightPx = this.map.heightInPixels;
+    this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
+
+    // This room is small enough to always fit on screen, so keep the
+    // camera static and centered on it rather than using bounds + follow
+    // (Camera bounds clamp scroll to (0,0) whenever the world is smaller
+    // than the viewport, which pins the room to the top-left corner).
+    this.cameras.main.centerOn(mapWidthPx / 2, mapHeightPx / 2);
   }
 
   // ─── Decision rendering ───
@@ -136,12 +169,12 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.clearDecision();
     this.currentNodeId = decision.nodeId;
 
-    // Question text at top
+    // Question text at top (fixed to screen — stays put even if the camera pans)
     this.roundText = this.add.text(GAME_WIDTH / 2, 30, `ROUND ${decision.round}`, {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.sm,
       color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(10);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
 
     this.questionText = this.add.text(GAME_WIDTH / 2, 60, decision.question, {
       fontFamily: FONTS.pixel,
@@ -149,7 +182,7 @@ export class DecisionRoomScene extends Phaser.Scene {
       color: COLORS.textPrimary,
       wordWrap: { width: GAME_WIDTH - 100 },
       align: 'center',
-    }).setOrigin(0.5, 0).setDepth(10);
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
 
     // Recommendation hint
     if (decision.recommendation) {
@@ -157,22 +190,25 @@ export class DecisionRoomScene extends Phaser.Scene {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: COLORS.textWarning,
-      }).setOrigin(0.5).setDepth(10);
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
     }
 
-    // Create doors along the top wall (one tile inside)
+    // Create doors along an open row near the top of the room (in-world, so
+    // they scroll/collide like any other map object the player walks to)
     const opts = decision.options;
-    const totalWidth = GAME_WIDTH - 200;
+    const mapWidthPx = this.map.widthInPixels;
+    const margin = 5 * DECISION_MAP_TILE_SIZE;
+    const totalWidth = mapWidthPx - margin * 2;
     const spacing = totalWidth / (opts.length + 1);
-    const doorY = 2 * DISPLAY_TILE + DISPLAY_TILE / 2;
+    const doorY = DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
     opts.forEach((option, i) => {
-      const doorX = 100 + spacing * (i + 1);
+      const doorX = margin + spacing * (i + 1);
       const isRec = decision.recommendation?.option === option.id;
 
       const doorSprite = this.add.image(doorX, doorY, PATTERNS_KEY, PATTERNS.DOOR)
-        .setDepth(2)
-        .setScale(TILE_SCALE);
+        .setDepth(5)
+        .setScale(DOOR_SCALE);
 
       // Door letter (A, B, C, D)
       const letterText = this.add.text(doorX, doorY + 30, option.id, {
@@ -227,7 +263,11 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ─── Player & interaction ───
 
   private createPlayer(): void {
-    this.player = new Player(this, GAME_WIDTH / 2, GAME_HEIGHT / 2);
+    const spawnX = DECISION_SPAWN_TILE.x * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+    const spawnY = DECISION_SPAWN_TILE.y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+    this.player = new Player(this, spawnX, spawnY);
+    // No camera follow here — the room is small enough that it's kept
+    // fully visible and centered (see buildRoom()) instead of scrolling.
   }
 
   private setupInput(): void {
@@ -272,6 +312,8 @@ export class DecisionRoomScene extends Phaser.Scene {
         padding: { x: 4, y: 4 },
       }).setDepth(100);
     }
+    // Positioned relative to the door's in-world coordinates, so it must
+    // scroll along with the world (no setScrollFactor(0) here).
     this.promptText.setText(`Press E: Door ${door.option.id} — ${door.option.label}`);
     this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 90);
     this.promptText.setVisible(true);
@@ -291,7 +333,8 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.currentDoor = door;
     this.hideDoorPrompt();
 
-    // Show a panel: "You chose [X]. Add context?"
+    // Show a panel: "You chose [X]. Add context?" — fixed to screen so it
+    // stays put no matter where the camera has scrolled to.
     const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 620, 280, COLORS.panelBg, 0.95)
       .setStrokeStyle(2, COLORS.panelBorder)
       .setDepth(150);
@@ -309,7 +352,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(151);
 
     this.panelContainer = this.add.container(0, 0, [panelBg, title, subtitle]);
-    this.panelContainer.setDepth(150);
+    this.panelContainer.setDepth(150).setScrollFactor(0);
 
     // Show textarea
     const canvasRect = this.game.canvas.getBoundingClientRect();
@@ -340,6 +383,7 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.selectDoor(door, context || undefined);
       },
     });
+    enterBtn.container.setScrollFactor(0);
 
     const skipBtn = new TextButton(this, {
       x: GAME_WIDTH / 2 + 80,
@@ -355,6 +399,7 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.selectDoor(door, undefined);
       },
     });
+    skipBtn.container.setScrollFactor(0);
   }
 
   /** Send the selection to the server */
@@ -400,7 +445,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setDepth(151);
 
     this.panelContainer = this.add.container(0, 0, [panelBg, title, qText]);
-    this.panelContainer.setDepth(150);
+    this.panelContainer.setDepth(150).setScrollFactor(0);
 
     // Text input
     const canvasRect = this.game.canvas.getBoundingClientRect();
@@ -440,6 +485,7 @@ export class DecisionRoomScene extends Phaser.Scene {
         });
       },
     });
+    submitBtn.container.setScrollFactor(0);
   }
 
   private showEvaluationPanel(feedback: string, consequence: string): void {
@@ -475,12 +521,12 @@ export class DecisionRoomScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setDepth(151);
 
     this.panelContainer = this.add.container(0, 0, [panelBg, title, fbLabel, fbText, csqLabel, csqText]);
-    this.panelContainer.setDepth(150);
+    this.panelContainer.setDepth(150).setScrollFactor(0);
 
     // "Waiting for next room..." text — the next decision will auto-arrive
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Next room loading...', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(151);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
   }
 
   // ─── Waiting state ───
@@ -491,7 +537,7 @@ export class DecisionRoomScene extends Phaser.Scene {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.lg,
       color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(200);
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
 
     this.tweens.add({
       targets: this.waitingText,
