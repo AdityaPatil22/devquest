@@ -26,6 +26,7 @@ export class CommonRoomScene extends Phaser.Scene {
   private nearGate = false;
   private gateX = 0;
   private gateY = 0;
+  private gateIndicator?: Phaser.GameObjects.Container;
 
   constructor() {
     super({ key: 'CommonRoomScene' });
@@ -96,12 +97,12 @@ export class CommonRoomScene extends Phaser.Scene {
     this.gateX = GATE_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
     this.gateY = GATE_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    this.add
-      .rectangle(this.gateX, this.gateY, MAP_TILE_SIZE, MAP_TILE_SIZE, 0x4a9eff, 0.35)
+    const gateHighlight = this.add
+      .rectangle(this.gateX, this.gateY, MAP_TILE_SIZE * 1.8, MAP_TILE_SIZE * 1.8, 0x4a9eff, 0.35)
       .setStrokeStyle(2, 0x4a9eff)
       .setDepth(3);
 
-    this.add
+    const gateLabel = this.add
       .text(this.gateX, this.gateY - MAP_TILE_SIZE, 'GATE', {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.lg,
@@ -109,6 +110,16 @@ export class CommonRoomScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(10);
+
+    this.gateIndicator = this.add.container(0, 0, [gateHighlight, gateLabel]);
+
+    this.tweens.add({
+      targets: gateHighlight,
+      alpha: { from: 0.2, to: 0.55 },
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+    });
   }
 
   private createUI(): void {
@@ -181,6 +192,7 @@ export class CommonRoomScene extends Phaser.Scene {
         this.showPrompt();
       }
       if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+        this.triggerGateFeedback();
         this.scene.start('GateScene');
       }
     } else if (this.nearGate) {
@@ -191,11 +203,11 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private showPrompt(): void {
     if (!this.promptText) {
-      this.promptText = this.add.text(0, 0, 'Press E to Enter Gate', {
+      this.promptText = this.add.text(0, 0, '[E] INTERACT • GATE', {
         fontFamily: FONTS.pixel, fontSize: FONTS.size.md,
-        color: COLORS.textWarning,
+        color: COLORS.textPrimary,
         backgroundColor: '#1a1a2e',
-        padding: { x: 6, y: 4 },
+        padding: { x: 8, y: 5 },
       }).setDepth(100);
     }
     this.promptText.setPosition(
@@ -203,9 +215,35 @@ export class CommonRoomScene extends Phaser.Scene {
       this.gateY + MAP_TILE_SIZE * 2
     );
     this.promptText.setVisible(true);
+
+    const highlight = this.gateIndicator?.first;
+    if (highlight instanceof Phaser.GameObjects.Rectangle) {
+      highlight.setStrokeStyle(3, COLORS.textHighlight);
+      highlight.setFillStyle(0x4a9eff, 0.5);
+    }
+  }
+
+  private triggerGateFeedback(): void {
+    if (!this.gateIndicator) return;
+    const highlight = this.gateIndicator.first;
+    if (!(highlight instanceof Phaser.GameObjects.Rectangle)) return;
+
+    this.tweens.killTweensOf(highlight);
+    this.tweens.add({
+      targets: highlight,
+      scale: { from: 1, to: 1.25 },
+      alpha: { from: 0.7, to: 0 },
+      duration: 220,
+      onComplete: () => highlight.setScale(1).setAlpha(0.35),
+    });
   }
 
   private hidePrompt(): void {
     this.promptText?.setVisible(false);
+    const highlight = this.gateIndicator?.first;
+    if (highlight instanceof Phaser.GameObjects.Rectangle) {
+      highlight.setStrokeStyle(2, 0x4a9eff);
+      highlight.setFillStyle(0x4a9eff, 0.35);
+    }
   }
 }
