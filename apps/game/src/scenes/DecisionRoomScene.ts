@@ -35,8 +35,12 @@ interface DoorObject {
   x: number;
   y: number;
   doorSprite: Phaser.GameObjects.Image;
+  card: Phaser.GameObjects.Rectangle;
+  letterText: Phaser.GameObjects.Text;
   labelText: Phaser.GameObjects.Text;
+  recommendationBadge?: Phaser.GameObjects.Text;
   isRecommended: boolean;
+  isSelected: boolean;
 }
 
 interface SceneData {
@@ -225,41 +229,75 @@ export class DecisionRoomScene extends Phaser.Scene {
       const doorX = rangeStartPx + spacing * (i + 1);
       const isRec = decision.recommendation?.option === option.id;
 
+      const cardWidth = Math.max(96, Math.min(170, spacing - 12));
+      const cardHeight = 92;
+
+      const card = this.add.rectangle(
+        doorX,
+        doorY + 70,
+        cardWidth,
+        cardHeight,
+        isRec ? 0x2d2417 : 0x17172a,
+        0.96,
+      )
+        .setStrokeStyle(2, isRec ? 0xffaa44 : COLORS.panelBorder)
+        .setOrigin(0.5)
+        .setDepth(6)
+        .setInteractive({ useHandCursor: true });
+
       const doorSprite = this.add.image(doorX, doorY, PATTERNS_KEY, PATTERNS.DOOR)
-        .setDepth(5)
+        .setDepth(8)
         .setScale(DOOR_SCALE);
 
-      // Door letter (A, B, C, D)
-      const letterText = this.add.text(doorX, doorY + 30, option.id, {
+      const letterText = this.add.text(doorX, doorY + 32, option.id, {
         fontFamily: FONTS.pixel,
-        fontSize: '16px',
-        color: isRec ? COLORS.textWarning : COLORS.textHighlight,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textHighlight,
       }).setOrigin(0.5).setDepth(10);
 
-      // Door label
-      const labelText = this.add.text(doorX, doorY + 50, option.label, {
+      const labelText = this.add.text(doorX, doorY + 58, option.label, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
-        color: isRec ? COLORS.textWarning : COLORS.textPrimary,
-        wordWrap: { width: spacing - 20 },
+        color: COLORS.textPrimary,
+        wordWrap: { width: cardWidth - 20 },
         align: 'center',
       }).setOrigin(0.5, 0).setDepth(10);
 
-      // Star for recommended
+      let recommendationBadge: Phaser.GameObjects.Text | undefined;
       if (isRec) {
-        this.add.text(doorX + 20, doorY + 70, '⭐', {
-          fontSize: '12px',
-        }).setOrigin(0.5).setDepth(10);
+        recommendationBadge = this.add.text(
+          doorX,
+          doorY + 102,
+          'RECOMMENDED',
+          {
+            fontFamily: FONTS.pixel,
+            fontSize: '8px',
+            color: COLORS.textWarning,
+            backgroundColor: '#46351c',
+            padding: { x: 4, y: 3 },
+          },
+        ).setOrigin(0.5).setDepth(11);
       }
 
-      this.doors.push({
+      const door = {
         option,
         x: doorX,
         y: doorY,
         doorSprite,
+        card,
+        letterText,
         labelText,
+        recommendationBadge,
         isRecommended: isRec,
-      });
+        isSelected: false,
+      };
+
+      card.on('pointerover', () => this.setDoorState(door, true));
+      card.on('pointerout', () => this.setDoorState(door, false));
+      card.on('pointerdown', () => this.approachDoor(door));
+
+      this.setDoorState(door, false);
+      this.doors.push(door);
     });
 
     this.phase = GamePhase.EXPLORING_DOORS;
@@ -267,8 +305,11 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   private clearDecision(): void {
     this.doors.forEach((d) => {
+      d.card.destroy();
       d.doorSprite.destroy();
+      d.letterText.destroy();
       d.labelText.destroy();
+      d.recommendationBadge?.destroy();
     });
     this.doors = [];
     this.questionText?.destroy();
@@ -341,15 +382,40 @@ export class DecisionRoomScene extends Phaser.Scene {
     door.doorSprite.setTint(0xffaa44);
   }
 
+  private setDoorState(door: DoorObject, active: boolean, selected = door.isSelected): void {
+    door.isSelected = selected;
+    const isRecommended = door.isRecommended;
+
+    door.card.setFillStyle(
+      selected ? 0x253b5f : active ? 0x222341 : isRecommended ? 0x2d2417 : 0x17172a,
+      0.96,
+    );
+    door.card.setStrokeStyle(
+      2,
+      selected ? COLORS.textHighlight : isRecommended ? COLORS.textWarning : active ? COLORS.panelBorderLight : COLORS.panelBorder,
+    );
+
+    door.doorSprite.setScale(selected || active ? DOOR_SCALE * 1.08 : DOOR_SCALE);
+    door.doorSprite.setTint(selected ? 0x88ccff : active ? 0xffffff : 0xffffff);
+
+    door.labelText.setColor(
+      selected ? '#ffffff' : isRecommended ? COLORS.textWarning : COLORS.textPrimary,
+    );
+  }
+
   private hideDoorPrompt(): void {
     this.promptText?.setVisible(false);
-    this.doors.forEach((d) => d.doorSprite.clearTint());
+    this.doors.forEach((d) => {
+      d.doorSprite.clearTint();
+      this.setDoorState(d, false);
+    });
   }
 
   /** Player pressed E near a door — show context input panel */
   private approachDoor(door: DoorObject): void {
     this.phase = GamePhase.DOOR_CONTEXT;
     this.currentDoor = door;
+    this.doors.forEach((d) => this.setDoorState(d, false, d === door));
     this.hideDoorPrompt();
 
     // Show a panel: "You chose [X]. Add context?" — fixed to screen so it
