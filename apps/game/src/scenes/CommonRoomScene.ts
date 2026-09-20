@@ -51,6 +51,28 @@ const GATE_BUTTON_Y =
   GATE_INPUT_HEIGHT +
   40;
 
+// ─────────────────────────────────────────────
+// Elevator
+// ─────────────────────────────────────────────
+
+const ELEVATOR_KEY = 'elevator';
+
+/**
+ * The uploaded elevator image contains 3 horizontal frames:
+ *
+ * Frame 0 → doors closed
+ * Frame 1 → doors opening
+ * Frame 2 → doors open
+ *
+ * Adjust this if the elevator looks too large/small.
+ */
+const ELEVATOR_SCALE = 0.35;
+
+/**
+ * Delay between elevator frames in milliseconds.
+ */
+const ELEVATOR_FRAME_DELAY = 150;
+
 export class CommonRoomScene extends Phaser.Scene {
   private player!: Player;
 
@@ -81,6 +103,14 @@ export class CommonRoomScene extends Phaser.Scene {
   private nearGate = false;
 
   // ─────────────────────────────────────────────
+  // Elevator
+  // ─────────────────────────────────────────────
+
+  private elevator?: Phaser.GameObjects.Sprite;
+
+  private elevatorAnimating = false;
+
+  // ─────────────────────────────────────────────
   // Gate UI
   // ─────────────────────────────────────────────
 
@@ -100,6 +130,9 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private gateStatusText?: Phaser.GameObjects.Text;
 
+  private elevatorInteractionX = 0;
+  private elevatorInteractionY = 0;
+
   private unsubscribeWs?: () => void;
 
   constructor() {
@@ -117,6 +150,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.gateOpen = false;
     this.gateSubmitted = false;
+    this.elevatorAnimating = false;
   }
 
   create(): void {
@@ -146,7 +180,7 @@ export class CommonRoomScene extends Phaser.Scene {
     this.unsubscribeWs =
       this.ws.onMessage(
         this.handleMessage.bind(this),
-    );
+      );
 
     /*
      * If the session was restored while the server
@@ -300,9 +334,13 @@ export class CommonRoomScene extends Phaser.Scene {
     );
 
     // ─────────────────────────────────────────
-    // Gate
+    // Elevator
     // ─────────────────────────────────────────
 
+    /*
+     * GATE_TILE is now only used as the
+     * elevator's position.
+     */
     this.gateX =
       GATE_TILE.x *
         MAP_TILE_SIZE +
@@ -313,41 +351,101 @@ export class CommonRoomScene extends Phaser.Scene {
         MAP_TILE_SIZE +
       MAP_TILE_SIZE / 2;
 
-    /*
-     * Gate marker.
-     */
-    this.add
-      .rectangle(
-        this.gateX,
-        this.gateY,
-        MAP_TILE_SIZE,
-        MAP_TILE_SIZE,
-        0x4a9eff,
-        0.35,
-      )
-      .setStrokeStyle(
-        2,
-        0x4a9eff,
-      )
-      .setDepth(3);
+    this.elevatorInteractionX = this.gateX;
 
-    this.add
-      .text(
+    this.elevatorInteractionY =
+      this.gateY + MAP_TILE_SIZE * 2;
+
+    /*
+     * Create the elevator.
+     *
+     * Frame 0 = closed elevator.
+     */
+    this.elevator = this.add
+      .sprite(
         this.gateX,
-        this.gateY -
-          MAP_TILE_SIZE,
-        'GATE',
-        {
-          fontFamily:
-            FONTS.pixel,
-          fontSize:
-            FONTS.size.lg,
-          color:
-            COLORS.textHighlight,
-        },
+        this.gateY + MAP_TILE_SIZE / 2,
+        ELEVATOR_KEY,
+        0,
       )
-      .setOrigin(0.5)
+      .setOrigin(0.5, 1)
+      .setScale(ELEVATOR_SCALE)
       .setDepth(10);
+
+      // Invisible collision area at the bottom of the elevator.
+      const elevatorCollider = this.add.rectangle(
+        this.gateX,
+        this.gateY - 10,
+        105,
+        110,
+        0xffffff,
+        0,
+      );
+
+      this.physics.add.existing(
+        elevatorCollider,
+        true,
+      );
+
+      this.walls.add(elevatorCollider);
+  }
+
+  // ─────────────────────────────────────────────
+  // Elevator animation
+  // ─────────────────────────────────────────────
+
+  private playElevatorAnimation(): void {
+    if (
+      !this.elevator ||
+      this.elevatorAnimating
+    ) {
+      return;
+    }
+
+    this.elevatorAnimating = true;
+
+    /*
+     * Start with closed doors.
+     */
+    this.elevator.setFrame(0);
+
+    /*
+     * Frame 1 → doors opening.
+     */
+    this.time.delayedCall(
+      ELEVATOR_FRAME_DELAY,
+      () => {
+        if (!this.elevator) {
+          return;
+        }
+
+        this.elevator.setFrame(1);
+      },
+    );
+
+    /*
+     * Frame 2 → doors fully open.
+     */
+    this.time.delayedCall(
+      ELEVATOR_FRAME_DELAY * 2,
+      () => {
+        if (!this.elevator) {
+          return;
+        }
+
+        this.elevator.setFrame(2);
+      },
+    );
+
+    /*
+     * Keep the elevator open.
+     */
+    this.time.delayedCall(
+      ELEVATOR_FRAME_DELAY * 3,
+      () => {
+        this.elevatorAnimating = false;
+      },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -424,7 +522,7 @@ export class CommonRoomScene extends Phaser.Scene {
         GAME_WIDTH / 2,
         GAME_HEIGHT -
           FOOTER_HEIGHT / 2,
-        'Walk to the Gate and press E',
+        'Walk to the Elevator and press E',
         {
           fontFamily:
             FONTS.pixel,
@@ -489,7 +587,7 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   // ─────────────────────────────────────────────
-  // Gate proximity
+  // Elevator proximity
   // ─────────────────────────────────────────────
 
   private checkGateProximity(): void {
@@ -497,8 +595,8 @@ export class CommonRoomScene extends Phaser.Scene {
       Phaser.Math.Distance.Between(
         this.player.sprite.x,
         this.player.sprite.y,
-        this.gateX,
-        this.gateY,
+        this.elevatorInteractionX,
+        this.elevatorInteractionY,
       );
 
     if (
@@ -533,7 +631,7 @@ export class CommonRoomScene extends Phaser.Scene {
         this.add.text(
           0,
           0,
-          'Press E to Enter Gate',
+          'Press E to Enter Elevator',
           {
             fontFamily:
               FONTS.pixel,
@@ -585,6 +683,12 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.hidePrompt();
 
+    /*
+     * Play elevator opening animation
+     * before showing the problem UI.
+     */
+    this.playElevatorAnimation();
+
     this.createGatePanel();
   }
 
@@ -597,6 +701,14 @@ export class CommonRoomScene extends Phaser.Scene {
     this.nearGate = false;
 
     this.hidePrompt();
+
+    /*
+     * If we're restoring a session, also
+     * show the elevator as open.
+     */
+    if (this.elevator) {
+      this.elevator.setFrame(2);
+    }
 
     this.createGatePanel();
   }
@@ -644,7 +756,7 @@ export class CommonRoomScene extends Phaser.Scene {
         .text(
           GAME_WIDTH / 2,
           90,
-          'THE GATE',
+          'THE ELEVATOR',
           {
             fontFamily:
               FONTS.pixel,
@@ -776,7 +888,7 @@ export class CommonRoomScene extends Phaser.Scene {
           y:
             GATE_BUTTON_Y,
           text:
-            'ENTER THE GATE',
+            'ENTER THE ELEVATOR',
           width: 240,
           height: 40,
           onClick: () =>
@@ -821,7 +933,7 @@ export class CommonRoomScene extends Phaser.Scene {
     this.gateWaiting = true;
 
     this.showGateWaiting(
-      'Entering the gate...',
+      'Entering the elevator...',
     );
 
     this.ws.send({
@@ -901,6 +1013,13 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.gateSubmitted =
       false;
+
+    /*
+     * Close the elevator again.
+     */
+    this.elevator?.setFrame(0);
+
+    this.elevatorAnimating = false;
   }
 
   // ─────────────────────────────────────────────

@@ -52,6 +52,15 @@ export class BootScene extends Phaser.Scene {
     this.createLoadingBar();
 
     this.load.spritesheet(
+      'elevator',
+      'assets/items/elevator.png',
+      {
+        frameWidth: 280,
+        frameHeight: 285,
+      }
+    );
+
+    this.load.spritesheet(
       PATTERNS_KEY,
       PATTERNS_PATH,
       PATTERNS_CONFIG,
@@ -123,6 +132,16 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     Player.createAnimations(this);
+
+    this.anims.create({
+      key: 'elevator-opening',
+      frames: this.anims.generateFrameNumbers('elevator', {
+        start: 0,
+        end: 2,
+      }),
+      frameRate: 6,
+      repeat: 0,
+    });
 
     this.store =
       new SessionStore();

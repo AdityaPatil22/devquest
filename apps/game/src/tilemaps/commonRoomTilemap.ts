@@ -57,7 +57,7 @@ export const DECOR_OBJECT_LAYERS = [
 ];
 
 /** Player spawn point, in tile coordinates — a verified open walkable tile */
-export const SPAWN_TILE = { x: 13, y: 13 };
+export const SPAWN_TILE = { x: 21, y: 13 };
 
 /** Gate trigger point, in tile coordinates — a verified open walkable tile */
-export const GATE_TILE = { x: 25, y: 4 };
+export const GATE_TILE = { x: 26.4, y: 9 };
