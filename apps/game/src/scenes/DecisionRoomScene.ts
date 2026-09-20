@@ -27,7 +27,6 @@ import type {
   EvaluationMsg,
   SessionCompleteMsg,
   DecisionOption,
-  Recommendation,
 } from '../net/protocol';
 
 interface DoorObject {
@@ -45,12 +44,6 @@ interface SceneData {
   decision: DecisionCreatedMsg;
 }
 
-/**
- * Decision Room — the main game loop scene.
- * Renders N doors from the skill's options. Player walks to a door to select.
- * Reused for every question — just resets with new doors.
- */
-/** Visual scale applied to the door/prop overlays (native art is 16px) */
 const DOOR_SCALE = 2;
 
 export class DecisionRoomScene extends Phaser.Scene {
@@ -69,9 +62,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   private currentDoor?: DoorObject;
   private currentNodeId = '';
 
-  // UI elements
-  private questionText?: Phaser.GameObjects.Text;
-  private roundText?: Phaser.GameObjects.Text;
+  // All UI created for the current decision/round is tracked here so it can
+  // be destroyed together before the next decision is rendered.
+  private roundUiContainer?: Phaser.GameObjects.Container;
   private promptText?: Phaser.GameObjects.Text;
   private panelContainer?: Phaser.GameObjects.Container;
   private waitingText?: Phaser.GameObjects.Text;
@@ -90,7 +83,6 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.ws.onMessage(this.handleMessage.bind(this));
 
     this.currentNodeId = data.decision.nodeId;
-    // We'll render the decision in create()
     this.data.set('decision', data.decision);
   }
 
@@ -120,17 +112,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     }
   }
 
-  // ─── Room building ───
-
-  /**
-   * Builds the room directly from the hand-authored Tiled map
-   * (public/assets/map/decisionroom/decision-room.json) instead of the old
-   * procedurally-generated tile grid.
-   */
   private buildRoom(): void {
-    // The map's tilesets are only referenced as external .tsx files, which
-    // Phaser can't load — patch in embedded tileset definitions before
-    // parsing (see decisionRoomTilemap.ts for why this is safe).
     const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
     if (cached?.data) {
       patchDecisionRoomTilesets(cached.data);
@@ -143,26 +125,15 @@ export class DecisionRoomScene extends Phaser.Scene {
     ).filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
     DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      // Deliberately NOT passing explicit x/y here: this map is an
-      // "infinite" (chunked) Tiled map where each layer's tiles can start
-      // at a different (even negative) chunk offset. Omitting x/y lets
-      // Phaser fall back to each layer's own computed Tiled offset so the
-      // layers still line up correctly — forcing them all to (0,0) would
-      // misalign them relative to one another.
       const layer = this.map.createLayer(layerName, tilesets);
       layer?.setDepth(depth);
 
       if (layerName === DECISION_COLLIDABLE_LAYER) {
-        // Every non-empty tile on the Walls layer blocks the player.
         layer?.setCollisionByExclusion([-1]);
         this.wallsLayer = layer ?? undefined;
       }
     });
 
-    // This is an infinite map, so `map.widthInPixels`/`heightInPixels`
-    // (derived from the map's nominal, not-quite-accurate top-level
-    // width/height) can't be trusted for bounds/centering — use the real
-    // measured content bounds instead (see decisionRoomTilemap.ts).
     const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
     const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
     const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
@@ -170,27 +141,20 @@ export class DecisionRoomScene extends Phaser.Scene {
     const boundsHeightPx = (maxTileY - minTileY + 1) * DECISION_MAP_TILE_SIZE;
 
     this.physics.world.setBounds(boundsX, boundsY, boundsWidthPx, boundsHeightPx);
-
-    // This room is small enough to always fit on screen, so keep the
-    // camera static and centered on it rather than using bounds + follow
-    // (Camera bounds clamp scroll to (0,0) whenever the world is smaller
-    // than the viewport, which pins the room to the top-left corner).
     this.cameras.main.centerOn(boundsX + boundsWidthPx / 2, boundsY + boundsHeightPx / 2);
   }
 
-  // ─── Decision rendering ───
-
-  /** Create doors from the skill's options */
   private renderDecision(decision: DecisionCreatedMsg): void {
     this.clearDecision();
     this.currentNodeId = decision.nodeId;
 
-    // Question text at top (fixed to screen — stays put even if the camera pans)
+    this.roundUiContainer = this.add.container(0, 0).setDepth(100);
+
     this.roundText = this.add.text(GAME_WIDTH / 2, 30, `ROUND ${decision.round}`, {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.sm,
       color: COLORS.textSecondary,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+    }).setOrigin(0.5).setScrollFactor(0);
 
     this.questionText = this.add.text(GAME_WIDTH / 2, 60, decision.question, {
       fontFamily: FONTS.pixel,
@@ -198,21 +162,25 @@ export class DecisionRoomScene extends Phaser.Scene {
       color: COLORS.textPrimary,
       wordWrap: { width: GAME_WIDTH - 100 },
       align: 'center',
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
+    }).setOrigin(0.5, 0).setScrollFactor(0);
 
-    // Recommendation hint
+    this.roundUiContainer.add([this.roundText, this.questionText]);
+
     if (decision.recommendation) {
-      this.add.text(GAME_WIDTH / 2, 110, `💡 Recommended: ${decision.recommendation.option}`, {
-        fontFamily: FONTS.pixel,
-        fontSize: FONTS.size.sm,
-        color: COLORS.textWarning,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+      const recommendationText = this.add.text(
+        GAME_WIDTH / 2,
+        110,
+        `💡 Recommended: ${decision.recommendation.option}`,
+        {
+          fontFamily: FONTS.pixel,
+          fontSize: FONTS.size.sm,
+          color: COLORS.textWarning,
+        },
+      ).setOrigin(0.5).setScrollFactor(0);
+
+      this.roundUiContainer.add(recommendationText);
     }
 
-    // Create doors along a verified-open row near the top of the room
-    // (in-world, so they scroll/collide like any other map object the
-    // player walks to). Uses the room's real measured open span rather
-    // than the map's nominal pixel size (see decisionRoomTilemap.ts).
     const opts = decision.options;
     const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
     const rangeWidthPx =
@@ -229,14 +197,12 @@ export class DecisionRoomScene extends Phaser.Scene {
         .setDepth(5)
         .setScale(DOOR_SCALE);
 
-      // Door letter (A, B, C, D)
       const letterText = this.add.text(doorX, doorY + 30, option.id, {
         fontFamily: FONTS.pixel,
         fontSize: '16px',
         color: isRec ? COLORS.textWarning : COLORS.textHighlight,
       }).setOrigin(0.5).setDepth(10);
 
-      // Door label
       const labelText = this.add.text(doorX, doorY + 50, option.label, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
@@ -245,11 +211,14 @@ export class DecisionRoomScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5, 0).setDepth(10);
 
-      // Star for recommended
+      this.roundUiContainer.add([doorSprite, letterText, labelText]);
+
       if (isRec) {
-        this.add.text(doorX + 20, doorY + 70, '⭐', {
+        const recommendationStar = this.add.text(doorX + 20, doorY + 70, '⭐', {
           fontSize: '12px',
         }).setOrigin(0.5).setDepth(10);
+
+        this.roundUiContainer.add(recommendationStar);
       }
 
       this.doors.push({
@@ -266,27 +235,25 @@ export class DecisionRoomScene extends Phaser.Scene {
   }
 
   private clearDecision(): void {
-    this.doors.forEach((d) => {
-      d.doorSprite.destroy();
-      d.labelText.destroy();
-    });
+    this.doors.forEach((d) => d.doorSprite.clearTint());
     this.doors = [];
-    this.questionText?.destroy();
-    this.roundText?.destroy();
-    this.promptText?.destroy();
-    this.panelContainer?.destroy();
-    this.waitingText?.destroy();
+    this.currentDoor = undefined;
+
+    if (this.roundUiContainer) {
+      this.roundUiContainer.destroy(true);
+      this.roundUiContainer = undefined;
+    }
+
+    this.promptText = undefined;
+    this.panelContainer = undefined;
+    this.waitingText = undefined;
     this.textInput?.hide();
   }
-
-  // ─── Player & interaction ───
 
   private createPlayer(): void {
     const spawnX = DECISION_SPAWN_TILE.x * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
     const spawnY = DECISION_SPAWN_TILE.y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
     this.player = new Player(this, spawnX, spawnY);
-    // No camera follow here — the room is small enough that it's kept
-    // fully visible and centered (see buildRoom()) instead of scrolling.
   }
 
   private setupInput(): void {
@@ -330,14 +297,13 @@ export class DecisionRoomScene extends Phaser.Scene {
         backgroundColor: '#1a1a2e',
         padding: { x: 4, y: 4 },
       }).setDepth(100);
+
+      this.roundUiContainer?.add(this.promptText);
     }
-    // Positioned relative to the door's in-world coordinates, so it must
-    // scroll along with the world (no setScrollFactor(0) here).
+
     this.promptText.setText(`Press E: Door ${door.option.id} — ${door.option.label}`);
     this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 90);
     this.promptText.setVisible(true);
-
-    // Highlight the door
     door.doorSprite.setTint(0xffaa44);
   }
 
@@ -346,34 +312,46 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.doors.forEach((d) => d.doorSprite.clearTint());
   }
 
-  /** Player pressed E near a door — show context input panel */
   private approachDoor(door: DoorObject): void {
     this.phase = GamePhase.DOOR_CONTEXT;
     this.currentDoor = door;
     this.hideDoorPrompt();
 
-    // Show a panel: "You chose [X]. Add context?" — fixed to screen so it
-    // stays put no matter where the camera has scrolled to.
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 620, 280, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    const panelBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 60,
+      620,
+      280,
+      COLORS.panelBg,
+      0.95,
+    ).setStrokeStyle(2, COLORS.panelBorder).setDepth(150);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 170, `Door ${door.option.id}: ${door.option.label}`, {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.lg,
-      color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(151);
+    const title = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 170,
+      `Door ${door.option.id}: ${door.option.label}`,
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textHighlight,
+      },
+    ).setOrigin(0.5).setDepth(151);
 
-    const subtitle = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 140, 'Add context before entering? (optional)', {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.sm,
-      color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(151);
+    const subtitle = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 140,
+      'Add context before entering? (optional)',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+      },
+    ).setOrigin(0.5).setDepth(151);
 
     this.panelContainer = this.add.container(0, 0, [panelBg, title, subtitle]);
     this.panelContainer.setDepth(150).setScrollFactor(0);
+    this.roundUiContainer?.add(this.panelContainer);
 
-    // Show textarea
     const canvasRect = this.game.canvas.getBoundingClientRect();
     const scaleX = canvasRect.width / this.cameras.main.width;
     const scaleY = canvasRect.height / this.cameras.main.height;
@@ -382,12 +360,18 @@ export class DecisionRoomScene extends Phaser.Scene {
     const inputX = canvasRect.left + (GAME_WIDTH / 2 - inputW / 2) * scaleX;
     const inputY = canvasRect.top + (GAME_HEIGHT / 2 - 100) * scaleY;
 
-    this.textInput.show(inputX, inputY, inputW * scaleX, inputH * scaleY,
-      '"I was also thinking..." (or leave empty)'
+    this.textInput.show(
+      inputX,
+      inputY,
+      inputW * scaleX,
+      inputH * scaleY,
+      '"I was also thinking..." (or leave empty)',
     );
 
-    // Buttons
-    const enterBtn = new TextButton(this, {
+    let enterBtn: TextButton;
+    let skipBtn: TextButton;
+
+    enterBtn = new TextButton(this, {
       x: GAME_WIDTH / 2 - 80,
       y: GAME_HEIGHT / 2 + 50,
       text: 'ENTER DOOR',
@@ -399,12 +383,14 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.panelContainer?.destroy();
         enterBtn.destroy();
         skipBtn.destroy();
+        this.panelContainer = undefined;
         this.selectDoor(door, context || undefined);
       },
     });
     enterBtn.container.setScrollFactor(0);
+    this.roundUiContainer?.add(enterBtn.container);
 
-    const skipBtn = new TextButton(this, {
+    skipBtn = new TextButton(this, {
       x: GAME_WIDTH / 2 + 80,
       y: GAME_HEIGHT / 2 + 50,
       text: 'SKIP CONTEXT',
@@ -415,13 +401,14 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.panelContainer?.destroy();
         enterBtn.destroy();
         skipBtn.destroy();
+        this.panelContainer = undefined;
         this.selectDoor(door, undefined);
       },
     });
     skipBtn.container.setScrollFactor(0);
+    this.roundUiContainer?.add(skipBtn.container);
   }
 
-  /** Send the selection to the server */
   private selectDoor(door: DoorObject, context?: string): void {
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
     this.showWaiting('Entering door...');
@@ -439,15 +426,18 @@ export class DecisionRoomScene extends Phaser.Scene {
     });
   }
 
-  // ─── Challenge & Evaluation UI ───
-
   private showChallengePanel(question: string): void {
     this.hideWaiting();
     this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
 
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, 620, 320, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    const panelBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 40,
+      620,
+      320,
+      COLORS.panelBg,
+      0.95,
+    ).setStrokeStyle(2, COLORS.panelBorder).setDepth(150);
 
     const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 170, '🤖 CHALLENGE', {
       fontFamily: FONTS.pixel,
@@ -465,8 +455,8 @@ export class DecisionRoomScene extends Phaser.Scene {
 
     this.panelContainer = this.add.container(0, 0, [panelBg, title, qText]);
     this.panelContainer.setDepth(150).setScrollFactor(0);
+    this.roundUiContainer?.add(this.panelContainer);
 
-    // Text input
     const canvasRect = this.game.canvas.getBoundingClientRect();
     const scaleX = canvasRect.width / this.cameras.main.width;
     const scaleY = canvasRect.height / this.cameras.main.height;
@@ -475,11 +465,16 @@ export class DecisionRoomScene extends Phaser.Scene {
     const inputX = canvasRect.left + (GAME_WIDTH / 2 - inputW / 2) * scaleX;
     const inputY = canvasRect.top + (GAME_HEIGHT / 2 - 20) * scaleY;
 
-    this.textInput.show(inputX, inputY, inputW * scaleX, inputH * scaleY,
-      'Defend your choice...'
+    this.textInput.show(
+      inputX,
+      inputY,
+      inputW * scaleX,
+      inputH * scaleY,
+      'Defend your choice...',
     );
 
-    const submitBtn = new TextButton(this, {
+    let submitBtn: TextButton;
+    submitBtn = new TextButton(this, {
       x: GAME_WIDTH / 2,
       y: GAME_HEIGHT / 2 + 100,
       text: 'DEFEND',
@@ -492,6 +487,7 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.textInput.hide();
         this.panelContainer?.destroy();
         submitBtn.destroy();
+        this.panelContainer = undefined;
         this.phase = GamePhase.WAITING_FOR_EVALUATION;
         this.showWaiting('AI is evaluating...');
 
@@ -505,15 +501,21 @@ export class DecisionRoomScene extends Phaser.Scene {
       },
     });
     submitBtn.container.setScrollFactor(0);
+    this.roundUiContainer?.add(submitBtn.container);
   }
 
   private showEvaluationPanel(feedback: string, consequence: string): void {
     this.hideWaiting();
     this.phase = GamePhase.SHOWING_EVALUATION;
 
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 620, 300, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    const panelBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 - 20,
+      620,
+      300,
+      COLORS.panelBg,
+      0.95,
+    ).setStrokeStyle(2, COLORS.panelBorder).setDepth(150);
 
     const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 140, '📋 EVALUATION', {
       fontFamily: FONTS.pixel,
@@ -522,33 +524,57 @@ export class DecisionRoomScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(151);
 
     const fbLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 105, 'Feedback:', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.sm,
+      color: COLORS.textSecondary,
     }).setOrigin(0.5).setDepth(151);
 
     const fbText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, feedback, {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textPrimary,
-      wordWrap: { width: 560 }, lineSpacing: 6,
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.md,
+      color: COLORS.textPrimary,
+      wordWrap: { width: 560 },
+      lineSpacing: 6,
     }).setOrigin(0.5, 0).setDepth(151);
 
     const csqLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'Consequence:', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.sm,
+      color: COLORS.textSecondary,
     }).setOrigin(0.5).setDepth(151);
 
     const csqText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, consequence, {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textWarning,
-      wordWrap: { width: 560 }, lineSpacing: 6,
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.md,
+      color: COLORS.textWarning,
+      wordWrap: { width: 560 },
+      lineSpacing: 6,
     }).setOrigin(0.5, 0).setDepth(151);
 
-    this.panelContainer = this.add.container(0, 0, [panelBg, title, fbLabel, fbText, csqLabel, csqText]);
+    this.panelContainer = this.add.container(0, 0, [
+      panelBg,
+      title,
+      fbLabel,
+      fbText,
+      csqLabel,
+      csqText,
+    ]);
     this.panelContainer.setDepth(150).setScrollFactor(0);
+    this.roundUiContainer?.add(this.panelContainer);
 
-    // "Waiting for next room..." text — the next decision will auto-arrive
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Next room loading...', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+    const nextRoomText = this.add.text(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 100,
+      'Next room loading...',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+      },
+    ).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+
+    this.roundUiContainer?.add(nextRoomText);
   }
-
-  // ─── Waiting state ───
 
   private showWaiting(message: string): void {
     this.hideWaiting();
@@ -557,6 +583,8 @@ export class DecisionRoomScene extends Phaser.Scene {
       fontSize: FONTS.size.lg,
       color: COLORS.textHighlight,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+    this.roundUiContainer?.add(this.waitingText);
 
     this.tweens.add({
       targets: this.waitingText,
@@ -574,8 +602,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       this.waitingText = undefined;
     }
   }
-
-  // ─── Server messages ───
 
   private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
@@ -597,7 +623,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       }
 
       case 'DECISION_CREATED': {
-        // Next question arrived — transition to new room
         const decision = msg as DecisionCreatedMsg;
         this.store.addDecision({
           nodeId: decision.nodeId,
@@ -607,7 +632,6 @@ export class DecisionRoomScene extends Phaser.Scene {
           round: decision.round,
         });
 
-        // Brief pause then render new room
         this.time.delayedCall(2000, () => {
           this.renderDecision(decision);
         });
@@ -628,8 +652,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       }
 
       case 'SESSION_RESUMED':
-        // Reconnected to the same session — nothing to reset here,
-        // any queued messages will follow immediately.
         break;
 
       case 'ERROR':
@@ -640,5 +662,6 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   shutdown(): void {
     this.textInput?.hide();
+    this.clearDecision();
   }
 }
