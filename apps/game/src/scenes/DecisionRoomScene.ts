@@ -75,6 +75,12 @@ export class DecisionRoomScene extends Phaser.Scene {
   private promptText?: Phaser.GameObjects.Text;
   private panelContainer?: Phaser.GameObjects.Container;
   private waitingText?: Phaser.GameObjects.Text;
+  private processingContainer?: Phaser.GameObjects.Container;
+  private processingMessage?: Phaser.GameObjects.Text;
+  private processingDots?: Phaser.GameObjects.Text;
+  private processingRetryButton?: TextButton;
+  private processingTween?: Phaser.Tweens.Tween;
+  private lastPendingAction?: () => void;
 
   constructor() {
     super({ key: 'DecisionRoomScene' });
@@ -424,7 +430,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   /** Send the selection to the server */
   private selectDoor(door: DoorObject, context?: string): void {
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
-    this.showWaiting('Entering door...');
+    this.showProcessingState('Waiting for the AI to open your next room…', () => {
+      this.selectDoor(door, context);
+    });
 
     this.store.updateCurrent({
       selectedOptionId: door.option.id,
@@ -442,6 +450,7 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ─── Challenge & Evaluation UI ───
 
   private showChallengePanel(question: string): void {
+    this.hideProcessingState();
     this.hideWaiting();
     this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
 
@@ -493,7 +502,13 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.panelContainer?.destroy();
         submitBtn.destroy();
         this.phase = GamePhase.WAITING_FOR_EVALUATION;
-        this.showWaiting('AI is evaluating...');
+        this.showProcessingState('The AI is evaluating your defense…', () => {
+          this.ws.send({
+            type: 'CHALLENGE_RESPONSE',
+            nodeId: this.currentNodeId,
+            response,
+          });
+        });
 
         this.store.updateCurrent({ defense: response });
 
@@ -508,6 +523,7 @@ export class DecisionRoomScene extends Phaser.Scene {
   }
 
   private showEvaluationPanel(feedback: string, consequence: string): void {
+    this.hideProcessingState();
     this.hideWaiting();
     this.phase = GamePhase.SHOWING_EVALUATION;
 
@@ -546,6 +562,81 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Next room loading...', {
       fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+  }
+
+  private showProcessingState(message: string, retry?: () => void): void {
+    this.hideProcessingState();
+    this.lastPendingAction = retry;
+
+    const width = Math.max(280, Math.min(460, GAME_WIDTH - 48));
+    const overlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.35)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(300);
+    const panelHeight = retry ? 180 : 150;
+    const panel = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, width, panelHeight, COLORS.panelBg, 0.98)
+      .setStrokeStyle(2, COLORS.panelBorder).setOrigin(0.5).setScrollFactor(0);
+
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 42, message, {
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.md,
+      color: COLORS.textPrimary,
+      wordWrap: { width: width - 40 },
+      align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    this.processingDots = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 8, '·  ·  ·', {
+      fontFamily: FONTS.pixel,
+      fontSize: FONTS.size.lg,
+      color: COLORS.textHighlight,
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    this.processingContainer = this.add.container(0, 0, [overlay, panel, title, this.processingDots])
+      .setDepth(300).setScrollFactor(0);
+
+    if (retry) {
+      this.processingRetryButton = new TextButton(this, {
+        x: GAME_WIDTH / 2,
+        y: GAME_HEIGHT / 2 + 52,
+        text: 'RETRY',
+        width: 140,
+        height: 36,
+        onClick: () => {
+          const action = this.lastPendingAction;
+          if (!action) return;
+          this.hideProcessingState();
+          action();
+        },
+      });
+      this.processingRetryButton.container.setScrollFactor(0).setDepth(301);
+      this.processingContainer.add(this.processingRetryButton.container);
+    }
+
+    let frame = 0;
+    this.processingTween = this.tweens.add({
+      targets: this.processingDots,
+      alpha: { from: 0.35, to: 1 },
+      duration: 450,
+      yoyo: true,
+      repeat: -1,
+      onYoyo: () => {
+        if (!this.processingDots) return;
+        frame = (frame + 1) % 4;
+        this.processingDots.setText(['·  ·  ·', '··  ·', '·  ··', '···'][frame]);
+      },
+    });
+  }
+
+  private hideProcessingState(): void {
+    if (this.processingTween) {
+      this.processingTween.stop();
+      this.processingTween = undefined;
+    }
+    this.processingRetryButton?.destroy();
+    this.processingRetryButton = undefined;
+    this.processingContainer?.destroy(true);
+    this.processingContainer = undefined;
+    this.processingMessage = undefined;
+    this.processingDots = undefined;
+    this.lastPendingAction = undefined;
   }
 
   // ─── Waiting state ───
@@ -634,11 +725,13 @@ export class DecisionRoomScene extends Phaser.Scene {
 
       case 'ERROR':
         console.error('Server error:', msg.message);
+        this.showProcessingState(msg.message || 'Something went wrong.', this.lastPendingAction);
         break;
     }
   }
 
   shutdown(): void {
+    this.hideProcessingState();
     this.textInput?.hide();
   }
 }
