@@ -5,13 +5,6 @@ type MessageHandler = (msg: ServerMessage) => void;
 
 const SESSION_STORAGE_KEY = 'devquest_session_id';
 
-/**
- * WebSocket client with auto-reconnect and session persistence.
- *
- * On reconnect the client appends the stored session_id as a query
- * parameter so the server can associate the new socket with the
- * existing session instead of creating a brand-new one.
- */
 export class WebSocketClient {
   private ws?: WebSocket;
   private handlers: MessageHandler[] = [];
@@ -20,10 +13,10 @@ export class WebSocketClient {
   private maxReconnectAttempts = 10;
   private baseUrl: string;
   private _sessionId?: string;
+  private outboundQueue: ClientMessage[] = [];
 
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
-    // Restore session from a previous page load
     this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
   }
 
@@ -31,22 +24,19 @@ export class WebSocketClient {
     return this._sessionId;
   }
 
-  /** Store the session_id for future reconnects / page reloads. */
   setSessionId(id: string): void {
     this._sessionId = id;
     sessionStorage.setItem(SESSION_STORAGE_KEY, id);
   }
 
-  /** Clear the stored session so the next connect creates a fresh one. */
   clearSession(): void {
     this._sessionId = undefined;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
   connect(): void {
-    // Close any existing socket first to prevent duplicate connections
     if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
-      this.ws.onclose = null; // prevent triggering reconnect
+      this.ws.onclose = null;
       this.ws.close();
     }
 
@@ -58,8 +48,12 @@ export class WebSocketClient {
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
-        console.log('[WS] Connected', this._sessionId ? `(session ${this._sessionId})` : '(new)');
+        console.log(
+          '[WS] Connected',
+          this._sessionId ? `(session ${this._sessionId})` : '(new)',
+        );
         this.reconnectAttempts = 0;
+        this.flushQueue();
       };
 
       this.ws.onmessage = (event) => {
@@ -87,9 +81,15 @@ export class WebSocketClient {
 
   send(msg: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
+      try {
+        this.ws.send(JSON.stringify(msg));
+      } catch (err) {
+        console.error('[WS] Failed to send message, queued for retry:', err);
+        this.outboundQueue.push(msg);
+      }
     } else {
-      console.warn('[WS] Not connected, message dropped:', msg.type);
+      this.outboundQueue.push(msg);
+      console.log('[WS] Not connected, message queued:', msg.type);
     }
   }
 
@@ -100,9 +100,11 @@ export class WebSocketClient {
   disconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
     }
+
     if (this.ws) {
-      this.ws.onclose = null; // prevent triggering reconnect
+      this.ws.onclose = null;
       this.ws.close();
       this.ws = undefined;
     }
@@ -110,6 +112,21 @@ export class WebSocketClient {
 
   get connected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  private flushQueue(): void {
+    while (this.ws?.readyState === WebSocket.OPEN && this.outboundQueue.length > 0) {
+      const msg = this.outboundQueue.shift();
+      if (!msg) return;
+
+      try {
+        this.ws.send(JSON.stringify(msg));
+      } catch (err) {
+        console.error('[WS] Failed to flush queued message:', err);
+        this.outboundQueue.unshift(msg);
+        return;
+      }
+    }
   }
 
   private scheduleReconnect(): void {
