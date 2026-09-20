@@ -2,9 +2,8 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { GameTextInput } from '../ui/GameTextInput';
 import { TextButton } from '../ui/TextButton';
-import { Panel } from '../ui/Panel';
 import { GamePhase } from '../state/GameState';
-import { SessionStore, DecisionRecord } from '../state/SessionStore';
+import { SessionStore } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS, FONTS } from '../config';
 import { PATTERNS_KEY, PATTERNS } from '../tiles';
@@ -27,7 +26,6 @@ import type {
   EvaluationMsg,
   SessionCompleteMsg,
   DecisionOption,
-  Recommendation,
 } from '../net/protocol';
 
 interface DoorObject {
@@ -45,13 +43,17 @@ interface SceneData {
   decision: DecisionCreatedMsg;
 }
 
-/**
- * Decision Room — the main game loop scene.
- * Renders N doors from the skill's options. Player walks to a door to select.
- * Reused for every question — just resets with new doors.
- */
-/** Visual scale applied to the door/prop overlays (native art is 16px) */
 const DOOR_SCALE = 2;
+const PANEL_MAX_WIDTH = 620;
+const PANEL_MIN_WIDTH = 280;
+const PANEL_HORIZONTAL_MARGIN = 24;
+const PANEL_MAX_INPUT_WIDTH = 560;
+const PANEL_INPUT_HEIGHT = 80;
+const PANEL_HEIGHTS = {
+  context: 280,
+  challenge: 320,
+  evaluation: 300,
+} as const;
 
 export class DecisionRoomScene extends Phaser.Scene {
   private player!: Player;
@@ -69,12 +71,14 @@ export class DecisionRoomScene extends Phaser.Scene {
   private currentDoor?: DoorObject;
   private currentNodeId = '';
 
-  // UI elements
   private questionText?: Phaser.GameObjects.Text;
   private roundText?: Phaser.GameObjects.Text;
+  private recommendationText?: Phaser.GameObjects.Text;
   private promptText?: Phaser.GameObjects.Text;
   private panelContainer?: Phaser.GameObjects.Container;
   private waitingText?: Phaser.GameObjects.Text;
+  private activePanelType?: keyof typeof PANEL_HEIGHTS;
+  private resizeHandler?: () => void;
 
   constructor() {
     super({ key: 'DecisionRoomScene' });
@@ -90,7 +94,6 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.ws.onMessage(this.handleMessage.bind(this));
 
     this.currentNodeId = data.decision.nodeId;
-    // We'll render the decision in create()
     this.data.set('decision', data.decision);
   }
 
@@ -98,6 +101,9 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.textInput = new GameTextInput(
       this.game.canvas.parentElement as HTMLElement
     );
+
+    this.resizeHandler = () => this.repositionTextInput();
+    this.scale.on('resize', this.resizeHandler);
 
     this.buildRoom();
     this.createPlayer();
@@ -120,17 +126,36 @@ export class DecisionRoomScene extends Phaser.Scene {
     }
   }
 
-  // ─── Room building ───
+  private getViewportSize(): { width: number; height: number } {
+    const width = this.scale.gameSize.width || GAME_WIDTH;
+    const height = this.scale.gameSize.height || GAME_HEIGHT;
+    return { width, height };
+  }
 
-  /**
-   * Builds the room directly from the hand-authored Tiled map
-   * (public/assets/map/decisionroom/decision-room.json) instead of the old
-   * procedurally-generated tile grid.
-   */
+  private getResponsivePanelMetrics(
+    height: number,
+  ): { width: number; inputWidth: number; margin: number } {
+    const width = this.getViewportSize().width;
+    const margin = Math.max(PANEL_HORIZONTAL_MARGIN, Math.round(width * 0.05));
+    const panelWidth = Math.min(
+      PANEL_MAX_WIDTH,
+      Math.max(PANEL_MIN_WIDTH, width - margin * 2),
+    );
+
+    // Leave enough horizontal breathing room for narrow screens.
+    const inputWidth = Math.min(
+      PANEL_MAX_INPUT_WIDTH,
+      Math.max(220, panelWidth - 40),
+    );
+
+    return {
+      width: panelWidth,
+      inputWidth,
+      margin,
+    };
+  }
+
   private buildRoom(): void {
-    // The map's tilesets are only referenced as external .tsx files, which
-    // Phaser can't load — patch in embedded tileset definitions before
-    // parsing (see decisionRoomTilemap.ts for why this is safe).
     const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
     if (cached?.data) {
       patchDecisionRoomTilesets(cached.data);
@@ -143,26 +168,15 @@ export class DecisionRoomScene extends Phaser.Scene {
     ).filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
     DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      // Deliberately NOT passing explicit x/y here: this map is an
-      // "infinite" (chunked) Tiled map where each layer's tiles can start
-      // at a different (even negative) chunk offset. Omitting x/y lets
-      // Phaser fall back to each layer's own computed Tiled offset so the
-      // layers still line up correctly — forcing them all to (0,0) would
-      // misalign them relative to one another.
       const layer = this.map.createLayer(layerName, tilesets);
       layer?.setDepth(depth);
 
       if (layerName === DECISION_COLLIDABLE_LAYER) {
-        // Every non-empty tile on the Walls layer blocks the player.
         layer?.setCollisionByExclusion([-1]);
         this.wallsLayer = layer ?? undefined;
       }
     });
 
-    // This is an infinite map, so `map.widthInPixels`/`heightInPixels`
-    // (derived from the map's nominal, not-quite-accurate top-level
-    // width/height) can't be trusted for bounds/centering — use the real
-    // measured content bounds instead (see decisionRoomTilemap.ts).
     const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
     const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
     const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
@@ -170,22 +184,13 @@ export class DecisionRoomScene extends Phaser.Scene {
     const boundsHeightPx = (maxTileY - minTileY + 1) * DECISION_MAP_TILE_SIZE;
 
     this.physics.world.setBounds(boundsX, boundsY, boundsWidthPx, boundsHeightPx);
-
-    // This room is small enough to always fit on screen, so keep the
-    // camera static and centered on it rather than using bounds + follow
-    // (Camera bounds clamp scroll to (0,0) whenever the world is smaller
-    // than the viewport, which pins the room to the top-left corner).
     this.cameras.main.centerOn(boundsX + boundsWidthPx / 2, boundsY + boundsHeightPx / 2);
   }
 
-  // ─── Decision rendering ───
-
-  /** Create doors from the skill's options */
   private renderDecision(decision: DecisionCreatedMsg): void {
     this.clearDecision();
     this.currentNodeId = decision.nodeId;
 
-    // Question text at top (fixed to screen — stays put even if the camera pans)
     this.roundText = this.add.text(GAME_WIDTH / 2, 30, `ROUND ${decision.round}`, {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.sm,
@@ -196,23 +201,23 @@ export class DecisionRoomScene extends Phaser.Scene {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.lg,
       color: COLORS.textPrimary,
-      wordWrap: { width: GAME_WIDTH - 100 },
+      wordWrap: { width: Math.max(220, GAME_WIDTH - 100) },
       align: 'center',
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
 
-    // Recommendation hint
     if (decision.recommendation) {
-      this.add.text(GAME_WIDTH / 2, 110, `💡 Recommended: ${decision.recommendation.option}`, {
-        fontFamily: FONTS.pixel,
-        fontSize: FONTS.size.sm,
-        color: COLORS.textWarning,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+      this.recommendationText = this.add.text(
+        GAME_WIDTH / 2,
+        110,
+        `💡 Recommended: ${decision.recommendation.option}`,
+        {
+          fontFamily: FONTS.pixel,
+          fontSize: FONTS.size.sm,
+          color: COLORS.textWarning,
+        },
+      ).setOrigin(0.5).setScrollFactor(0).setDepth(100);
     }
 
-    // Create doors along a verified-open row near the top of the room
-    // (in-world, so they scroll/collide like any other map object the
-    // player walks to). Uses the room's real measured open span rather
-    // than the map's nominal pixel size (see decisionRoomTilemap.ts).
     const opts = decision.options;
     const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
     const rangeWidthPx =
@@ -229,23 +234,20 @@ export class DecisionRoomScene extends Phaser.Scene {
         .setDepth(5)
         .setScale(DOOR_SCALE);
 
-      // Door letter (A, B, C, D)
       const letterText = this.add.text(doorX, doorY + 30, option.id, {
         fontFamily: FONTS.pixel,
         fontSize: '16px',
         color: isRec ? COLORS.textWarning : COLORS.textHighlight,
       }).setOrigin(0.5).setDepth(10);
 
-      // Door label
       const labelText = this.add.text(doorX, doorY + 50, option.label, {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
         color: isRec ? COLORS.textWarning : COLORS.textPrimary,
-        wordWrap: { width: spacing - 20 },
+        wordWrap: { width: Math.max(120, spacing - 20) },
         align: 'center',
       }).setOrigin(0.5, 0).setDepth(10);
 
-      // Star for recommended
       if (isRec) {
         this.add.text(doorX + 20, doorY + 70, '⭐', {
           fontSize: '12px',
@@ -271,22 +273,29 @@ export class DecisionRoomScene extends Phaser.Scene {
       d.labelText.destroy();
     });
     this.doors = [];
+    this.currentDoor = undefined;
+
     this.questionText?.destroy();
+    this.questionText = undefined;
     this.roundText?.destroy();
+    this.roundText = undefined;
+    this.recommendationText?.destroy();
+    this.recommendationText = undefined;
     this.promptText?.destroy();
-    this.panelContainer?.destroy();
+    this.promptText = undefined;
+    this.panelContainer?.destroy(true);
+    this.panelContainer = undefined;
     this.waitingText?.destroy();
+    this.waitingText = undefined;
+    this.activePanelType = undefined;
+
     this.textInput?.hide();
   }
-
-  // ─── Player & interaction ───
 
   private createPlayer(): void {
     const spawnX = DECISION_SPAWN_TILE.x * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
     const spawnY = DECISION_SPAWN_TILE.y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
     this.player = new Player(this, spawnX, spawnY);
-    // No camera follow here — the room is small enough that it's kept
-    // fully visible and centered (see buildRoom()) instead of scrolling.
   }
 
   private setupInput(): void {
@@ -331,13 +340,10 @@ export class DecisionRoomScene extends Phaser.Scene {
         padding: { x: 4, y: 4 },
       }).setDepth(100);
     }
-    // Positioned relative to the door's in-world coordinates, so it must
-    // scroll along with the world (no setScrollFactor(0) here).
+
     this.promptText.setText(`Press E: Door ${door.option.id} — ${door.option.label}`);
     this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 90);
     this.promptText.setVisible(true);
-
-    // Highlight the door
     door.doorSprite.setTint(0xffaa44);
   }
 
@@ -346,82 +352,193 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.doors.forEach((d) => d.doorSprite.clearTint());
   }
 
-  /** Player pressed E near a door — show context input panel */
+  private createPanel(): Phaser.GameObjects.Container {
+    return this.add.container(0, 0)
+      .setDepth(150)
+      .setScrollFactor(0);
+  }
+
+  private createPanelBackground(
+    panel: Phaser.GameObjects.Container,
+    height: number,
+  ): { width: number; inputWidth: number } {
+    const { width, inputWidth } = this.getResponsivePanelMetrics(height);
+    const viewport = this.getViewportSize();
+    const centerY = viewport.height / 2;
+
+    const bg = this.add.rectangle(
+      viewport.width / 2,
+      centerY,
+      width,
+      height,
+      COLORS.panelBg,
+      0.95,
+    ).setStrokeStyle(2, COLORS.panelBorder);
+
+    panel.add(bg);
+    return { width, inputWidth };
+  }
+
+  private getDomInputPosition(
+    inputWidth: number,
+    topOffset: number,
+  ): { left: number; top: number; width: number; height: number } {
+    const canvasRect = this.game.canvas.getBoundingClientRect();
+    const { width: viewportWidth, height: viewportHeight } = this.getViewportSize();
+    const scaleX = canvasRect.width / viewportWidth;
+    const scaleY = canvasRect.height / viewportHeight;
+
+    const x = (viewportWidth - inputWidth) / 2;
+    const y = viewportHeight / 2 + topOffset;
+
+    return {
+      left: canvasRect.left + x * scaleX,
+      top: canvasRect.top + y * scaleY,
+      width: inputWidth * scaleX,
+      height: PANEL_INPUT_HEIGHT * scaleY,
+    };
+  }
+
+  private positionTextInput(inputWidth: number, topOffset: number): void {
+    const pos = this.getDomInputPosition(inputWidth, topOffset);
+    this.textInput.show(
+      pos.left,
+      pos.top,
+      pos.width,
+      pos.height,
+      this.activePanelType === 'context'
+        ? '"I was also thinking..." (or leave empty)'
+        : 'Defend your choice...',
+    );
+  }
+
+  private repositionTextInput(): void {
+    if (!this.activePanelType || !this.textInput) return;
+
+    const { inputWidth } = this.getResponsivePanelMetrics(
+      PANEL_HEIGHTS[this.activePanelType],
+    );
+
+    const topOffset = this.activePanelType === 'context' ? -100 : -20;
+    this.positionTextInput(inputWidth, topOffset);
+  }
+
+  private getButtonLayout(buttonCount: number): { width: number; height: number; positions: number[] } {
+    const { width } = this.getViewportSize();
+    const available = Math.max(220, Math.min(width - 40, PANEL_MAX_WIDTH - 40));
+
+    if (buttonCount === 1) {
+      return {
+        width: Math.min(160, available),
+        height: 36,
+        positions: [width / 2],
+      };
+    }
+
+    const gap = 12;
+    const buttonWidth = Math.min(160, Math.floor((available - gap) / buttonCount));
+    const totalWidth = buttonWidth * buttonCount + gap * (buttonCount - 1);
+    const startX = (width - totalWidth) / 2 + buttonWidth / 2;
+
+    return {
+      width: buttonWidth,
+      height: 36,
+      positions: Array.from({ length: buttonCount }, (_, index) =>
+        startX + index * (buttonWidth + gap),
+      ),
+    };
+  }
+
   private approachDoor(door: DoorObject): void {
     this.phase = GamePhase.DOOR_CONTEXT;
     this.currentDoor = door;
     this.hideDoorPrompt();
 
-    // Show a panel: "You chose [X]. Add context?" — fixed to screen so it
-    // stays put no matter where the camera has scrolled to.
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, 620, 280, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    this.panelContainer?.destroy(true);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 170, `Door ${door.option.id}: ${door.option.label}`, {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.lg,
-      color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(151);
+    const viewport = this.getViewportSize();
+    const panel = this.createPanel();
+    this.panelContainer = panel;
+    this.activePanelType = 'context';
 
-    const subtitle = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 140, 'Add context before entering? (optional)', {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.sm,
-      color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(151);
+    const { inputWidth } = this.createPanelBackground(panel, PANEL_HEIGHTS.context);
 
-    this.panelContainer = this.add.container(0, 0, [panelBg, title, subtitle]);
-    this.panelContainer.setDepth(150).setScrollFactor(0);
+    const title = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 170,
+      `Door ${door.option.id}: ${door.option.label}`,
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textHighlight,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+    panel.add(title);
 
-    // Show textarea
-    const canvasRect = this.game.canvas.getBoundingClientRect();
-    const scaleX = canvasRect.width / this.cameras.main.width;
-    const scaleY = canvasRect.height / this.cameras.main.height;
-    const inputW = 560;
-    const inputH = 80;
-    const inputX = canvasRect.left + (GAME_WIDTH / 2 - inputW / 2) * scaleX;
-    const inputY = canvasRect.top + (GAME_HEIGHT / 2 - 100) * scaleY;
+    const subtitle = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 140,
+      'Add context before entering? (optional)',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+    panel.add(subtitle);
 
-    this.textInput.show(inputX, inputY, inputW * scaleX, inputH * scaleY,
-      '"I was also thinking..." (or leave empty)'
-    );
+    this.positionTextInput(inputWidth, -100);
 
-    // Buttons
-    const enterBtn = new TextButton(this, {
-      x: GAME_WIDTH / 2 - 80,
-      y: GAME_HEIGHT / 2 + 50,
+    const { width: buttonWidth, positions } = this.getButtonLayout(2);
+    const buttonY = viewport.height / 2 + 50;
+
+    let enterBtn: TextButton;
+    let skipBtn: TextButton;
+
+    enterBtn = new TextButton(this, {
+      x: positions[0],
+      y: buttonY,
       text: 'ENTER DOOR',
-      width: 160,
+      width: buttonWidth,
       height: 36,
       onClick: () => {
         const context = this.textInput.getValue().trim();
         this.textInput.hide();
-        this.panelContainer?.destroy();
+        this.panelContainer?.destroy(true);
+        this.panelContainer = undefined;
+        this.activePanelType = undefined;
         enterBtn.destroy();
         skipBtn.destroy();
         this.selectDoor(door, context || undefined);
       },
     });
     enterBtn.container.setScrollFactor(0);
+    panel.add(enterBtn.container);
 
-    const skipBtn = new TextButton(this, {
-      x: GAME_WIDTH / 2 + 80,
-      y: GAME_HEIGHT / 2 + 50,
+    skipBtn = new TextButton(this, {
+      x: positions[1],
+      y: buttonY,
       text: 'SKIP CONTEXT',
-      width: 160,
+      width: buttonWidth,
       height: 36,
       onClick: () => {
         this.textInput.hide();
-        this.panelContainer?.destroy();
+        this.panelContainer?.destroy(true);
+        this.panelContainer = undefined;
+        this.activePanelType = undefined;
         enterBtn.destroy();
         skipBtn.destroy();
         this.selectDoor(door, undefined);
       },
     });
     skipBtn.container.setScrollFactor(0);
+    panel.add(skipBtn.container);
   }
 
-  /** Send the selection to the server */
   private selectDoor(door: DoorObject, context?: string): void {
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
     this.showWaiting('Entering door...');
@@ -439,58 +556,65 @@ export class DecisionRoomScene extends Phaser.Scene {
     });
   }
 
-  // ─── Challenge & Evaluation UI ───
-
   private showChallengePanel(question: string): void {
     this.hideWaiting();
     this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
 
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, 620, 320, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    this.panelContainer?.destroy(true);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 170, '🤖 CHALLENGE', {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.lg,
-      color: COLORS.textWarning,
-    }).setOrigin(0.5).setDepth(151);
+    const viewport = this.getViewportSize();
+    const panel = this.createPanel();
+    this.panelContainer = panel;
+    this.activePanelType = 'challenge';
 
-    const qText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 130, question, {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.md,
-      color: COLORS.textPrimary,
-      wordWrap: { width: 560 },
-      lineSpacing: 6,
-    }).setOrigin(0.5, 0).setDepth(151);
+    const { inputWidth } = this.createPanelBackground(panel, PANEL_HEIGHTS.challenge);
 
-    this.panelContainer = this.add.container(0, 0, [panelBg, title, qText]);
-    this.panelContainer.setDepth(150).setScrollFactor(0);
+    const title = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 170,
+      '🤖 CHALLENGE',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textWarning,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+    panel.add(title);
 
-    // Text input
-    const canvasRect = this.game.canvas.getBoundingClientRect();
-    const scaleX = canvasRect.width / this.cameras.main.width;
-    const scaleY = canvasRect.height / this.cameras.main.height;
-    const inputW = 560;
-    const inputH = 80;
-    const inputX = canvasRect.left + (GAME_WIDTH / 2 - inputW / 2) * scaleX;
-    const inputY = canvasRect.top + (GAME_HEIGHT / 2 - 20) * scaleY;
+    const qText = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 130,
+      question,
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.md,
+        color: COLORS.textPrimary,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        lineSpacing: 6,
+        align: 'center',
+      },
+    ).setOrigin(0.5, 0);
+    panel.add(qText);
 
-    this.textInput.show(inputX, inputY, inputW * scaleX, inputH * scaleY,
-      'Defend your choice...'
-    );
+    this.positionTextInput(inputWidth, -20);
 
+    const { width: buttonWidth } = this.getButtonLayout(1);
     const submitBtn = new TextButton(this, {
-      x: GAME_WIDTH / 2,
-      y: GAME_HEIGHT / 2 + 100,
+      x: viewport.width / 2,
+      y: viewport.height / 2 + 100,
       text: 'DEFEND',
-      width: 160,
+      width: buttonWidth,
       height: 36,
       onClick: () => {
         const response = this.textInput.getValue().trim();
         if (response.length === 0) return;
 
         this.textInput.hide();
-        this.panelContainer?.destroy();
+        this.panelContainer?.destroy(true);
+        this.panelContainer = undefined;
+        this.activePanelType = undefined;
         submitBtn.destroy();
         this.phase = GamePhase.WAITING_FOR_EVALUATION;
         this.showWaiting('AI is evaluating...');
@@ -505,57 +629,117 @@ export class DecisionRoomScene extends Phaser.Scene {
       },
     });
     submitBtn.container.setScrollFactor(0);
+    panel.add(submitBtn.container);
   }
 
   private showEvaluationPanel(feedback: string, consequence: string): void {
     this.hideWaiting();
     this.phase = GamePhase.SHOWING_EVALUATION;
 
-    const panelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 620, 300, COLORS.panelBg, 0.95)
-      .setStrokeStyle(2, COLORS.panelBorder)
-      .setDepth(150);
+    this.panelContainer?.destroy(true);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 140, '📋 EVALUATION', {
-      fontFamily: FONTS.pixel,
-      fontSize: FONTS.size.lg,
-      color: COLORS.textHighlight,
-    }).setOrigin(0.5).setDepth(151);
+    const viewport = this.getViewportSize();
+    const panel = this.createPanel();
+    this.panelContainer = panel;
+    this.activePanelType = 'evaluation';
 
-    const fbLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 105, 'Feedback:', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(151);
+    const { inputWidth } = this.createPanelBackground(panel, PANEL_HEIGHTS.evaluation);
 
-    const fbText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 80, feedback, {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textPrimary,
-      wordWrap: { width: 560 }, lineSpacing: 6,
-    }).setOrigin(0.5, 0).setDepth(151);
+    const title = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 140,
+      '📋 EVALUATION',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.lg,
+        color: COLORS.textHighlight,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+    panel.add(title);
 
-    const csqLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'Consequence:', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setDepth(151);
+    const fbLabel = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 105,
+      'Feedback:',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+      },
+    ).setOrigin(0.5);
+    panel.add(fbLabel);
 
-    const csqText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, consequence, {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.md, color: COLORS.textWarning,
-      wordWrap: { width: 560 }, lineSpacing: 6,
-    }).setOrigin(0.5, 0).setDepth(151);
+    const fbText = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 80,
+      feedback,
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.md,
+        color: COLORS.textPrimary,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        lineSpacing: 6,
+        align: 'center',
+      },
+    ).setOrigin(0.5, 0);
+    panel.add(fbText);
 
-    this.panelContainer = this.add.container(0, 0, [panelBg, title, fbLabel, fbText, csqLabel, csqText]);
-    this.panelContainer.setDepth(150).setScrollFactor(0);
+    const csqLabel = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 - 20,
+      'Consequence:',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+      },
+    ).setOrigin(0.5);
+    panel.add(csqLabel);
 
-    // "Waiting for next room..." text — the next decision will auto-arrive
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100, 'Next room loading...', {
-      fontFamily: FONTS.pixel, fontSize: FONTS.size.sm, color: COLORS.textSecondary,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(151);
+    const csqText = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 + 5,
+      consequence,
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.md,
+        color: COLORS.textWarning,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        lineSpacing: 6,
+        align: 'center',
+      },
+    ).setOrigin(0.5, 0);
+    panel.add(csqText);
+
+    const nextRoomText = this.add.text(
+      viewport.width / 2,
+      viewport.height / 2 + 100,
+      'Next room loading...',
+      {
+        fontFamily: FONTS.pixel,
+        fontSize: FONTS.size.sm,
+        color: COLORS.textSecondary,
+        wordWrap: { width: Math.max(220, inputWidth) },
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+    panel.add(nextRoomText);
+
+    this.activePanelType = 'evaluation';
   }
-
-  // ─── Waiting state ───
 
   private showWaiting(message: string): void {
     this.hideWaiting();
-    this.waitingText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, message, {
+    const viewport = this.getViewportSize();
+
+    this.waitingText = this.add.text(viewport.width / 2, viewport.height / 2, message, {
       fontFamily: FONTS.pixel,
       fontSize: FONTS.size.lg,
       color: COLORS.textHighlight,
+      wordWrap: { width: Math.max(220, viewport.width - 40) },
+      align: 'center',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
 
     this.tweens.add({
@@ -574,8 +758,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       this.waitingText = undefined;
     }
   }
-
-  // ─── Server messages ───
 
   private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
@@ -597,7 +779,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       }
 
       case 'DECISION_CREATED': {
-        // Next question arrived — transition to new room
         const decision = msg as DecisionCreatedMsg;
         this.store.addDecision({
           nodeId: decision.nodeId,
@@ -607,7 +788,6 @@ export class DecisionRoomScene extends Phaser.Scene {
           round: decision.round,
         });
 
-        // Brief pause then render new room
         this.time.delayedCall(2000, () => {
           this.renderDecision(decision);
         });
@@ -628,8 +808,6 @@ export class DecisionRoomScene extends Phaser.Scene {
       }
 
       case 'SESSION_RESUMED':
-        // Reconnected to the same session — nothing to reset here,
-        // any queued messages will follow immediately.
         break;
 
       case 'ERROR':
@@ -639,6 +817,11 @@ export class DecisionRoomScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    if (this.resizeHandler) {
+      this.scale.off('resize', this.resizeHandler);
+      this.resizeHandler = undefined;
+    }
     this.textInput?.hide();
+    this.clearDecision();
   }
 }
