@@ -151,10 +151,22 @@ export class WebSocketClient {
   }
 
   onMessage(
-    handler: MessageHandler,
-  ): void {
-    this.handlers.push(handler);
-  }
+  handler: MessageHandler,
+    ): () => void {
+      this.handlers.push(handler);
+
+      return () => {
+        const index =
+          this.handlers.indexOf(handler);
+
+        if (index !== -1) {
+          this.handlers.splice(
+            index,
+            1,
+          );
+        }
+      };
+    }
 
   disconnect(): void {
     if (this.reconnectTimer) {

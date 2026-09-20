@@ -19,11 +19,6 @@ import {
   DECISION_MAP_TILE_SIZE,
 } from '../tilemaps/decisionRoomTilemap';
 
-import {
-  GATE_TILEMAP_KEY,
-  GATE_TILEMAP_PATH,
-} from '../tilemaps/gateSceneTilemap';
-
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
@@ -38,8 +33,14 @@ import type {
 export class BootScene extends Phaser.Scene {
   private ws!: WebSocketClient;
   private store!: SessionStore;
+  private unsubscribeWs?: () => void;
 
   private restoring = false;
+
+  private leaveBoot(): void {
+    this.unsubscribeWs?.();
+    this.unsubscribeWs = undefined;
+  }
 
   constructor() {
     super({
@@ -116,12 +117,6 @@ export class BootScene extends Phaser.Scene {
       },
     );
 
-    // Gate
-    this.load.tilemapTiledJSON(
-      GATE_TILEMAP_KEY,
-      GATE_TILEMAP_PATH,
-    );
-
     // Player
     Player.preload(this);
   }
@@ -135,8 +130,9 @@ export class BootScene extends Phaser.Scene {
     this.ws =
       new WebSocketClient();
 
-    this.ws.onMessage(
-      this.handleMessage.bind(this),
+    this.unsubscribeWs =
+      this.ws.onMessage(
+        this.handleMessage.bind(this),
     );
 
     /*
@@ -174,6 +170,8 @@ export class BootScene extends Phaser.Scene {
       );
 
       this.restoring = false;
+
+      this.leaveBoot();
 
       this.scene.start(
         'CommonRoomScene',
@@ -213,141 +211,132 @@ export class BootScene extends Phaser.Scene {
   }
 
   private restoreSession(
-    msg: SessionResumedMsg,
-  ): void {
-    if (this.restoring) {
-      return;
-    }
+  msg: SessionResumedMsg,
+): void {
+  if (this.restoring) {
+    return;
+  }
 
-    this.restoring = true;
+  this.restoring = true;
 
-    console.log(
-      '[BOOT] Restoring session:',
-      msg.snapshot,
-    );
+  this.ws.setSessionId(
+    msg.sessionId,
+  );
 
-    this.ws.setSessionId(
-      msg.sessionId,
-    );
+  this.store.hydrate(
+    msg.snapshot,
+  );
 
-    this.store.hydrate(
-      msg.snapshot,
-    );
+  const phase =
+    msg.snapshot.phase;
 
-    const phase =
-      msg.snapshot.phase;
-
-    /*
-     * Session hasn't started yet.
-     */
-    if (
-      phase ===
-      'idle' ||
-      phase ===
-      'awaiting_problem'
-    ) {
-      this.scene.start(
-        'GateScene',
-        {
-          ws: this.ws,
-          store: this.store,
-          restored: true,
-        },
-      );
-
-      return;
-    }
-
-    /*
-     * Skill is generating the next decision.
-     *
-     * Keep the player in the Gate waiting screen.
-     */
-    if (
-      phase ===
-      'awaiting_question'
-    ) {
-      this.scene.start(
-        'GateScene',
-        {
-          ws: this.ws,
-          store: this.store,
-          restored: true,
-          waitingForQuestion: true,
-        },
-      );
-
-      return;
-    }
-
-    /*
-     * Session is complete.
-     */
-    if (
-      phase ===
-      'complete'
-    ) {
-      this.scene.start(
-        'TrophyScene',
-        {
-          store: this.store,
-        },
-      );
-
-      return;
-    }
-
-    /*
-     * Active decision.
-     */
-    const currentDecision =
-      this.store.getCurrentDecision();
-
-    if (!currentDecision) {
-      /*
-       * Defensive fallback.
-       */
-      this.scene.start(
-        'CommonRoomScene',
-        {
-          ws: this.ws,
-          store: this.store,
-        },
-      );
-
-      return;
-    }
-
-    const decision: DecisionCreatedMsg =
-      {
-        type: 'DECISION_CREATED',
-        nodeId:
-          currentDecision.nodeId,
-        question:
-          currentDecision.question,
-        options:
-          currentDecision.options,
-        recommendation:
-          currentDecision.recommendation,
-        round:
-          currentDecision.round,
-        dependsOn:
-          msg.snapshot.decisions.find(
-            (d) =>
-              d.id ===
-              currentDecision.nodeId,
-          )?.dependsOn,
-      };
+  // No problem submitted yet.
+  if (
+    phase === 'idle' ||
+    phase === 'awaiting_problem'
+  ) {
+    this.leaveBoot();
 
     this.scene.start(
-      'DecisionRoomScene',
+      'CommonRoomScene',
       {
         ws: this.ws,
         store: this.store,
-        decision,
-        restored: true,
       },
     );
+
+    return;
+  }
+
+  // Problem submitted, waiting for AI-generated question.
+  if (
+    phase === 'awaiting_question'
+  ) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'CommonRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        gateWaiting: true,
+      },
+    );
+
+    return;
+  }
+
+  // Session finished.
+  if (
+    phase === 'complete'
+  ) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'TrophyScene',
+      {
+        store: this.store,
+      },
+    );
+
+    return;
+  }
+
+  // Active decision.
+  const currentDecision =
+    this.store.getCurrentDecision();
+
+  if (!currentDecision) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'CommonRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+      },
+    );
+
+    return;
+  }
+
+  const decision: DecisionCreatedMsg = {
+    type: 'DECISION_CREATED',
+
+    nodeId:
+      currentDecision.nodeId,
+
+    question:
+      currentDecision.question,
+
+    options:
+      currentDecision.options,
+
+    recommendation:
+      currentDecision.recommendation,
+
+    round:
+      currentDecision.round,
+
+    dependsOn:
+      msg.snapshot.decisions.find(
+        (d) =>
+          d.id ===
+          currentDecision.nodeId,
+      )?.dependsOn,
+  };
+
+  this.leaveBoot();
+
+  this.scene.start(
+    'DecisionRoomScene',
+    {
+      ws: this.ws,
+      store: this.store,
+      decision,
+      restored: true,
+    },
+  );
   }
 
   private restoreDecision(
@@ -365,6 +354,8 @@ export class BootScene extends Phaser.Scene {
       round:
         decision.round,
     });
+
+    this.leaveBoot();
 
     this.scene.start(
       'DecisionRoomScene',

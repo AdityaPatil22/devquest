@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { CommonRoomScene } from './scenes/CommonRoomScene';
-import { GateScene } from './scenes/GateScene';
 import { DecisionRoomScene } from './scenes/DecisionRoomScene';
 import { TrophyScene } from './scenes/TrophyScene';
 import { GAME_WIDTH, GAME_HEIGHT } from './config';
@@ -19,7 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, CommonRoomScene, GateScene, DecisionRoomScene, TrophyScene],
+  scene: [BootScene, CommonRoomScene, DecisionRoomScene, TrophyScene],
   scale: {
     // Canvas always exactly matches the window/container size (no
     // letterboxing black bars like FIT produces on non-4:3 screens).

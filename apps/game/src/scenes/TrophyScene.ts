@@ -13,6 +13,11 @@ interface SceneData {
  */
 export class TrophyScene extends Phaser.Scene {
   private store!: SessionStore;
+  private unsubscribeWs?: () => void;
+  private leaveBoot(): void {
+    this.unsubscribeWs?.();
+    this.unsubscribeWs = undefined;
+  }
 
   constructor() {
     super({ key: 'TrophyScene' });
@@ -141,6 +146,7 @@ export class TrophyScene extends Phaser.Scene {
 
     // Space to restart
     this.input.keyboard!.on('keydown-SPACE', () => {
+      this.leaveBoot();
       this.scene.start('CommonRoomScene');
     });
   }

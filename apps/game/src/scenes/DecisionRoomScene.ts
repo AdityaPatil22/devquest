@@ -76,6 +76,12 @@ export class DecisionRoomScene extends Phaser.Scene {
   private promptText?: Phaser.GameObjects.Text;
   private panelContainer?: Phaser.GameObjects.Container;
   private waitingText?: Phaser.GameObjects.Text;
+  private unsubscribeWs?: () => void;
+
+  private leaveBoot(): void {
+    this.unsubscribeWs?.();
+    this.unsubscribeWs = undefined;
+  }
 
   constructor() {
     super({ key: 'DecisionRoomScene' });
@@ -106,6 +112,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     data.restored ?? false,
   );
 
+  this.unsubscribeWs =
   this.ws.onMessage(
     this.handleMessage.bind(this),
   );
@@ -774,6 +781,8 @@ private restoreCurrentPhase(): void {
         this.store.complete(complete.summary, complete.docContent);
         this.textInput.hide();
 
+        this.leaveBoot();
+
         this.time.delayedCall(1500, () => {
           this.scene.start('TrophyScene', {
             store: this.store,
@@ -794,6 +803,9 @@ private restoreCurrentPhase(): void {
   }
 
   shutdown(): void {
+    this.unsubscribeWs?.();
+    this.unsubscribeWs = undefined;
+
     this.textInput?.hide();
   }
 }
