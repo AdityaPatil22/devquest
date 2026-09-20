@@ -44,7 +44,7 @@ export class Panel {
   ): Phaser.GameObjects.Text {
     const textObj = this.scene.add.text(x, y, text, {
       fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
+      fontSize: '12px',
       color: COLORS.textPrimary,
       wordWrap: { width: this.panelWidth - 48 },
       lineSpacing: 6,

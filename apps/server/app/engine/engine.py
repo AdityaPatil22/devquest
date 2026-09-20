@@ -131,7 +131,11 @@ class DecisionEngine:
         doc_content: str,
     ) -> EngineEvent:
         """Skill says the session is complete."""
-        session.finish()
+
+        session.finish(
+            summary,
+            doc_content,
+        )
 
         return EngineEvent(
             type=EventType.SESSION_COMPLETE,
@@ -141,7 +145,7 @@ class DecisionEngine:
                 "reconsideredCount": session.graph.reconsidered_count,
                 "docContent": doc_content,
             },
-        )
+    )
 
     def reconsider(self, session: Session, node_id: str) -> None:
         """Player wants to reconsider. Skill will provide new question."""

@@ -1,117 +1,449 @@
 import Phaser from 'phaser';
-import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
-import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemap';
+
+import {
+  PATTERNS_KEY,
+  PATTERNS_PATH,
+  PATTERNS_CONFIG,
+} from '../tiles';
+
+import {
+  TILEMAP_KEY,
+  TILEMAP_PATH,
+  MAP_TILESETS,
+} from '../tilemaps/commonRoomTilemap';
+
 import {
   DECISION_TILEMAP_KEY,
   DECISION_TILEMAP_PATH,
   DECISION_TILESETS,
   DECISION_MAP_TILE_SIZE,
-} from '../decisionRoomTilemap';
-import { GATE_TILEMAP_KEY, GATE_TILEMAP_PATH } from '../gateSceneTilemap';
-import {
-  Player,
-  PLAYER_ATLAS_KEY,
-  PLAYER_ATLAS_PATH,
-  PLAYER_ATLAS_JSON,
-} from '../entities/Player';
+} from '../tilemaps/decisionRoomTilemap';
+
+import { Player } from '../entities/Player';
+
+import { WebSocketClient } from '../net/WebSocketClient';
+import { SessionStore } from '../state/SessionStore';
+
+import type {
+  ServerMessage,
+  SessionResumedMsg,
+  DecisionCreatedMsg,
+} from '../net/protocol';
 
 export class BootScene extends Phaser.Scene {
+  private ws!: WebSocketClient;
+  private store!: SessionStore;
+  private unsubscribeWs?: () => void;
+
+  private restoring = false;
+
+  private leaveBoot(): void {
+    this.unsubscribeWs?.();
+    this.unsubscribeWs = undefined;
+  }
+
   constructor() {
-    super({ key: 'BootScene' });
+    super({
+      key: 'BootScene',
+    });
   }
 
   preload(): void {
     this.createLoadingBar();
 
-    // Pattern tileset (still used by Gate / Decision / Trophy scenes)
+    this.load.spritesheet(
+      'elevator',
+      'assets/items/elevator.png',
+      {
+        frameWidth: 280,
+        frameHeight: 285,
+      }
+    );
+
     this.load.spritesheet(
       PATTERNS_KEY,
       PATTERNS_PATH,
       PATTERNS_CONFIG,
     );
 
-    // Common Room world map (Tiled JSON) + its tileset images.
-    // Loaded as spritesheets (not plain images) so each tile gets its own
-    // numbered frame — required for object-layer furniture to render
-    // correctly via createFromObjects.
-    this.load.tilemapTiledJSON(TILEMAP_KEY, TILEMAP_PATH);
-    MAP_TILESETS.forEach(({ key, path, frameWidth, frameHeight }) => {
-      this.load.spritesheet(key, path, {
+    // Common Room
+    this.load.tilemapTiledJSON(
+      TILEMAP_KEY,
+      TILEMAP_PATH,
+    );
+
+    MAP_TILESETS.forEach(
+      ({
+        key,
+        path,
         frameWidth,
         frameHeight,
-        margin: 0,
-        spacing: 0,
-      });
-    });
-
-    // Decision Room world map (Tiled JSON) + its tileset images.
-    // Its tilesets are only referenced as external .tsx files in the JSON
-    // (Phaser can't load those), so we separately load the same shared
-    // images at 16×16 frames here and patch the tileset data at runtime —
-    // see decisionRoomTilemap.ts for details.
-    this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
-    // A couple of tileset entries intentionally share the same texture key
-    // (the map references the same source PNG more than once, under
-    // different firstgids) — de-dupe so we don't queue the same load twice.
-    const seenKeys = new Set<string>();
-    DECISION_TILESETS.forEach(({ key, path }) => {
-      if (seenKeys.has(key)) return;
-      seenKeys.add(key);
-      this.load.spritesheet(key, path, {
-        frameWidth: DECISION_MAP_TILE_SIZE,
-        frameHeight: DECISION_MAP_TILE_SIZE,
-        margin: 0,
-        spacing: 0,
-      });
-    });
-
-    // Gate Scene world map (Tiled JSON). Reuses the same FloorAndGround 16×16
-    // spritesheet already queued above for the Decision Room — no new image
-    // to load, just the map data (see gateSceneTilemap.ts for details).
-    this.load.tilemapTiledJSON(GATE_TILEMAP_KEY, GATE_TILEMAP_PATH);
-
-    // Ash character atlas
-    this.load.atlas(
-      PLAYER_ATLAS_KEY,
-      PLAYER_ATLAS_PATH,
-      PLAYER_ATLAS_JSON,
+      }) => {
+        this.load.spritesheet(
+          key,
+          path,
+          {
+            frameWidth,
+            frameHeight,
+            margin: 0,
+            spacing: 0,
+          },
+        );
+      },
     );
+
+    // Decision Room
+    this.load.tilemapTiledJSON(
+      DECISION_TILEMAP_KEY,
+      DECISION_TILEMAP_PATH,
+    );
+
+    const seenKeys = new Set<string>();
+
+    DECISION_TILESETS.forEach(
+      ({
+        key,
+        path,
+      }) => {
+        if (seenKeys.has(key)) {
+          return;
+        }
+
+        seenKeys.add(key);
+
+        this.load.spritesheet(
+          key,
+          path,
+          {
+            frameWidth:
+              DECISION_MAP_TILE_SIZE,
+            frameHeight:
+              DECISION_MAP_TILE_SIZE,
+            margin: 0,
+            spacing: 0,
+          },
+        );
+      },
+    );
+
+    // Player
+    Player.preload(this);
   }
 
   create(): void {
     Player.createAnimations(this);
-    this.scene.start('CommonRoomScene');
+
+    this.anims.create({
+      key: 'elevator-opening',
+      frames: this.anims.generateFrameNumbers('elevator', {
+        start: 0,
+        end: 2,
+      }),
+      frameRate: 6,
+      repeat: 0,
+    });
+
+    this.store =
+      new SessionStore();
+
+    this.ws =
+      new WebSocketClient();
+
+    this.unsubscribeWs =
+      this.ws.onMessage(
+        this.handleMessage.bind(this),
+    );
+
+    /*
+     * IMPORTANT:
+     *
+     * BootScene now owns the initial WebSocket.
+     *
+     * If sessionStorage contains a session ID,
+     * WebSocketClient reconnects to that session.
+     *
+     * If there is no session ID, the server creates
+     * a brand-new session.
+     */
+    this.ws.connect();
+  }
+
+  private handleMessage(
+    msg: ServerMessage,
+  ): void {
+    if (
+      msg.type ===
+      'SESSION_STARTED'
+    ) {
+      /*
+       * Brand-new session.
+       *
+       * Always begin in Common Room.
+       */
+      this.ws.setSessionId(
+        msg.sessionId,
+      );
+
+      this.store.setSession(
+        msg.sessionId,
+      );
+
+      this.restoring = false;
+
+      this.leaveBoot();
+
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+        },
+      );
+
+      return;
+    }
+
+    if (
+      msg.type ===
+      'SESSION_RESUMED'
+    ) {
+      this.restoreSession(msg);
+
+      return;
+    }
+
+    /*
+     * Normally DECISION_CREATED is handled by the
+     * active scene.
+     *
+     * This fallback handles a decision that arrives
+     * immediately after Boot reconnects.
+     */
+    if (
+      msg.type ===
+      'DECISION_CREATED'
+    ) {
+      this.restoreDecision(
+        msg,
+      );
+    }
+  }
+
+  private restoreSession(
+  msg: SessionResumedMsg,
+): void {
+  if (this.restoring) {
+    return;
+  }
+
+  this.restoring = true;
+
+  this.ws.setSessionId(
+    msg.sessionId,
+  );
+
+  this.store.hydrate(
+    msg.snapshot,
+  );
+
+  const phase =
+    msg.snapshot.phase;
+
+  // No problem submitted yet.
+  if (
+    phase === 'idle' ||
+    phase === 'awaiting_problem'
+  ) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'CommonRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+      },
+    );
+
+    return;
+  }
+
+  // Problem submitted, waiting for AI-generated question.
+  if (
+    phase === 'awaiting_question'
+  ) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'CommonRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        gateWaiting: true,
+      },
+    );
+
+    return;
+  }
+
+  // Session finished.
+  if (
+    phase === 'complete'
+  ) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'TrophyScene',
+      {
+        store: this.store,
+      },
+    );
+
+    return;
+  }
+
+  // Active decision.
+  const currentDecision =
+    this.store.getCurrentDecision();
+
+  if (!currentDecision) {
+    this.leaveBoot();
+
+    this.scene.start(
+      'CommonRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+      },
+    );
+
+    return;
+  }
+
+  const decision: DecisionCreatedMsg = {
+    type: 'DECISION_CREATED',
+
+    nodeId:
+      currentDecision.nodeId,
+
+    question:
+      currentDecision.question,
+
+    options:
+      currentDecision.options,
+
+    recommendation:
+      currentDecision.recommendation,
+
+    round:
+      currentDecision.round,
+
+    dependsOn:
+      msg.snapshot.decisions.find(
+        (d) =>
+          d.id ===
+          currentDecision.nodeId,
+      )?.dependsOn,
+  };
+
+  this.leaveBoot();
+
+  this.scene.start(
+    'DecisionRoomScene',
+    {
+      ws: this.ws,
+      store: this.store,
+      decision,
+      restored: true,
+    },
+  );
+  }
+
+  private restoreDecision(
+    decision: DecisionCreatedMsg,
+  ): void {
+    this.store.addDecision({
+      nodeId:
+        decision.nodeId,
+      question:
+        decision.question,
+      options:
+        decision.options,
+      recommendation:
+        decision.recommendation,
+      round:
+        decision.round,
+    });
+
+    this.leaveBoot();
+
+    this.scene.start(
+      'DecisionRoomScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        decision,
+      },
+    );
   }
 
   private createLoadingBar(): void {
-    const w = this.cameras.main.width;
-    const h = this.cameras.main.height;
-    const barW = 320;
+    const width =
+      this.cameras.main.width;
+
+    const height =
+      this.cameras.main.height;
+
+    const barWidth = 320;
+    const barHeight = 20;
 
     this.add
-      .rectangle(w / 2, h / 2, barW + 4, 24)
-      .setStrokeStyle(2, 0x4a9eff);
-
-    const fill = this.add
       .rectangle(
-        w / 2 - barW / 2 + 2,
-        h / 2,
-        0,
-        20,
-        0x4a9eff,
+        width / 2,
+        height / 2,
+        barWidth + 4,
+        barHeight + 4,
       )
-      .setOrigin(0, 0.5);
+      .setStrokeStyle(
+        2,
+        0x4a9eff,
+      );
+
+    const fill =
+      this.add
+        .rectangle(
+          width / 2 -
+            barWidth / 2 +
+            2,
+          height / 2,
+          0,
+          barHeight,
+          0x4a9eff,
+        )
+        .setOrigin(
+          0,
+          0.5,
+        );
 
     this.add
-      .text(w / 2, h / 2 - 24, 'LOADING...', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '12px',
-        color: '#4a9eff',
-      })
+      .text(
+        width / 2,
+        height / 2 - 24,
+        'LOADING...',
+        {
+          fontFamily:
+            '"Press Start 2P"',
+          fontSize: '12px',
+          color: '#4a9eff',
+        },
+      )
       .setOrigin(0.5);
 
-    this.load.on('progress', (v: number) => {
-      fill.width = barW * v;
-    });
+    this.load.on(
+      'progress',
+      (value: number) => {
+        fill.width =
+          barWidth * value;
+      },
+    );
   }
 }

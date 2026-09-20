@@ -26,8 +26,7 @@ export class TextButton {
     this.bg = scene.add
       .rectangle(0, 0, width, height, COLORS.buttonBg)
       .setStrokeStyle(1, COLORS.panelBorder)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5);
 
     this.label = scene.add
       .text(0, 0, config.text, {
@@ -42,19 +41,35 @@ export class TextButton {
       this.label,
     ]);
 
-    this.bg.on('pointerover', () => {
+    // Keep buttons above modal panels.
+    this.container
+      .setScrollFactor(0)
+      .setDepth(160);
+
+    // Make the entire button area interactive.
+    this.container.setInteractive(
+      new Phaser.Geom.Rectangle(
+        -width / 2,
+        -height / 2,
+        width,
+        height,
+      ),
+      Phaser.Geom.Rectangle.Contains,
+    );
+
+    this.container.on('pointerover', () => {
       this.bg.setFillStyle(COLORS.buttonHover);
     });
 
-    this.bg.on('pointerout', () => {
+    this.container.on('pointerout', () => {
       this.bg.setFillStyle(COLORS.buttonBg);
     });
 
-    this.bg.on('pointerdown', () => {
+    this.container.on('pointerdown', () => {
       this.bg.setFillStyle(COLORS.panelBorder);
     });
 
-    this.bg.on('pointerup', () => {
+    this.container.on('pointerup', () => {
       this.bg.setFillStyle(COLORS.buttonHover);
       config.onClick();
     });
