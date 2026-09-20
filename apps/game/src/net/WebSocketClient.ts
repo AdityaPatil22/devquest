@@ -2,6 +2,7 @@ import { WS_URL } from '../config';
 import type { ClientMessage, ServerMessage } from './protocol';
 
 type MessageHandler = (msg: ServerMessage) => void;
+type ConnectionHandler = (connected: boolean) => void;
 
 const SESSION_STORAGE_KEY = 'devquest_session_id';
 
@@ -15,6 +16,7 @@ const SESSION_STORAGE_KEY = 'devquest_session_id';
 export class WebSocketClient {
   private ws?: WebSocket;
   private handlers: MessageHandler[] = [];
+  private connectionHandlers: ConnectionHandler[] = [];
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -60,6 +62,7 @@ export class WebSocketClient {
       this.ws.onopen = () => {
         console.log('[WS] Connected', this._sessionId ? `(session ${this._sessionId})` : '(new)');
         this.reconnectAttempts = 0;
+        this.connectionHandlers.forEach((handler) => handler(true));
       };
 
       this.ws.onmessage = (event) => {
@@ -73,6 +76,7 @@ export class WebSocketClient {
 
       this.ws.onclose = () => {
         console.log('[WS] Disconnected');
+        this.connectionHandlers.forEach((handler) => handler(false));
         this.scheduleReconnect();
       };
 
@@ -95,6 +99,10 @@ export class WebSocketClient {
 
   onMessage(handler: MessageHandler): void {
     this.handlers.push(handler);
+  }
+
+  onConnectionChange(handler: ConnectionHandler): void {
+    this.connectionHandlers.push(handler);
   }
 
   disconnect(): void {
