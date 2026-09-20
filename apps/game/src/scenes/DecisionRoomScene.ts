@@ -317,6 +317,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     }
 
     if (nearest && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.triggerInteractionFeedback(nearest.doorSprite, nearest.x, nearest.y, 2);
       this.approachDoor(nearest);
     }
   }
@@ -326,24 +327,66 @@ export class DecisionRoomScene extends Phaser.Scene {
       this.promptText = this.add.text(0, 0, '', {
         fontFamily: FONTS.pixel,
         fontSize: FONTS.size.sm,
-        color: COLORS.textWarning,
+        color: COLORS.textPrimary,
         backgroundColor: '#1a1a2e',
-        padding: { x: 4, y: 4 },
+        padding: { x: 8, y: 5 },
       }).setDepth(100);
     }
-    // Positioned relative to the door's in-world coordinates, so it must
-    // scroll along with the world (no setScrollFactor(0) here).
-    this.promptText.setText(`Press E: Door ${door.option.id} — ${door.option.label}`);
-    this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 90);
+    this.promptText.setText(`[E] INTERACT • DOOR ${door.option.id}`);
+    this.promptText.setPosition(door.x - this.promptText.width / 2, door.y + 88);
     this.promptText.setVisible(true);
 
-    // Highlight the door
+    this.setDoorInteractionState(door, true);
+  }
+
+  private setDoorInteractionState(door: DoorObject, active: boolean): void {
+    this.tweens.killTweensOf(door.doorSprite);
+    if (!active) {
+      door.doorSprite.clearTint();
+      door.doorSprite.setScale(DOOR_SCALE);
+      return;
+    }
+
     door.doorSprite.setTint(0xffaa44);
+    this.tweens.add({
+      targets: door.doorSprite,
+      scaleX: DOOR_SCALE * 1.08,
+      scaleY: DOOR_SCALE * 1.08,
+      duration: 450,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private triggerInteractionFeedback(
+    target: Phaser.GameObjects.Image,
+    x: number,
+    y: number,
+    baseScale: number,
+  ): void {
+    this.tweens.killTweensOf(target);
+    const flash = this.add.circle(x, y, 18, COLORS.textHighlight, 0.25).setDepth(12);
+    this.tweens.add({
+      targets: flash,
+      scale: { from: 0.7, to: 1.8 },
+      alpha: { from: 0.7, to: 0 },
+      duration: 250,
+      onComplete: () => flash.destroy(),
+    });
+    this.tweens.add({
+      targets: target,
+      scaleX: baseScale * 1.15,
+      scaleY: baseScale * 1.15,
+      duration: 90,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => target.setScale(baseScale),
+    });
   }
 
   private hideDoorPrompt(): void {
     this.promptText?.setVisible(false);
-    this.doors.forEach((d) => d.doorSprite.clearTint());
+    this.doors.forEach((d) => this.setDoorInteractionState(d, false));
   }
 
   /** Player pressed E near a door — show context input panel */
