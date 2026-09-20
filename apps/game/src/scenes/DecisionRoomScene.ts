@@ -14,8 +14,10 @@ import {
   DECISION_MAP_TILE_SIZE,
   DECISION_TILE_LAYERS,
   DECISION_COLLIDABLE_LAYER,
+  DECISION_MAP_BOUNDS,
   DECISION_SPAWN_TILE,
   DECISION_DOOR_ROW_TILE_Y,
+  DECISION_DOOR_ROW_X_RANGE,
   patchDecisionRoomTilesets,
 } from '../decisionRoomTilemap';
 import type {
@@ -141,7 +143,13 @@ export class DecisionRoomScene extends Phaser.Scene {
     ).filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
     DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = this.map.createLayer(layerName, tilesets, 0, 0);
+      // Deliberately NOT passing explicit x/y here: this map is an
+      // "infinite" (chunked) Tiled map where each layer's tiles can start
+      // at a different (even negative) chunk offset. Omitting x/y lets
+      // Phaser fall back to each layer's own computed Tiled offset so the
+      // layers still line up correctly — forcing them all to (0,0) would
+      // misalign them relative to one another.
+      const layer = this.map.createLayer(layerName, tilesets);
       layer?.setDepth(depth);
 
       if (layerName === DECISION_COLLIDABLE_LAYER) {
@@ -151,15 +159,23 @@ export class DecisionRoomScene extends Phaser.Scene {
       }
     });
 
-    const mapWidthPx = this.map.widthInPixels;
-    const mapHeightPx = this.map.heightInPixels;
-    this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
+    // This is an infinite map, so `map.widthInPixels`/`heightInPixels`
+    // (derived from the map's nominal, not-quite-accurate top-level
+    // width/height) can't be trusted for bounds/centering — use the real
+    // measured content bounds instead (see decisionRoomTilemap.ts).
+    const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
+    const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
+    const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
+    const boundsWidthPx = (maxTileX - minTileX + 1) * DECISION_MAP_TILE_SIZE;
+    const boundsHeightPx = (maxTileY - minTileY + 1) * DECISION_MAP_TILE_SIZE;
+
+    this.physics.world.setBounds(boundsX, boundsY, boundsWidthPx, boundsHeightPx);
 
     // This room is small enough to always fit on screen, so keep the
     // camera static and centered on it rather than using bounds + follow
     // (Camera bounds clamp scroll to (0,0) whenever the world is smaller
     // than the viewport, which pins the room to the top-left corner).
-    this.cameras.main.centerOn(mapWidthPx / 2, mapHeightPx / 2);
+    this.cameras.main.centerOn(boundsX + boundsWidthPx / 2, boundsY + boundsHeightPx / 2);
   }
 
   // ─── Decision rendering ───
@@ -193,17 +209,20 @@ export class DecisionRoomScene extends Phaser.Scene {
       }).setOrigin(0.5).setScrollFactor(0).setDepth(100);
     }
 
-    // Create doors along an open row near the top of the room (in-world, so
-    // they scroll/collide like any other map object the player walks to)
+    // Create doors along a verified-open row near the top of the room
+    // (in-world, so they scroll/collide like any other map object the
+    // player walks to). Uses the room's real measured open span rather
+    // than the map's nominal pixel size (see decisionRoomTilemap.ts).
     const opts = decision.options;
-    const mapWidthPx = this.map.widthInPixels;
-    const margin = 5 * DECISION_MAP_TILE_SIZE;
-    const totalWidth = mapWidthPx - margin * 2;
-    const spacing = totalWidth / (opts.length + 1);
+    const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
+    const rangeWidthPx =
+      (DECISION_DOOR_ROW_X_RANGE.maxTileX - DECISION_DOOR_ROW_X_RANGE.minTileX + 1) *
+      DECISION_MAP_TILE_SIZE;
+    const spacing = rangeWidthPx / (opts.length + 1);
     const doorY = DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
     opts.forEach((option, i) => {
-      const doorX = margin + spacing * (i + 1);
+      const doorX = rangeStartPx + spacing * (i + 1);
       const isRec = decision.recommendation?.option === option.id;
 
       const doorSprite = this.add.image(doorX, doorY, PATTERNS_KEY, PATTERNS.DOOR)

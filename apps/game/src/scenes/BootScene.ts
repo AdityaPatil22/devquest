@@ -50,7 +50,13 @@ export class BootScene extends Phaser.Scene {
     // images at 16×16 frames here and patch the tileset data at runtime —
     // see decisionRoomTilemap.ts for details.
     this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
+    // A couple of tileset entries intentionally share the same texture key
+    // (the map references the same source PNG more than once, under
+    // different firstgids) — de-dupe so we don't queue the same load twice.
+    const seenKeys = new Set<string>();
     DECISION_TILESETS.forEach(({ key, path }) => {
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
       this.load.spritesheet(key, path, {
         frameWidth: DECISION_MAP_TILE_SIZE,
         frameHeight: DECISION_MAP_TILE_SIZE,
