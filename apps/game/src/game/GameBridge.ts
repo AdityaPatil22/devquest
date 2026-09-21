@@ -84,6 +84,16 @@ export type GameUIEvent =
       docContent: string;
     }
   | {
+      type: 'TROPHY_PROXIMITY';
+      visible: boolean;
+    }
+  | {
+      type: 'TROPHY_INTERACTED';
+      problem?: string;
+      summary?: string;
+      docContent?: string;
+    }
+  | {
       type: 'ERROR';
       message: string;
     };

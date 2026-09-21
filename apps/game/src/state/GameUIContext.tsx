@@ -22,6 +22,10 @@ export interface UIState {
   doorNear: boolean;
   nearDoorOption?: DecisionOption;
 
+  trophyNear: boolean;
+  trophySummaryOpen: boolean;
+  trophyProblem?: string;
+
   problem?: string;
 
   round?: number;
@@ -66,6 +70,9 @@ const initialState: UIState = {
 
   doorNear: false,
   nearDoorOption: undefined,
+
+  trophyNear: false,
+  trophySummaryOpen: false,
 
   options: [],
 };

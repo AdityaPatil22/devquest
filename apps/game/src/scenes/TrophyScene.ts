@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { Player } from '../entities/Player';
 import { SessionStore } from '../state/SessionStore';
+import { emitUIEvent } from '../game/GameBridge';
 
 import {
   TROPHY_TILEMAP_KEY,
@@ -18,39 +19,18 @@ interface SceneData {
   store: SessionStore;
 }
 
-// ─────────────────────────────────────────────
-// Trophy
-// ─────────────────────────────────────────────
-
 const TROPHY_KEY = 'trophy';
 
-/**
- * Position of the trophy on the center table.
- *
- * Adjust these two values if the trophy needs
- * to move slightly on your Tiled map.
- */
 const TROPHY_TILE = {
   x: 23.5,
-  y: 11.7,
+  y: 12,
 };
 
-/**
- * Player interaction distance.
- */
 const TROPHY_INTERACTION_DISTANCE =
   TROPHY_MAP_TILE_SIZE * 2.5;
 
 export class TrophyScene extends Phaser.Scene {
-  // ─────────────────────────────────────────────
-  // Session
-  // ─────────────────────────────────────────────
-
   private store!: SessionStore;
-
-  // ─────────────────────────────────────────────
-  // Map
-  // ─────────────────────────────────────────────
 
   private map!: Phaser.Tilemaps.Tilemap;
 
@@ -58,33 +38,23 @@ export class TrophyScene extends Phaser.Scene {
     Phaser.Tilemaps.Tilemap['createLayer']
   >;
 
-  // ─────────────────────────────────────────────
-  // Player
-  // ─────────────────────────────────────────────
-
   private player!: Player;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
   private interactKey!: Phaser.Input.Keyboard.Key;
 
-  private escapeKey!: Phaser.Input.Keyboard.Key;
-
-  // ─────────────────────────────────────────────
-  // Trophy
-  // ─────────────────────────────────────────────
-
   private trophy!: Phaser.GameObjects.Image;
 
   private nearTrophy = false;
 
+  /**
+   * React currently owns the summary UI.
+   *
+   * This flag only tells Phaser whether
+   * player movement should be paused.
+   */
   private summaryOpen = false;
-
-  // ─────────────────────────────────────────────
-  // Summary UI
-  // ─────────────────────────────────────────────
-
-  private summaryContainer?: Phaser.GameObjects.Container;
 
   constructor() {
     super({
@@ -92,21 +62,12 @@ export class TrophyScene extends Phaser.Scene {
     });
   }
 
-  // ─────────────────────────────────────────────
-  // Init
-  // ─────────────────────────────────────────────
-
   init(data: SceneData): void {
     this.store = data.store;
 
     this.nearTrophy = false;
-
     this.summaryOpen = false;
   }
-
-  // ─────────────────────────────────────────────
-  // Create
-  // ─────────────────────────────────────────────
 
   create(): void {
     this.buildRoom();
@@ -117,10 +78,6 @@ export class TrophyScene extends Phaser.Scene {
 
     this.createInput();
   }
-
-  // ─────────────────────────────────────────────
-  // Map
-  // ─────────────────────────────────────────────
 
   private buildRoom(): void {
     const cached =
@@ -151,10 +108,6 @@ export class TrophyScene extends Phaser.Scene {
         ): tileset is Phaser.Tilemaps.Tileset =>
           tileset !== null,
       );
-
-    // ───────────────────────────────────────
-    // Tiled layers
-    // ───────────────────────────────────────
 
     TROPHY_TILE_LAYERS.forEach(
       (layerName, depth) => {
@@ -187,10 +140,6 @@ export class TrophyScene extends Phaser.Scene {
       },
     );
 
-    // ───────────────────────────────────────
-    // World bounds
-    // ───────────────────────────────────────
-
     const {
       minTileX,
       maxTileX,
@@ -221,31 +170,17 @@ export class TrophyScene extends Phaser.Scene {
       mapHeight,
     );
 
-    // ───────────────────────────────────────
-    // Center map
-    // ───────────────────────────────────────
-
-    const mapCenterX =
-      boundsX + mapWidth / 2;
-
-    const mapCenterY =
-      boundsY + mapHeight / 2;
-
     /*
-     * Do not use camera bounds here because
-     * the map is smaller than the viewport.
+     * The map is smaller than the viewport,
+     * so don't use camera bounds.
      */
     this.cameras.main.centerOn(
-      mapCenterX,
-      mapCenterY,
+      boundsX + mapWidth / 2,
+      boundsY + mapHeight / 2,
     );
 
     this.cameras.main.stopFollow();
   }
-
-  // ─────────────────────────────────────────────
-  // Player
-  // ─────────────────────────────────────────────
 
   private createPlayer(): void {
     const spawnX =
@@ -276,10 +211,6 @@ export class TrophyScene extends Phaser.Scene {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Trophy
-  // ─────────────────────────────────────────────
-
   private createTrophy(): void {
     const trophyX =
       TROPHY_TILE.x *
@@ -298,20 +229,9 @@ export class TrophyScene extends Phaser.Scene {
         TROPHY_KEY,
       )
       .setOrigin(0.5)
-      .setDepth(8);
+      .setDepth(8)
+      .setScale(0.08);
 
-    /*
-     * Adjust the trophy size depending on
-     * the actual PNG dimensions.
-     *
-     * Start with 0.8 and adjust if necessary.
-     */
-    this.trophy.setScale(0.08);
-
-    /*
-     * Small floating animation to make the
-     * trophy feel interactive.
-     */
     this.tweens.add({
       targets: this.trophy,
       y: trophyY - 2,
@@ -321,10 +241,6 @@ export class TrophyScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
   }
-
-  // ─────────────────────────────────────────────
-  // Input
-  // ─────────────────────────────────────────────
 
   private createInput(): void {
     if (!this.input.keyboard) {
@@ -338,16 +254,7 @@ export class TrophyScene extends Phaser.Scene {
       this.input.keyboard.addKey(
         Phaser.Input.Keyboard.KeyCodes.E,
       );
-
-    this.escapeKey =
-      this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.ESC,
-      );
   }
-
-  // ─────────────────────────────────────────────
-  // Update
-  // ─────────────────────────────────────────────
 
   update(): void {
     if (!this.player || !this.cursors) {
@@ -355,22 +262,11 @@ export class TrophyScene extends Phaser.Scene {
     }
 
     /*
-     * When the summary is open, don't allow
-     * the player to move.
+     * React summary is open.
+     * Don't allow player movement.
      */
     if (this.summaryOpen) {
       this.player.stop();
-
-      if (
-        Phaser.Input.Keyboard.JustDown(
-          this.interactKey,
-        ) ||
-        Phaser.Input.Keyboard.JustDown(
-          this.escapeKey,
-        )
-      ) {
-        this.closeSummary();
-      }
 
       return;
     }
@@ -381,10 +277,6 @@ export class TrophyScene extends Phaser.Scene {
 
     this.checkTrophyProximity();
   }
-
-  // ─────────────────────────────────────────────
-  // Trophy proximity
-  // ─────────────────────────────────────────────
 
   private checkTrophyProximity(): void {
     if (!this.trophy) {
@@ -403,18 +295,39 @@ export class TrophyScene extends Phaser.Scene {
       distance <=
       TROPHY_INTERACTION_DISTANCE;
 
-    if (isNear && !this.nearTrophy) {
+    /*
+     * Player entered interaction range.
+     */
+    if (
+      isNear &&
+      !this.nearTrophy
+    ) {
       this.nearTrophy = true;
 
-      this.showInteractionHint();
+      emitUIEvent(this.game, {
+        type: 'TROPHY_PROXIMITY',
+        visible: true,
+      });
     }
 
-    if (!isNear && this.nearTrophy) {
+    /*
+     * Player left interaction range.
+     */
+    if (
+      !isNear &&
+      this.nearTrophy
+    ) {
       this.nearTrophy = false;
 
-      this.hideInteractionHint();
+      emitUIEvent(this.game, {
+        type: 'TROPHY_PROXIMITY',
+        visible: false,
+      });
     }
 
+    /*
+     * Player pressed E while near trophy.
+     */
     if (
       isNear &&
       Phaser.Input.Keyboard.JustDown(
@@ -425,61 +338,6 @@ export class TrophyScene extends Phaser.Scene {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Interaction hint
-  // ─────────────────────────────────────────────
-
-  private interactionHint?: Phaser.GameObjects.Text;
-
-  private showInteractionHint(): void {
-    if (this.interactionHint) {
-      return;
-    }
-
-    this.interactionHint = this.add
-      .text(
-        this.trophy.x,
-        this.trophy.y - 30,
-        'PRESS E TO VIEW SUMMARY',
-        {
-          fontSize: '10px',
-          color: '#ffffff',
-          backgroundColor: '#111827',
-          padding: {
-            left: 8,
-            right: 8,
-            top: 5,
-            bottom: 5,
-          },
-        },
-      )
-      .setOrigin(0.5)
-      .setDepth(20);
-
-    this.tweens.add({
-      targets:
-        this.interactionHint,
-      alpha: {
-        from: 0.6,
-        to: 1,
-      },
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
-  }
-
-  private hideInteractionHint(): void {
-    this.interactionHint?.destroy();
-
-    this.interactionHint =
-      undefined;
-  }
-
-  // ─────────────────────────────────────────────
-  // Summary
-  // ─────────────────────────────────────────────
-
   private openSummary(): void {
     if (this.summaryOpen) {
       return;
@@ -489,245 +347,53 @@ export class TrophyScene extends Phaser.Scene {
 
     this.player.stop();
 
-    this.hideInteractionHint();
-
-    this.createSummaryPanel();
+    emitUIEvent(this.game, {
+      type: 'TROPHY_INTERACTED',
+      problem: this.store.problem,
+      summary: this.store.summary,
+      docContent: this.store.docContent,
+    });
   }
 
-  private createSummaryPanel(): void {
-    const width =
-      Math.min(
-        this.scale.width - 80,
-        900,
-      );
-
-    const height =
-      Math.min(
-        this.scale.height - 80,
-        650,
-      );
-
-    const centerX =
-      this.scale.width / 2;
-
-    const centerY =
-      this.scale.height / 2;
-
-    this.summaryContainer =
-      this.add.container(
-        centerX,
-        centerY,
-      );
-
-    this.summaryContainer.setDepth(
-      100,
-    );
-
-    this.summaryContainer.setScrollFactor(
-      0,
-    );
-
-    // ─────────────────────────────────────
-    // Background
-    // ─────────────────────────────────────
-
-    const background =
-      this.add.rectangle(
-        0,
-        0,
-        width,
-        height,
-        0x111827,
-        0.97,
-      );
-
-    background.setStrokeStyle(
-      2,
-      0xffffff,
-      0.8,
-    );
-
-    this.summaryContainer.add(
-      background,
-    );
-
-    // ─────────────────────────────────────
-    // Title
-    // ─────────────────────────────────────
-
-    const title =
-      this.add.text(
-        0,
-        -height / 2 + 35,
-        'SESSION SUMMARY',
-        {
-          fontSize: '24px',
-          color: '#ffffff',
-          fontStyle: 'bold',
-        },
-      );
-
-    title.setOrigin(0.5);
-
-    this.summaryContainer.add(
-      title,
-    );
-
-    // ─────────────────────────────────────
-    // Content
-    // ─────────────────────────────────────
-
-    const contentParts: string[] = [];
-
-    // Problem
-
-    if (this.store.problem) {
-      contentParts.push(
-        `PROBLEM\n${this.store.problem}`,
-      );
-    }
-
-    // Summary
-
-    if (this.store.summary) {
-      contentParts.push(
-        `SUMMARY\n${this.store.summary}`,
-      );
-    }
-
-    // Decisions
-
-    if (this.store.decisions.length > 0) {
-      const decisions =
-        this.store.decisions
-          .map((decision, index) => {
-            const selected =
-              decision.options.find(
-                (option) =>
-                  option.id ===
-                  decision.selectedOptionId,
-              );
-
-            const selectedText =
-              selected?.label ??
-              decision.selectedOptionId ??
-              'No selection';
-
-            return (
-              `Round ${index + 1}\n` +
-              `${decision.question}\n` +
-              `Decision: ${selectedText}`
-            );
-          })
-          .join('\n\n');
-
-      contentParts.push(
-        `DECISIONS\n${decisions}`,
-      );
-    }
-
-    // Document
-
-    if (this.store.docContent) {
-      contentParts.push(
-        `DECISION DOCUMENT\n${this.store.docContent}`,
-      );
-    }
-
-    const content =
-      contentParts.join(
-        '\n\n────────────────────\n\n',
-      );
-
-    // ─────────────────────────────────────
-    // Scrollable content
-    // ─────────────────────────────────────
-
-    const contentText =
-      this.add.text(
-        -width / 2 + 35,
-        -height / 2 + 80,
-        content ||
-          'No session summary available.',
-        {
-          fontSize: '13px',
-          color: '#e5e7eb',
-          lineSpacing: 8,
-          wordWrap: {
-            width: width - 70,
-          },
-        },
-      );
-
-    contentText.setOrigin(
-      0,
-      0,
-    );
-
-    this.summaryContainer.add(
-      contentText,
-    );
-
-    // ─────────────────────────────────────
-    // Close instruction
-    // ─────────────────────────────────────
-
-    const closeText =
-      this.add.text(
-        0,
-        height / 2 - 30,
-        'PRESS E OR ESC TO CLOSE',
-        {
-          fontSize: '11px',
-          color: '#9ca3af',
-        },
-      );
-
-    closeText.setOrigin(0.5);
-
-    this.summaryContainer.add(
-      closeText,
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // Close summary
-  // ─────────────────────────────────────────────
-
-  private closeSummary(): void {
-    if (!this.summaryOpen) {
-      return;
-    }
-
+  /**
+   * Called by React when the summary
+   * modal is closed.
+   */
+  public closeSummary(): void {
     this.summaryOpen = false;
 
-    this.summaryContainer?.destroy();
-
-    this.summaryContainer =
-      undefined;
-
     /*
-     * Re-check proximity so the
-     * interaction hint comes back.
+     * Recalculate proximity so React can
+     * display the prompt again if necessary.
      */
-    this.checkTrophyProximity();
-  }
+    const distance =
+      Phaser.Math.Distance.Between(
+        this.player.sprite.x,
+        this.player.sprite.y,
+        this.trophy.x,
+        this.trophy.y,
+      );
 
-  // ─────────────────────────────────────────────
-  // Cleanup
-  // ─────────────────────────────────────────────
+    const isNear =
+      distance <=
+      TROPHY_INTERACTION_DISTANCE;
+
+    this.nearTrophy = isNear;
+
+    emitUIEvent(this.game, {
+      type: 'TROPHY_PROXIMITY',
+      visible: isNear,
+    });
+  }
 
   shutdown(): void {
     this.player?.stop();
 
-    this.summaryContainer?.destroy();
+    this.summaryOpen = false;
 
-    this.summaryContainer =
-      undefined;
-
-    this.interactionHint?.destroy();
-
-    this.interactionHint =
-      undefined;
+    emitUIEvent(this.game, {
+      type: 'TROPHY_PROXIMITY',
+      visible: false,
+    });
   }
 }
