@@ -1,6 +1,4 @@
-# 🧠 DevQuest
-
-> **Turn engineering decisions into a game.**
+# DevQuest
 
 DevQuest is an interactive **AI-powered engineering decision simulator** that turns the process of making technical decisions into a 2D game.
 
@@ -10,7 +8,7 @@ At the end of the session, DevQuest generates a structured **engineering decisio
 
 ---
 
-## ✨ Why DevQuest?
+## Why DevQuest?
 
 Technical decisions are rarely just about picking an option.
 
@@ -32,13 +30,13 @@ DevQuest turns that process into an interactive experience.
 
 The experience is divided into four areas:
 
-### 1. 🏠 Common Room
+### 1. Common Room
 
 The starting point of the game.
 
 From here you can begin a new session or resume an existing one.
 
-### 2. 🚪 Gate
+### 2. Gate
 
 The Gate is where the player enters the engineering problem they want to explore.
 
@@ -48,7 +46,7 @@ Example:
 
 Once submitted, DevQuest starts building a decision tree around the problem.
 
-### 3. 🧩 Decision Room
+### 3. Decision Room
 
 Each decision becomes a room containing doors.
 
@@ -216,7 +214,7 @@ Player
 
 ---
 
-## 🧠 Decision-Grilling Model
+## Decision-Grilling Model
 
 DevQuest follows a branching decision-tree approach.
 
@@ -254,7 +252,7 @@ The system emphasizes:
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Game
 
@@ -289,7 +287,7 @@ The system emphasizes:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 devquest/
@@ -339,7 +337,7 @@ devquest/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -384,7 +382,7 @@ This installs:
 
 ---
 
-## ▶️ Run DevQuest
+## Run DevQuest
 
 Start both the game and backend:
 
@@ -426,7 +424,7 @@ curl http://127.0.0.1:8000/api/health
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run the complete test suite:
 
@@ -448,7 +446,7 @@ make test-server
 
 ---
 
-## 🏭 Build
+## Build
 
 Build the game:
 
@@ -467,7 +465,7 @@ The full build compiles the Phaser application and copies the generated game ass
 
 ---
 
-## 🗄️ Database
+## Database
 
 Run database migrations:
 
@@ -483,7 +481,7 @@ make db-revision msg="describe your change"
 
 ---
 
-## 🎯 Skill Integration
+## Skill Integration
 
 The `skill/SKILL.md` file contains the DevQuest skill definition.
 
@@ -535,7 +533,7 @@ Reach Trophy Room
 
 ---
 
-## 🧩 Design Principles
+## Design Principles
 
 ### The skill owns the intelligence
 
@@ -570,7 +568,7 @@ The goal is not to generate the maximum number of questions. The goal is to expl
 
 ---
 
-## 🔮 Future Possibilities
+## Future Possibilities
 
 Potential extensions include:
 
@@ -586,7 +584,7 @@ Potential extensions include:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, ideas, bug reports, and experiments are welcome.
 
@@ -604,12 +602,12 @@ Then open a pull request.
 
 ---
 
-## 📄 License
+## License
 
 Add the project's license information here when a license is selected.
 
 ---
 
-## 🔗 Repository
+## Repository
 
 [DevQuest on GitHub](https://github.com/AdityaPatil22/devquest)
