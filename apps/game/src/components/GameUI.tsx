@@ -10,7 +10,6 @@ import { DoorContextModal } from './DecisionPanel/DoorContextModal';
 import { ChallengePanel } from './ChallengePanel/ChallengePanel';
 import { EvaluationPanel } from './EvaluationPanel/EvaluationPanel';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
-import { TrophyScreen } from './TrophyScreen/TrophyScreen';
 
 interface GameUIEvent {
   type: string;
@@ -282,22 +281,6 @@ export function GameUI() {
     },
     [game],
   );
-
-  if (state.screen === 'complete') {
-    return (
-      <>
-        <HUD />
-
-        <TrophyScreen
-          summary={state.summary}
-          docContent={state.docContent}
-          onRestart={() => {
-            window.location.reload();
-          }}
-        />
-      </>
-    );
-  }
 
   return (
     <>

@@ -2,7 +2,10 @@ import type Phaser from 'phaser';
 
 import { createDevGameState } from './DevGameFactory';
 
-export type DevScene = 'CommonRoomScene' | 'DecisionRoomScene' | 'TrophyScene';
+export type DevScene =
+  | 'CommonRoomScene'
+  | 'DecisionRoomScene'
+  | 'TrophyScene';
 
 export function launchScene(game: Phaser.Game, scene: DevScene): void {
   const activeScenes = game.scene.getScenes(true);
@@ -13,11 +16,25 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
 
   switch (scene) {
     case 'TrophyScene': {
+      const { store } = createDevGameState();
+
+      store.setProblem('How should we implement this feature?');
+
+      store.updateCurrent({
+        selectedOptionId: 'option-c',
+        context: 'Use existing components where possible.',
+        defense: 'A hybrid solution reduces implementation risk.',
+        feedback: 'The proposed approach balances reuse and flexibility.',
+        consequence: 'The implementation remains easier to maintain.',
+      });
+
+      store.complete(
+        'The session explored several approaches and selected a hybrid solution.',
+        '# DevQuest Decision Document\n\nA hybrid implementation was selected.',
+      );
+
       game.scene.start('TrophyScene', {
-        problem: 'How should we improve the deployment workflow?',
-        decision: 'Use automated CI/CD with stronger validation.',
-        summary:
-          'The session explored several approaches and selected an automated CI/CD workflow.',
+        store,
       });
 
       break;
@@ -58,6 +75,31 @@ export function restartScene(game: Phaser.Game): void {
   }
 
   const currentScene = activeScenes[0];
+
+  if (currentScene.scene.key === 'TrophyScene') {
+    const { store } = createDevGameState();
+
+    store.setProblem('How should we implement this feature?');
+
+    store.updateCurrent({
+      selectedOptionId: 'option-c',
+      context: 'Use existing components where possible.',
+      defense: 'A hybrid solution reduces implementation risk.',
+      feedback: 'The proposed approach balances reuse and flexibility.',
+      consequence: 'The implementation remains easier to maintain.',
+    });
+
+    store.complete(
+      'The session explored several approaches and selected a hybrid solution.',
+      '# DevQuest Decision Document\n\nA hybrid implementation was selected.',
+    );
+
+    currentScene.scene.restart({
+      store,
+    });
+
+    return;
+  }
 
   currentScene.scene.restart();
 }
