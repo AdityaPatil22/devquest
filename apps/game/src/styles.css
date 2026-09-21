@@ -112,7 +112,7 @@ button {
 .dev-toolbar {
   position: fixed;
   top: 16px;
-  left: 16px;
+  left: 250px;
   z-index: 1000;
   display: flex;
   align-items: center;
