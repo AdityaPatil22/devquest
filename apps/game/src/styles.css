@@ -24,11 +24,6 @@ body,
 
 body {
   overflow: hidden;
-  background-image: url("/assets/background/background.jpg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
 }
 
 button,
@@ -48,6 +43,11 @@ button {
   height: 100vh;
 
   overflow: hidden;
+  background-image: url("/assets/background/background.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 .phaser-layer {

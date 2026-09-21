@@ -23,7 +23,8 @@ export function createPhaserGame(
 
     pixelArt: true,
 
-    backgroundColor: '#070712',
+    transparent: true,
+    backgroundColor: 'rgba(0, 0, 0, 0)',
 
     physics: {
       default: 'arcade',

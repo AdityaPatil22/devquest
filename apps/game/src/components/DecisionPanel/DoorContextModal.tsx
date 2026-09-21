@@ -63,6 +63,9 @@ export function DoorContextModal({
               event.target.value,
             )
           }
+          onKeyDown={(event) => {
+            event.stopPropagation();
+          }}
           placeholder={
             '"I was also thinking..."'
           }

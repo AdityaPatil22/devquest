@@ -74,6 +74,9 @@ export function ElevatorModal({
                   event.target.value,
                 )
               }
+              onKeyDown={(event) => {
+                event.stopPropagation();
+              }}
               placeholder={
                 'e.g. "Should I rewrite the auth service in Go?"'
               }

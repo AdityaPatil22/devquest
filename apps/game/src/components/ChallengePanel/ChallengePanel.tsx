@@ -55,6 +55,9 @@ export function ChallengePanel({
               event.target.value,
             )
           }
+          onKeyDown={(event) => {
+            event.stopPropagation();
+          }}
           placeholder="Explain why you would make this choice..."
           autoFocus
         />
