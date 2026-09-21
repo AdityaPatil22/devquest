@@ -1,0 +1,49 @@
+.decision-modal {
+  width: min(560px, 100%);
+
+  padding: 30px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 16px;
+
+  background: #10101d;
+
+  box-shadow:
+    0 24px 80px
+      rgba(0, 0, 0, 0.5);
+}
+
+.decision-modal h2 {
+  margin: 0;
+
+  font-size: 28px;
+}
+
+.decision-modal p {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.decision-modal textarea {
+  width: 100%;
+  min-height: 120px;
+
+  resize: vertical;
+
+  padding: 14px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 10px;
+
+  outline: none;
+
+  color: white;
+  background: #080812;
+}
+
+.decision-modal textarea:focus {
+  border-color: #7777ff;
+}

@@ -1,0 +1,66 @@
+.evaluation-panel {
+  width: min(700px, 100%);
+
+  padding: 32px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 16px;
+
+  background: #10101d;
+
+  box-shadow:
+    0 24px 80px
+      rgba(0, 0, 0, 0.5);
+}
+
+.evaluation-panel h2 {
+  margin: 0 0 24px;
+
+  font-size: 28px;
+}
+
+.evaluation-block {
+  margin-bottom: 16px;
+
+  padding: 18px;
+
+  border-radius: 10px;
+
+  background: rgba(
+    255,
+    255,
+    255,
+    0.05
+  );
+}
+
+.evaluation-label {
+  margin-bottom: 8px;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+
+  color: #8d8dff;
+}
+
+.evaluation-block p {
+  margin: 0;
+
+  color: rgba(255, 255, 255, 0.8);
+
+  line-height: 1.6;
+}
+
+.evaluation-hint {
+  margin-top: 20px;
+
+  color: rgba(255, 255, 255, 0.45);
+
+  font-size: 12px;
+
+  text-align: center;
+}

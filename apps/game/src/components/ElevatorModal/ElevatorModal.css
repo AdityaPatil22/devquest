@@ -1,0 +1,171 @@
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(4, 4, 12, 0.68);
+
+  backdrop-filter: blur(6px);
+
+  pointer-events: auto;
+}
+
+.elevator-modal {
+  width: min(680px, 100%);
+
+  padding: 32px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 16px;
+
+  background: #10101d;
+
+  box-shadow:
+    0 24px 80px
+      rgba(0, 0, 0, 0.5);
+}
+
+.modal-eyebrow {
+  margin-bottom: 12px;
+
+  color: #8d8dff;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.14em;
+}
+
+.elevator-modal h1 {
+  margin: 0;
+
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.elevator-modal p {
+  margin: 14px 0 22px;
+
+  color: rgba(255, 255, 255, 0.62);
+
+  line-height: 1.6;
+}
+
+.elevator-modal textarea {
+  width: 100%;
+  min-height: 140px;
+
+  resize: vertical;
+
+  padding: 14px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 10px;
+
+  outline: none;
+
+  color: white;
+  background: #080812;
+
+  line-height: 1.5;
+}
+
+.elevator-modal textarea:focus {
+  border-color: #7777ff;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+.actions button {
+  padding: 11px 16px;
+
+  border: 0;
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  font-weight: 800;
+}
+
+.actions button:first-child {
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.actions button:last-child {
+  color: #080812;
+  background: white;
+}
+
+.actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.modal-waiting {
+  min-height: 150px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+
+  border: 2px solid
+    rgba(255, 255, 255, 0.15);
+
+  border-top-color: white;
+
+  border-radius: 50%;
+
+  animation:
+    devquest-spin
+    0.8s linear infinite;
+}
+
+.modal-error {
+  margin-top: 12px;
+
+  padding: 10px 12px;
+
+  border-radius: 8px;
+
+  color: #ffb5b5;
+
+  background: rgba(
+    255,
+    70,
+    70,
+    0.1
+  );
+
+  border: 1px solid
+    rgba(255, 70, 70, 0.2);
+}
+
+@keyframes devquest-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

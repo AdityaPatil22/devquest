@@ -1,0 +1,42 @@
+.interaction-prompt {
+  position: absolute;
+
+  left: 50%;
+  bottom: 90px;
+
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 16px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 10px;
+
+  background:
+    rgba(10, 10, 24, 0.85);
+
+  backdrop-filter: blur(12px);
+
+  font-size: 13px;
+}
+
+.interaction-key {
+  display: grid;
+
+  width: 26px;
+  height: 26px;
+
+  place-items: center;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+  color: #080812;
+
+  font-weight: 800;
+}

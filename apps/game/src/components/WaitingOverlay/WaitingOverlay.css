@@ -1,0 +1,57 @@
+.waiting-overlay {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(
+    4,
+    4,
+    12,
+    0.45
+  );
+
+  backdrop-filter: blur(4px);
+
+  pointer-events: auto;
+}
+
+.waiting-card {
+  min-width: 280px;
+
+  padding: 28px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 12px;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.1);
+
+  border-radius: 14px;
+
+  background: #10101d;
+
+  text-align: center;
+
+  box-shadow:
+    0 24px 60px
+      rgba(0, 0, 0, 0.45);
+}
+
+.waiting-title {
+  font-size: 12px;
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+}
+
+.waiting-message {
+  color: rgba(255, 255, 255, 0.55);
+
+  font-size: 13px;
+}
