@@ -3,21 +3,15 @@ import {
   useRef,
 } from 'react';
 
-import Phaser from 'phaser';
-
 import { createPhaserGame } from './createPhaserGame';
+import { useGameUI } from '../state/GameUIContext';
 
-interface Props {
-  onGameReady?: (
-    game: Phaser.Game,
-  ) => void;
-}
-
-export function PhaserGame({
-  onGameReady,
-}: Props) {
+export function PhaserGame() {
   const containerRef =
     useRef<HTMLDivElement>(null);
+
+  const { setGame } =
+    useGameUI();
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -29,12 +23,14 @@ export function PhaserGame({
         containerRef.current,
       );
 
-    onGameReady?.(game);
+    setGame(game);
 
     return () => {
+      setGame(null);
+
       game.destroy(true);
     };
-  }, [onGameReady]);
+  }, [setGame]);
 
   return (
     <div

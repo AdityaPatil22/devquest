@@ -5,6 +5,11 @@ import { CommonRoomScene } from '../scenes/CommonRoomScene';
 import { DecisionRoomScene } from '../scenes/DecisionRoomScene';
 import { TrophyScene } from '../scenes/TrophyScene';
 
+import {
+  GAME_WIDTH,
+  GAME_HEIGHT,
+} from '../config';
+
 export function createPhaserGame(
   parent: HTMLElement,
 ): Phaser.Game {
@@ -13,12 +18,12 @@ export function createPhaserGame(
 
     parent,
 
-    width: 1024,
-    height: 768,
-
     pixelArt: true,
 
-    backgroundColor: '#0a0a1a',
+    transparent: true,
+
+    backgroundColor:
+      'rgba(0, 0, 0, 0)',
 
     physics: {
       default: 'arcade',
@@ -28,6 +33,8 @@ export function createPhaserGame(
           x: 0,
           y: 0,
         },
+
+        debug: false,
       },
     },
 
@@ -37,5 +44,12 @@ export function createPhaserGame(
       DecisionRoomScene,
       TrophyScene,
     ],
+
+    scale: {
+      mode: Phaser.Scale.RESIZE,
+
+      width: GAME_WIDTH,
+      height: GAME_HEIGHT,
+    },
   });
 }

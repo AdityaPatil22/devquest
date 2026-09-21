@@ -1,19 +1,40 @@
+import {
+  useEffect,
+  useState,
+} from 'react';
+
+import type {
+  DecisionOption,
+} from '../../net/protocol';
+
+import './DoorContextModal.css';
+
 interface Props {
   option?: DecisionOption;
+
   open: boolean;
 
   onSubmit: (
     context?: string,
   ) => void;
+
+  onCancel: () => void;
 }
 
 export function DoorContextModal({
   option,
   open,
   onSubmit,
+  onCancel,
 }: Props) {
   const [context, setContext] =
     useState('');
+
+  useEffect(() => {
+    if (open) {
+      setContext('');
+    }
+  }, [open, option?.id]);
 
   if (!open || !option) {
     return null;
@@ -22,9 +43,9 @@ export function DoorContextModal({
   return (
     <div className="modal-backdrop">
       <section className="decision-modal">
-        <span>
+        <div className="modal-eyebrow">
           DOOR {option.id}
-        </span>
+        </div>
 
         <h2>
           {option.label}
@@ -32,7 +53,7 @@ export function DoorContextModal({
 
         <p>
           Add context before
-          entering?
+          entering this decision?
         </p>
 
         <textarea
@@ -42,25 +63,30 @@ export function DoorContextModal({
               event.target.value,
             )
           }
-          placeholder='"I was also thinking..."'
+          placeholder={
+            '"I was also thinking..."'
+          }
+          autoFocus
         />
 
         <div className="actions">
           <button
-            onClick={() =>
-              onSubmit()
-            }
+            type="button"
+            onClick={() => {
+              onCancel();
+            }}
           >
-            SKIP
+            BACK
           </button>
 
           <button
-            onClick={() =>
+            type="button"
+            onClick={() => {
               onSubmit(
                 context.trim() ||
                   undefined,
-              )
-            }
+              );
+            }}
           >
             ENTER DOOR
           </button>

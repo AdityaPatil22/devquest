@@ -798,17 +798,28 @@ export class DecisionRoomScene extends Phaser.Scene {
       return;
     }
 
+    if (this.currentDoor) {
+      this.currentDoor.isOpen =
+        false;
+
+      this.currentDoor.doorSprite
+        .setTexture(
+          'door-closed',
+        )
+        .setOrigin(
+          0.5,
+          1.42,
+        )
+        .setScale(
+          DOOR_SCALE,
+        );
+    }
+
     this.phase =
       GamePhase.EXPLORING_DOORS;
 
     this.currentDoor =
       undefined;
-
-    this.doors.forEach(
-      (door) => {
-        door.doorSprite.clearTint();
-      },
-    );
 
     this.emitUI({
       type: 'DOOR_CONTEXT',
@@ -893,11 +904,10 @@ export class DecisionRoomScene extends Phaser.Scene {
     });
 
     this.ws.send({
-      type: 'DEFENSE_SUBMITTED',
-      nodeId:
-        this.currentNodeId,
-      defense: trimmed,
-    } as never);
+      type: 'CHALLENGE_RESPONSE',
+      nodeId: this.currentNodeId,
+      response: trimmed,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1023,7 +1033,6 @@ export class DecisionRoomScene extends Phaser.Scene {
           complete.docContent,
         );
 
-        this.leaveBoot();
 
         this.phase =
           GamePhase.EXPLORING_DOORS;
