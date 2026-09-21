@@ -1,0 +1,137 @@
+.trophy-summary-backdrop {
+  position: fixed;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  background: rgba(0, 0, 0, 0.55);
+
+  z-index: 1000;
+}
+
+.trophy-summary {
+  width: min(900px, 100%);
+  max-height: calc(100vh - 80px);
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 34px;
+
+  background: #111827;
+
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  border-radius: 4px;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5);
+
+  color: #ffffff;
+
+  overflow: hidden;
+}
+
+.trophy-summary-header {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 24px;
+}
+
+.trophy-summary-header h1 {
+  margin: 0;
+
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.trophy-summary-close {
+  position: absolute;
+  right: 0;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  width: 32px;
+  height: 32px;
+
+  border: 0;
+  border-radius: 4px;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-size: 26px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.trophy-summary-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.trophy-summary-section {
+  margin-bottom: 24px;
+
+  overflow-y: auto;
+}
+
+.trophy-summary-section h2 {
+  margin: 0 0 8px;
+
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.trophy-summary-section p {
+  margin: 0;
+
+  color: #d1d5db;
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.trophy-summary-section pre {
+  margin: 0;
+
+  padding: 16px;
+
+  background: rgba(0, 0, 0, 0.2);
+
+  border-radius: 4px;
+
+  color: #d1d5db;
+
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.trophy-summary-footer {
+  margin-top: auto;
+  padding-top: 16px;
+
+  text-align: center;
+
+  color: #9ca3af;
+
+  font-size: 12px;
+}
+
+.trophy-summary-footer strong {
+  color: #ffffff;
+}

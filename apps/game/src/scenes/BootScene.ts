@@ -11,6 +11,13 @@ import {
   DECISION_MAP_TILE_SIZE,
 } from '../tilemaps/decisionRoomTilemap';
 
+import {
+  TROPHY_TILEMAP_KEY,
+  TROPHY_TILEMAP_PATH,
+  TROPHY_TILESETS,
+  TROPHY_MAP_TILE_SIZE,
+} from '../tilemaps/trophyRoomTilemap';
+
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
@@ -135,6 +142,38 @@ export class BootScene extends Phaser.Scene {
 
         margin: 0,
 
+        spacing: 0,
+      });
+    });
+
+    
+    // ─────────────────────────────────────────
+    // Trophy Room
+    // ─────────────────────────────────────────
+    
+    this.load.image(
+      'trophy',
+      'assets/items/trophy.png',
+    );
+    
+    this.load.tilemapTiledJSON(
+      TROPHY_TILEMAP_KEY,
+      TROPHY_TILEMAP_PATH,
+    );
+
+    const trophySeenKeys = new Set<string>();
+
+    TROPHY_TILESETS.forEach(({ key, path }) => {
+      if (trophySeenKeys.has(key)) {
+        return;
+      }
+
+      trophySeenKeys.add(key);
+
+      this.load.spritesheet(key, path, {
+        frameWidth: TROPHY_MAP_TILE_SIZE,
+        frameHeight: TROPHY_MAP_TILE_SIZE,
+        margin: 0,
         spacing: 0,
       });
     });
@@ -359,23 +398,9 @@ export class BootScene extends Phaser.Scene {
     if (phase === 'complete') {
       this.leaveBoot();
 
-      /**
-       * TrophyScene should now be responsible
-       * for the completion UI.
-       */
-      if (phase === 'complete') {
-        this.emitUI({
-          type: 'SESSION_COMPLETE',
-          summary: msg.snapshot.summary ?? '',
-          docContent: msg.snapshot.docContent ?? '',
-        });
-
-        this.leaveBoot();
-
-        this.scene.start('TrophyScene');
-
-        return;
-      }
+      this.scene.start('TrophyScene', {
+        store: this.store,
+      });
 
       return;
     }

@@ -7,22 +7,15 @@ const SESSION_STORAGE_KEY = 'devquest_session_id';
 
 export class WebSocketClient {
   private ws?: WebSocket;
-
   private handlers: MessageHandler[] = [];
-
   private reconnectTimer?: ReturnType<typeof setTimeout>;
-
   private reconnectAttempts = 0;
-
   private maxReconnectAttempts = 10;
-
   private baseUrl: string;
-
   private _sessionId?: string;
 
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
-
     this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
   }
 
@@ -32,13 +25,11 @@ export class WebSocketClient {
 
   setSessionId(id: string): void {
     this._sessionId = id;
-
     sessionStorage.setItem(SESSION_STORAGE_KEY, id);
   }
 
   clearSession(): void {
     this._sessionId = undefined;
-
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
@@ -54,22 +45,18 @@ export class WebSocketClient {
         : this.baseUrl;
 
       console.log('[WS] Connecting:', url);
-
       this.ws = new WebSocket(url);
-
       this.ws.onopen = () => {
         console.log(
           '[WS] Connected',
           this._sessionId ? `(session ${this._sessionId})` : '(new session)',
         );
-
         this.reconnectAttempts = 0;
       };
 
       this.ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data) as ServerMessage;
-
           this.handlers.forEach((handler) => handler(msg));
         } catch (error) {
           console.error('[WS] Failed to parse message:', error);
@@ -78,7 +65,6 @@ export class WebSocketClient {
 
       this.ws.onclose = () => {
         console.log('[WS] Disconnected');
-
         this.scheduleReconnect();
       };
 
@@ -87,7 +73,6 @@ export class WebSocketClient {
       };
     } catch (error) {
       console.error('[WS] Connection failed:', error);
-
       this.scheduleReconnect();
     }
   }
@@ -102,10 +87,8 @@ export class WebSocketClient {
 
   onMessage(handler: MessageHandler): () => void {
     this.handlers.push(handler);
-
     return () => {
       const index = this.handlers.indexOf(handler);
-
       if (index !== -1) {
         this.handlers.splice(index, 1);
       }
@@ -115,7 +98,6 @@ export class WebSocketClient {
   disconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
-
       this.reconnectTimer = undefined;
     }
 

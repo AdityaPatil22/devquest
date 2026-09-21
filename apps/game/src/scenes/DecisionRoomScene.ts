@@ -750,19 +750,15 @@ export class DecisionRoomScene extends Phaser.Scene {
       case 'SESSION_COMPLETE': {
         const complete = msg as SessionCompleteMsg;
 
-        this.store.complete(complete.summary, complete.docContent);
-
-        this.phase = GamePhase.EXPLORING_DOORS;
+        this.store.complete(
+          complete.summary,
+          complete.docContent,
+        );
 
         this.player.stop();
 
-        /**
-         * React owns the final trophy/document UI.
-         */
-        this.emitUI({
-          type: 'SESSION_COMPLETE',
-          summary: complete.summary,
-          docContent: complete.docContent,
+        this.scene.start('TrophyScene', {
+          store: this.store,
         });
 
         break;

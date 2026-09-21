@@ -2,51 +2,45 @@
  * Config + helpers for the Decision Room's hand-authored Tiled map
  * (public/assets/map/decisionroom/decision-room.json).
  *
- * That map is an "infinite" (chunked) Tiled map and references its
- * tilesets as EXTERNAL .tsx files:
- *   "map/FloorAndGround.tsx"          (firstgid 1)
- *   "map/Modern_Office_Black_Shadow.tsx" (firstgid 10241)
- *   "FloorAndGround.tsx"              (firstgid 13633 — same PNG again)
- *   "Generic.tsx"                     (firstgid 23873)
- *   "Basement.tsx"                    (firstgid 28865)
- * None of the .tsx files are included in the repo, and Phaser's Tiled JSON
- * parser doesn't support external tileset references at all (it just warns
- * "External tilesets unsupported" and skips them).
- *
- * However, every one of these is actually a source PNG already used by the
- * Common Room map — just re-sliced at 16×16 instead of 32×32 tiles:
- *   - FloorAndGround.png (2048×1280)            -> 128 cols × 80 rows  = 10240 tiles
- *   - Modern_Office_Black_Shadow.png (512×1696) ->  32 cols × 106 rows =  3392 tiles
- *   - Generic.png (512×2496)                    ->  32 cols × 156 rows =  4992 tiles
- *   - Basement.png (512×1600)                   ->  32 cols × 100 rows =  3200 tiles
- * Each successive firstgid (10241, 13633, 23873, 28865) is exactly the sum
- * of the tile counts before it, confirming this.
- *
- * Since Phaser can't resolve the external references itself, we patch the
- * cached map JSON at runtime (`patchDecisionRoomTilesets`) to inject fully
- * "embedded" tileset definitions before creating the Tilemap from it.
+ * The map is an "infinite" (chunked) Tiled map and uses external .tsx
+ * tilesets. Phaser does not resolve these external tilesets correctly,
+ * so we inject embedded tileset definitions before creating the map.
  */
 
 export const DECISION_TILEMAP_KEY = 'decision-room-map';
-export const DECISION_TILEMAP_PATH = 'assets/map/decisionroom/decision-room.json';
 
-/** This map's real tile grid size, in pixels */
+export const DECISION_TILEMAP_PATH =
+  'assets/map/decisionroom/decisionroom.json';
+
+/**
+ * Tiled map tile size.
+ */
 export const DECISION_MAP_TILE_SIZE = 16;
 
 export interface DecisionTilesetDef {
-  /** Name we assign this tileset — used to match it up in Phaser */
+  /** Name used by Phaser for this tileset */
   name: string;
-  /** Phaser texture key backing this tileset (16×16 frames) */
+
+  /** Phaser texture key containing 16x16 frames */
   key: string;
-  /** Path relative to /public — only used to derive the embedded "image" filename */
+
+  /** PNG path relative to /public */
   path: string;
+
+  /** Tiled firstgid */
   firstgid: number;
+
   columns: number;
   imagewidth: number;
   imageheight: number;
   tilecount: number;
 }
 
+/**
+ * Tilesets used by the new Decision Room map.
+ *
+ * The firstgid values are unchanged from the previous map.
+ */
 export const DECISION_TILESETS: DecisionTilesetDef[] = [
   {
     name: 'FloorAndGround16',
@@ -58,6 +52,7 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1280,
     tilecount: 10240,
   },
+
   {
     name: 'ModernOfficeBlackShadow16',
     key: 'tileset-modern-office-16',
@@ -68,10 +63,13 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1696,
     tilecount: 3392,
   },
+
   {
-    // Same FloorAndGround.png as above, referenced a second time under a
-    // different firstgid — needs its own Tileset entry (same texture key
-    // is fine, Phaser just needs a distinct tileset "name" to key off of).
+    /**
+     * FloorAndGround is referenced a second time by Tiled.
+     * It therefore needs a separate tileset definition even though
+     * it uses the same PNG/texture.
+     */
     name: 'FloorAndGround16B',
     key: 'tileset-floor-and-ground-16',
     path: 'assets/map/FloorAndGround.png',
@@ -81,6 +79,7 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1280,
     tilecount: 10240,
   },
+
   {
     name: 'Generic16',
     key: 'tileset-generic-16',
@@ -91,6 +90,7 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
     imageheight: 2496,
     tilecount: 4992,
   },
+
   {
     name: 'Basement16',
     key: 'tileset-basement-16',
@@ -103,18 +103,29 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
   },
 ];
 
-/** Tile layers to render, bottom to top */
-export const DECISION_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'];
+/**
+ * Tile layers to render, bottom -> top.
+ */
+export const DECISION_TILE_LAYERS = [
+  'Tile Layer 1',
+  'Walls',
+  'furniture',
+  'computers',
+];
 
-/** The one layer whose tiles should block the player */
+/**
+ * Layer containing blocking wall tiles.
+ */
 export const DECISION_COLLIDABLE_LAYER = 'Walls';
 
 /**
- * This is an "infinite" Tiled map — tiles are stored in chunks and can
- * have negative coordinates, so there's no guarantee content starts at
- * world tile (0, 0). These bounds were measured directly from the current
- * map data's "Tile Layer 1" (floor) chunks and mark the actual playable
- * area, in tile coordinates (inclusive).
+ * Actual playable bounds of the Decision Room.
+ *
+ * The map itself is larger because it is an infinite/chunked Tiled map,
+ * but the floor content occupies:
+ *
+ *   X: -16 -> 59
+ *   Y:   0 -> 38
  */
 export const DECISION_MAP_BOUNDS = {
   minTileX: -16,
@@ -123,31 +134,51 @@ export const DECISION_MAP_BOUNDS = {
   maxTileY: 38,
 };
 
-/** Player spawn point, in tile coordinates — a verified open walkable tile */
-export const DECISION_SPAWN_TILE = { x: 30, y: 16 };
-
-/** Row (in tile coordinates) doors are placed along, near the top of the main room */
-export const DECISION_DOOR_ROW_TILE_Y = 5;
-
-/** Usable open horizontal span (in tile coordinates, inclusive) along the door row */
-export const DECISION_DOOR_ROW_X_RANGE = { minTileX: 4, maxTileX: 45 };
+/**
+ * Player spawn position.
+ *
+ * This remains inside the playable floor area of the new map.
+ */
+export const DECISION_SPAWN_TILE = {
+  x: 30,
+  y: 16,
+};
 
 /**
- * Mutates a raw Tiled JSON map object in place, replacing the external
- * `{ firstgid, source }` tileset stubs with fully embedded tileset
- * definitions that Phaser's Tiled JSON parser can actually use.
+ * Row where the decision doors are placed.
  */
-export function patchDecisionRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
-  rawMapJson.tilesets = DECISION_TILESETS.map((t) => ({
-    columns: t.columns,
-    firstgid: t.firstgid,
-    image: t.path.split('/').pop(),
-    imageheight: t.imageheight,
-    imagewidth: t.imagewidth,
+export const DECISION_DOOR_ROW_TILE_Y = 5;
+
+/**
+ * Horizontal area available for the decision doors.
+ */
+export const DECISION_DOOR_ROW_X_RANGE = {
+  minTileX: 4,
+  maxTileX: 45,
+};
+
+/**
+ * Replace Tiled's external tileset references with embedded
+ * tileset definitions that Phaser can consume.
+ */
+export function patchDecisionRoomTilesets(
+  rawMapJson: { tilesets: unknown[] },
+): void {
+  rawMapJson.tilesets = DECISION_TILESETS.map((tileset) => ({
+    columns: tileset.columns,
+    firstgid: tileset.firstgid,
+
+    image: tileset.path.split('/').pop(),
+
+    imageheight: tileset.imageheight,
+    imagewidth: tileset.imagewidth,
+
     margin: 0,
-    name: t.name,
+    name: tileset.name,
     spacing: 0,
-    tilecount: t.tilecount,
+
+    tilecount: tileset.tilecount,
+
     tileheight: DECISION_MAP_TILE_SIZE,
     tilewidth: DECISION_MAP_TILE_SIZE,
   }));
