@@ -3,16 +3,13 @@
 
   padding: 32px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 
   border-radius: 16px;
 
   background: #10101d;
 
-  box-shadow:
-    0 24px 80px
-      rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
 .evaluation-panel h2 {
@@ -28,12 +25,7 @@
 
   border-radius: 10px;
 
-  background: rgba(
-    255,
-    255,
-    255,
-    0.05
-  );
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .evaluation-label {

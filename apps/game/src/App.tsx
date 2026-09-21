@@ -8,11 +8,8 @@ export function App() {
       <main className="devquest-app">
         <PhaserGame />
 
-        <div
-          id="react-ui"
-          className="react-ui-layer"
-        >
-        <GameUI />
+        <div id="react-ui" className="react-ui-layer">
+          <GameUI />
         </div>
       </main>
     </GameUIProvider>

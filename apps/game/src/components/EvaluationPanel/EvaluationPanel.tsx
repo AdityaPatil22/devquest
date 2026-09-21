@@ -8,11 +8,7 @@ interface Props {
   consequence?: string;
 }
 
-export function EvaluationPanel({
-  open,
-  feedback,
-  consequence,
-}: Props) {
+export function EvaluationPanel({ open, feedback, consequence }: Props) {
   if (!open) {
     return null;
   }
@@ -20,40 +16,23 @@ export function EvaluationPanel({
   return (
     <div className="modal-backdrop">
       <section className="evaluation-panel">
-        <div className="modal-eyebrow">
-          EVALUATION
-        </div>
+        <div className="modal-eyebrow">EVALUATION</div>
 
-        <h2>
-          Decision evaluated
-        </h2>
+        <h2>Decision evaluated</h2>
 
         <div className="evaluation-block">
-          <div className="evaluation-label">
-            FEEDBACK
-          </div>
+          <div className="evaluation-label">FEEDBACK</div>
 
-          <p>
-            {feedback ||
-              'No feedback available.'}
-          </p>
+          <p>{feedback || 'No feedback available.'}</p>
         </div>
 
         <div className="evaluation-block">
-          <div className="evaluation-label">
-            CONSEQUENCE
-          </div>
+          <div className="evaluation-label">CONSEQUENCE</div>
 
-          <p>
-            {consequence ||
-              'No consequence available.'}
-          </p>
+          <p>{consequence || 'No consequence available.'}</p>
         </div>
 
-        <div className="evaluation-hint">
-          The next decision will appear
-          automatically...
-        </div>
+        <div className="evaluation-hint">The next decision will appear automatically...</div>
       </section>
     </div>
   );

@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
 import { PLAYER_SPEED } from '../config';
 
-const PLAYER_ASSET_PATH =
-  'assets/character/singular-frames';
+const PLAYER_ASSET_PATH = 'assets/character/singular-frames';
 
 const IDLE_FRAME = 'player-idle-19';
 
@@ -53,16 +52,8 @@ export class Player {
   private isMoving = false;
   private direction: Direction = 'down';
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-  ) {
-    this.sprite = scene.physics.add.sprite(
-      x,
-      y,
-      IDLE_FRAME,
-    );
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    this.sprite = scene.physics.add.sprite(x, y, IDLE_FRAME);
 
     this.sprite.setDepth(5);
     this.sprite.setRotation(0);
@@ -82,52 +73,26 @@ export class Player {
   static preload(scene: Phaser.Scene): void {
     // Idle frames
     for (let i = 1; i <= 24; i++) {
-      scene.load.image(
-        `player-idle-${i}`,
-        `${PLAYER_ASSET_PATH}/Ash_idle_anim_${i}.png`,
-      );
+      scene.load.image(`player-idle-${i}`, `${PLAYER_ASSET_PATH}/Ash_idle_anim_${i}.png`);
     }
 
     // Run frames
     for (let i = 1; i <= 24; i++) {
-      scene.load.image(
-        `player-run-${i}`,
-        `${PLAYER_ASSET_PATH}/Ash_run_${i}.png`,
-      );
+      scene.load.image(`player-run-${i}`, `${PLAYER_ASSET_PATH}/Ash_run_${i}.png`);
     }
   }
 
   static createAnimations(scene: Phaser.Scene): void {
-    Player.createAnimation(
-      scene,
-      'player-walk-down',
-      WALK_DOWN,
-    );
+    Player.createAnimation(scene, 'player-walk-down', WALK_DOWN);
 
-    Player.createAnimation(
-      scene,
-      'player-walk-left',
-      WALK_LEFT,
-    );
+    Player.createAnimation(scene, 'player-walk-left', WALK_LEFT);
 
-    Player.createAnimation(
-      scene,
-      'player-walk-right',
-      WALK_RIGHT,
-    );
+    Player.createAnimation(scene, 'player-walk-right', WALK_RIGHT);
 
-    Player.createAnimation(
-      scene,
-      'player-walk-up',
-      WALK_UP,
-    );
+    Player.createAnimation(scene, 'player-walk-up', WALK_UP);
   }
 
-  private static createAnimation(
-    scene: Phaser.Scene,
-    key: string,
-    frames: string[],
-  ): void {
+  private static createAnimation(scene: Phaser.Scene, key: string, frames: string[]): void {
     scene.anims.create({
       key,
       frames: frames.map((frame) => ({
@@ -138,11 +103,8 @@ export class Player {
     });
   }
 
-  handleMovement(
-    cursors: Phaser.Types.Input.Keyboard.CursorKeys,
-  ): void {
-    const body =
-      this.sprite.body as Phaser.Physics.Arcade.Body;
+  handleMovement(cursors: Phaser.Types.Input.Keyboard.CursorKeys): void {
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
 
     body.setVelocity(0);
 
@@ -181,10 +143,7 @@ export class Player {
     /*
      * Normalize diagonal movement.
      */
-    if (
-      body.velocity.x !== 0 &&
-      body.velocity.y !== 0
-    ) {
+    if (body.velocity.x !== 0 && body.velocity.y !== 0) {
       body.velocity.normalize().scale(PLAYER_SPEED);
     }
 
@@ -200,8 +159,7 @@ export class Player {
   }
 
   private playWalkAnimation(): void {
-    const animationKey =
-      `player-walk-${this.direction}`;
+    const animationKey = `player-walk-${this.direction}`;
 
     if (this.sprite.anims.currentAnim?.key !== animationKey) {
       this.sprite.play(animationKey);
@@ -223,8 +181,7 @@ export class Player {
   }
 
   stop(): void {
-    const body =
-      this.sprite.body as Phaser.Physics.Arcade.Body;
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
 
     body.setVelocity(0);
 

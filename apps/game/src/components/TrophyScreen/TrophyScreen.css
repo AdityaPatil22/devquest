@@ -19,21 +19,13 @@
 
   padding: 40px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 
   border-radius: 18px;
 
-  background:
-    linear-gradient(
-      180deg,
-      rgba(20, 20, 38, 0.97),
-      rgba(10, 10, 20, 0.97)
-    );
+  background: linear-gradient(180deg, rgba(20, 20, 38, 0.97), rgba(10, 10, 20, 0.97));
 
-  box-shadow:
-    0 30px 100px
-      rgba(0, 0, 0, 0.55);
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
 
   text-align: center;
 }
@@ -49,12 +41,7 @@
 
   border-radius: 50%;
 
-  background: rgba(
-    255,
-    255,
-    255,
-    0.08
-  );
+  background: rgba(255, 255, 255, 0.08);
 
   font-size: 32px;
 }

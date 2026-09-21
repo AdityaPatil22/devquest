@@ -15,14 +15,9 @@ import {
 import { WebSocketClient } from '../net/WebSocketClient';
 import { SessionStore } from '../state/SessionStore';
 
-import type {
-  ServerMessage,
-  DecisionCreatedMsg,
-} from '../net/protocol';
+import type { ServerMessage, DecisionCreatedMsg } from '../net/protocol';
 
-import {
-  emitUIEvent,
-} from '../game/GameBridge';
+import { emitUIEvent } from '../game/GameBridge';
 
 interface SceneData {
   ws: WebSocketClient;
@@ -68,9 +63,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private map!: Phaser.Tilemaps.Tilemap;
 
-  private groundLayer?: ReturnType<
-    Phaser.Tilemaps.Tilemap['createLayer']
-  >;
+  private groundLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
 
   private walls!: Phaser.Physics.Arcade.StaticGroup;
 
@@ -152,8 +145,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.store = data.store;
 
-    this.gateWaiting =
-      data.gateWaiting ?? false;
+    this.gateWaiting = data.gateWaiting ?? false;
 
     this.gateOpen = false;
 
@@ -169,31 +161,21 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   create(): void {
-    this.walls =
-      this.physics.add.staticGroup();
+    this.walls = this.physics.add.staticGroup();
 
     this.buildRoom();
 
     this.createPlayer();
 
-    this.physics.add.collider(
-      this.player.sprite,
-      this.walls,
-    );
+    this.physics.add.collider(this.player.sprite, this.walls);
 
     if (this.groundLayer) {
-      this.physics.add.collider(
-        this.player.sprite,
-        this.groundLayer,
-      );
+      this.physics.add.collider(this.player.sprite, this.groundLayer);
     }
 
     this.setupInput();
 
-    this.unsubscribeWs =
-      this.ws.onMessage(
-        this.handleMessage.bind(this),
-      );
+    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
     /**
      * Tell React that the common room
@@ -229,21 +211,14 @@ export class CommonRoomScene extends Phaser.Scene {
        * Escape closes the React modal
        * unless we're waiting for the server.
        */
-      if (
-        !this.gateWaiting &&
-        Phaser.Input.Keyboard.JustDown(
-          this.escapeKey,
-        )
-      ) {
+      if (!this.gateWaiting && Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
         this.closeGate();
       }
 
       return;
     }
 
-    this.player.handleMovement(
-      this.cursors,
-    );
+    this.player.handleMovement(this.cursors);
 
     this.checkGateProximity();
   }
@@ -255,15 +230,8 @@ export class CommonRoomScene extends Phaser.Scene {
   /**
    * Send events from Phaser → React.
    */
-  private emitUI(
-    event: Parameters<
-      typeof emitUIEvent
-    >[1],
-  ): void {
-    emitUIEvent(
-      this.game,
-      event,
-    );
+  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
+    emitUIEvent(this.game, event);
   }
 
   // ─────────────────────────────────────────────
@@ -271,37 +239,19 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private buildRoom(): void {
-    this.map =
-      this.make.tilemap({
-        key: TILEMAP_KEY,
-      });
+    this.map = this.make.tilemap({
+      key: TILEMAP_KEY,
+    });
 
-    const tilesets =
-      MAP_TILESETS
-        .map((tileset) =>
-          this.map.addTilesetImage(
-            tileset.name,
-            tileset.key,
-          ),
-        )
-        .filter(
-          (
-            tileset,
-          ): tileset is Phaser.Tilemaps.Tileset =>
-            tileset !== null,
-        );
+    const tilesets = MAP_TILESETS.map((tileset) =>
+      this.map.addTilesetImage(tileset.name, tileset.key),
+    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
     // ─────────────────────────────────────────
     // Ground
     // ─────────────────────────────────────────
 
-    this.groundLayer =
-      this.map.createLayer(
-        'Ground',
-        tilesets,
-        0,
-        0,
-      ) ?? undefined;
+    this.groundLayer = this.map.createLayer('Ground', tilesets, 0, 0) ?? undefined;
 
     this.groundLayer?.setDepth(0);
 
@@ -317,142 +267,76 @@ export class CommonRoomScene extends Phaser.Scene {
     // Collidable objects
     // ─────────────────────────────────────────
 
-    for (
-      const layerName of
-      COLLIDABLE_OBJECT_LAYERS
-    ) {
-      const objects =
-        this.map.createFromObjects(
-          layerName,
-          {
-            classType:
-              Phaser.GameObjects.Image,
-          },
-        ) as Phaser.GameObjects.Image[];
+    for (const layerName of COLLIDABLE_OBJECT_LAYERS) {
+      const objects = this.map.createFromObjects(layerName, {
+        classType: Phaser.GameObjects.Image,
+      }) as Phaser.GameObjects.Image[];
 
-      objects.forEach(
-        (object) => {
-          this.physics.add.existing(
-            object,
-            true,
-          );
+      objects.forEach((object) => {
+        this.physics.add.existing(object, true);
 
-          object.setDepth(5);
+        object.setDepth(5);
 
-          this.walls.add(object);
-        },
-      );
+        this.walls.add(object);
+      });
     }
 
     // ─────────────────────────────────────────
     // Decorative objects
     // ─────────────────────────────────────────
 
-    for (
-      const layerName of
-      DECOR_OBJECT_LAYERS
-    ) {
-      const objects =
-        this.map.createFromObjects(
-          layerName,
-          {
-            classType:
-              Phaser.GameObjects.Image,
-          },
-        ) as Phaser.GameObjects.Image[];
+    for (const layerName of DECOR_OBJECT_LAYERS) {
+      const objects = this.map.createFromObjects(layerName, {
+        classType: Phaser.GameObjects.Image,
+      }) as Phaser.GameObjects.Image[];
 
-      objects.forEach(
-        (object) => {
-          object.setDepth(4);
-        },
-      );
+      objects.forEach((object) => {
+        object.setDepth(4);
+      });
     }
 
     // ─────────────────────────────────────────
     // World bounds
     // ─────────────────────────────────────────
 
-    const mapWidthPx =
-      this.map.widthInPixels;
+    const mapWidthPx = this.map.widthInPixels;
 
-    const mapHeightPx =
-      this.map.heightInPixels;
+    const mapHeightPx = this.map.heightInPixels;
 
-    this.physics.world.setBounds(
-      0,
-      0,
-      mapWidthPx,
-      mapHeightPx,
-    );
+    this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
 
-    this.cameras.main.setBounds(
-      0,
-      0,
-      mapWidthPx,
-      mapHeightPx,
-    );
+    this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
 
     // ─────────────────────────────────────────
     // Elevator
     // ─────────────────────────────────────────
 
-    this.gateX =
-      GATE_TILE.x *
-        MAP_TILE_SIZE +
-      MAP_TILE_SIZE / 2;
+    this.gateX = GATE_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    this.gateY =
-      GATE_TILE.y *
-        MAP_TILE_SIZE +
-      MAP_TILE_SIZE / 2;
+    this.gateY = GATE_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    this.elevatorInteractionX =
-      this.gateX;
+    this.elevatorInteractionX = this.gateX;
 
-    this.elevatorInteractionY =
-      this.gateY +
-      MAP_TILE_SIZE * 2;
+    this.elevatorInteractionY = this.gateY + MAP_TILE_SIZE * 2;
 
     /**
      * Frame 0 = elevator closed.
      */
-    this.elevator =
-      this.add
-        .sprite(
-          this.gateX,
-          this.gateY +
-            MAP_TILE_SIZE / 2,
-          ELEVATOR_KEY,
-          0,
-        )
-        .setOrigin(0.5, 1)
-        .setScale(
-          ELEVATOR_SCALE,
-        )
-        .setDepth(10);
+    this.elevator = this.add
+      .sprite(this.gateX, this.gateY + MAP_TILE_SIZE / 2, ELEVATOR_KEY, 0)
+      .setOrigin(0.5, 1)
+      .setScale(ELEVATOR_SCALE)
+      .setDepth(10);
 
     /**
      * Invisible collision area at
      * the bottom of the elevator.
      */
-    const elevatorCollider =
-      this.add.rectangle(
-        this.gateX,
-        this.gateY - 10,
-        105,
-        110,
-        0xffffff,
-        0,
-      );
+    const elevatorCollider = this.add.rectangle(this.gateX, this.gateY - 10, 105, 110, 0xffffff, 0);
 
-    this.physics.add.existing(
-      elevatorCollider,
-      true,
-    );
+    this.physics.add.existing(elevatorCollider, true);
 
-    this.walls.add(
-      elevatorCollider,
-    );
+    this.walls.add(elevatorCollider);
   }
 
   // ─────────────────────────────────────────────
@@ -460,15 +344,11 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private playElevatorAnimation(): void {
-    if (
-      !this.elevator ||
-      this.elevatorAnimating
-    ) {
+    if (!this.elevator || this.elevatorAnimating) {
       return;
     }
 
-    this.elevatorAnimating =
-      true;
+    this.elevatorAnimating = true;
 
     /**
      * Frame 0
@@ -482,43 +362,33 @@ export class CommonRoomScene extends Phaser.Scene {
      *
      * Opening.
      */
-    this.time.delayedCall(
-      ELEVATOR_FRAME_DELAY,
-      () => {
-        if (!this.elevator) {
-          return;
-        }
+    this.time.delayedCall(ELEVATOR_FRAME_DELAY, () => {
+      if (!this.elevator) {
+        return;
+      }
 
-        this.elevator.setFrame(1);
-      },
-    );
+      this.elevator.setFrame(1);
+    });
 
     /**
      * Frame 2
      *
      * Fully open.
      */
-    this.time.delayedCall(
-      ELEVATOR_FRAME_DELAY * 2,
-      () => {
-        if (!this.elevator) {
-          return;
-        }
+    this.time.delayedCall(ELEVATOR_FRAME_DELAY * 2, () => {
+      if (!this.elevator) {
+        return;
+      }
 
-        this.elevator.setFrame(2);
-      },
-    );
+      this.elevator.setFrame(2);
+    });
 
     /**
      * Animation complete.
      */
-    this.time.delayedCall(
-      ELEVATOR_FRAME_DELAY * 3,
-      () => {
-        this.elevatorAnimating =
-          false;
-      },
-    );
+    this.time.delayedCall(ELEVATOR_FRAME_DELAY * 3, () => {
+      this.elevatorAnimating = false;
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -526,29 +396,13 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private createPlayer(): void {
-    const spawnX =
-      SPAWN_TILE.x *
-        MAP_TILE_SIZE +
-      MAP_TILE_SIZE / 2;
+    const spawnX = SPAWN_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    const spawnY =
-      SPAWN_TILE.y *
-        MAP_TILE_SIZE +
-      MAP_TILE_SIZE / 2;
+    const spawnY = SPAWN_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
-    this.player =
-      new Player(
-        this,
-        spawnX,
-        spawnY,
-      );
+    this.player = new Player(this, spawnX, spawnY);
 
-    this.cameras.main.startFollow(
-      this.player.sprite,
-      true,
-      0.15,
-      0.15,
-    );
+    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
   }
 
   // ─────────────────────────────────────────────
@@ -556,19 +410,11 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private setupInput(): void {
-    this.cursors =
-      this.input.keyboard!
-        .createCursorKeys();
+    this.cursors = this.input.keyboard!.createCursorKeys();
 
-    this.interactKey =
-      this.input.keyboard!.addKey(
-        Phaser.Input.Keyboard.KeyCodes.E,
-      );
+    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-    this.escapeKey =
-      this.input.keyboard!.addKey(
-        Phaser.Input.Keyboard.KeyCodes.ESC,
-      );
+    this.escapeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
   }
 
   // ─────────────────────────────────────────────
@@ -576,18 +422,14 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private checkGateProximity(): void {
-    const distance =
-      Phaser.Math.Distance.Between(
-        this.player.sprite.x,
-        this.player.sprite.y,
-        this.elevatorInteractionX,
-        this.elevatorInteractionY,
-      );
+    const distance = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.elevatorInteractionX,
+      this.elevatorInteractionY,
+    );
 
-    if (
-      distance <
-      MAP_TILE_SIZE * 3
-    ) {
+    if (distance < MAP_TILE_SIZE * 3) {
       if (!this.nearGate) {
         this.nearGate = true;
 
@@ -602,16 +444,10 @@ export class CommonRoomScene extends Phaser.Scene {
         });
       }
 
-      if (
-        Phaser.Input.Keyboard.JustDown(
-          this.interactKey,
-        )
-      ) {
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
         this.openGate();
       }
-    } else if (
-      this.nearGate
-    ) {
+    } else if (this.nearGate) {
       this.nearGate = false;
 
       this.emitUI({
@@ -680,8 +516,7 @@ export class CommonRoomScene extends Phaser.Scene {
     this.emitUI({
       type: 'ELEVATOR_OPEN',
       waiting: true,
-      message:
-        'Waiting for the next decision...',
+      message: 'Waiting for the next decision...',
     });
   }
 
@@ -693,15 +528,12 @@ export class CommonRoomScene extends Phaser.Scene {
    * Called by React when the user submits
    * the problem statement.
    */
-  public submitProblem(
-    problem: string,
-  ): void {
+  public submitProblem(problem: string): void {
     if (this.gateSubmitted) {
       return;
     }
 
-    const trimmed =
-      problem.trim();
+    const trimmed = problem.trim();
 
     if (!trimmed) {
       return;
@@ -709,9 +541,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.gateSubmitted = true;
 
-    this.store.setProblem(
-      trimmed,
-    );
+    this.store.setProblem(trimmed);
 
     this.gateWaiting = true;
 
@@ -721,16 +551,14 @@ export class CommonRoomScene extends Phaser.Scene {
      */
     this.emitUI({
       type: 'ELEVATOR_SUBMITTING',
-      message:
-        'Entering the elevator...',
+      message: 'Entering the elevator...',
     });
 
     /**
      * Existing backend protocol.
      */
     this.ws.send({
-      type:
-        'PROBLEM_SUBMITTED',
+      type: 'PROBLEM_SUBMITTED',
       problem: trimmed,
     });
   }
@@ -764,27 +592,20 @@ export class CommonRoomScene extends Phaser.Scene {
   // WebSocket messages
   // ─────────────────────────────────────────────
 
-  private handleMessage(
-    msg: ServerMessage,
-  ): void {
+  private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
       // ───────────────────────────────────────
       // Session started
       // ───────────────────────────────────────
 
       case 'SESSION_STARTED': {
-        this.ws.setSessionId(
-          msg.sessionId,
-        );
+        this.ws.setSessionId(msg.sessionId);
 
-        this.store.setSession(
-          msg.sessionId,
-        );
+        this.store.setSession(msg.sessionId);
 
         this.emitUI({
           type: 'SESSION_STARTED',
-          sessionId:
-            msg.sessionId,
+          sessionId: msg.sessionId,
         });
 
         break;
@@ -795,13 +616,9 @@ export class CommonRoomScene extends Phaser.Scene {
       // ───────────────────────────────────────
 
       case 'SESSION_RESUMED': {
-        this.ws.setSessionId(
-          msg.sessionId,
-        );
+        this.ws.setSessionId(msg.sessionId);
 
-        this.store.hydrate(
-          msg.snapshot,
-        );
+        this.store.hydrate(msg.snapshot);
 
         this.emitUI({
           type: 'SESSION_RESUMED',
@@ -815,24 +632,18 @@ export class CommonRoomScene extends Phaser.Scene {
       // ───────────────────────────────────────
 
       case 'DECISION_CREATED': {
-        const decision =
-          msg as DecisionCreatedMsg;
+        const decision = msg as DecisionCreatedMsg;
 
         this.store.addDecision({
-          nodeId:
-            decision.nodeId,
+          nodeId: decision.nodeId,
 
-          question:
-            decision.question,
+          question: decision.question,
 
-          options:
-            decision.options,
+          options: decision.options,
 
-          recommendation:
-            decision.recommendation,
+          recommendation: decision.recommendation,
 
-          round:
-            decision.round,
+          round: decision.round,
         });
 
         /**
@@ -850,8 +661,7 @@ export class CommonRoomScene extends Phaser.Scene {
          */
         this.elevator?.setFrame(0);
 
-        this.elevatorAnimating =
-          false;
+        this.elevatorAnimating = false;
 
         this.emitUI({
           type: 'ELEVATOR_CLOSED',
@@ -860,14 +670,11 @@ export class CommonRoomScene extends Phaser.Scene {
         /**
          * Start DecisionRoom.
          */
-        this.scene.start(
-          'DecisionRoomScene',
-          {
-            ws: this.ws,
-            store: this.store,
-            decision,
-          },
-        );
+        this.scene.start('DecisionRoomScene', {
+          ws: this.ws,
+          store: this.store,
+          decision,
+        });
 
         break;
       }
@@ -877,16 +684,11 @@ export class CommonRoomScene extends Phaser.Scene {
       // ───────────────────────────────────────
 
       case 'ERROR': {
-        console.error(
-          'Server error:',
-          msg.message,
-        );
+        console.error('Server error:', msg.message);
 
-        this.gateSubmitted =
-          false;
+        this.gateSubmitted = false;
 
-        this.gateWaiting =
-          false;
+        this.gateWaiting = false;
 
         /**
          * Keep the elevator modal open
@@ -894,8 +696,7 @@ export class CommonRoomScene extends Phaser.Scene {
          */
         this.emitUI({
           type: 'ERROR',
-          message:
-            msg.message,
+          message: msg.message,
         });
 
         break;
@@ -915,11 +716,9 @@ export class CommonRoomScene extends Phaser.Scene {
   shutdown(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs =
-      undefined;
+    this.unsubscribeWs = undefined;
 
-    this.elevator =
-      undefined;
+    this.elevator = undefined;
 
     this.player?.stop();
 

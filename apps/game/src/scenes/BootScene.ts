@@ -1,16 +1,8 @@
 import Phaser from 'phaser';
 
-import {
-  PATTERNS_KEY,
-  PATTERNS_PATH,
-  PATTERNS_CONFIG,
-} from '../tiles';
+import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
 
-import {
-  TILEMAP_KEY,
-  TILEMAP_PATH,
-  MAP_TILESETS,
-} from '../tilemaps/commonRoomTilemap';
+import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
 
 import {
   DECISION_TILEMAP_KEY,
@@ -24,15 +16,9 @@ import { Player } from '../entities/Player';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { SessionStore } from '../state/SessionStore';
 
-import type {
-  ServerMessage,
-  SessionResumedMsg,
-  DecisionCreatedMsg,
-} from '../net/protocol';
+import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
 
-import {
-  emitUIEvent,
-} from '../game/GameBridge';
+import { emitUIEvent } from '../game/GameBridge';
 
 export class BootScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
@@ -60,8 +46,7 @@ export class BootScene extends Phaser.Scene {
   private leaveBoot(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs =
-      undefined;
+    this.unsubscribeWs = undefined;
   }
 
   // ─────────────────────────────────────────────
@@ -74,15 +59,8 @@ export class BootScene extends Phaser.Scene {
    * Phaser should not create any loading
    * screen, text, progress bar, etc.
    */
-  private emitUI(
-    event: Parameters<
-      typeof emitUIEvent
-    >[1],
-  ): void {
-    emitUIEvent(
-      this.game,
-      event,
-    );
+  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
+    emitUIEvent(this.game, event);
   }
 
   // ─────────────────────────────────────────────
@@ -104,101 +82,62 @@ export class BootScene extends Phaser.Scene {
     // Elevator
     // ─────────────────────────────────────────
 
-    this.load.spritesheet(
-      'elevator',
-      'assets/items/elevator.png',
-      {
-        frameWidth: 280,
-        frameHeight: 285,
-      },
-    );
+    this.load.spritesheet('elevator', 'assets/items/elevator.png', {
+      frameWidth: 280,
+      frameHeight: 285,
+    });
 
     // ─────────────────────────────────────────
     // Patterns
     // ─────────────────────────────────────────
 
-    this.load.spritesheet(
-      PATTERNS_KEY,
-      PATTERNS_PATH,
-      PATTERNS_CONFIG,
-    );
+    this.load.spritesheet(PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG);
 
     // ─────────────────────────────────────────
     // Common Room
     // ─────────────────────────────────────────
 
-    this.load.tilemapTiledJSON(
-      TILEMAP_KEY,
-      TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(TILEMAP_KEY, TILEMAP_PATH);
 
-    MAP_TILESETS.forEach(
-      ({
-        key,
-        path,
+    MAP_TILESETS.forEach(({ key, path, frameWidth, frameHeight }) => {
+      this.load.spritesheet(key, path, {
         frameWidth,
         frameHeight,
-      }) => {
-        this.load.spritesheet(
-          key,
-          path,
-          {
-            frameWidth,
-            frameHeight,
-            margin: 0,
-            spacing: 0,
-          },
-        );
-      },
-    );
+        margin: 0,
+        spacing: 0,
+      });
+    });
 
     // ─────────────────────────────────────────
     // Decision Room
     // ─────────────────────────────────────────
 
-    this.load.tilemapTiledJSON(
-      DECISION_TILEMAP_KEY,
-      DECISION_TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
 
-    const seenKeys =
-      new Set<string>();
+    const seenKeys = new Set<string>();
 
-    DECISION_TILESETS.forEach(
-      ({
-        key,
-        path,
-      }) => {
-        /**
-         * Some decision-room tilesets
-         * can reference the same asset more
-         * than once.
-         */
-        if (
-          seenKeys.has(key)
-        ) {
-          return;
-        }
+    DECISION_TILESETS.forEach(({ key, path }) => {
+      /**
+       * Some decision-room tilesets
+       * can reference the same asset more
+       * than once.
+       */
+      if (seenKeys.has(key)) {
+        return;
+      }
 
-        seenKeys.add(key);
+      seenKeys.add(key);
 
-        this.load.spritesheet(
-          key,
-          path,
-          {
-            frameWidth:
-              DECISION_MAP_TILE_SIZE,
+      this.load.spritesheet(key, path, {
+        frameWidth: DECISION_MAP_TILE_SIZE,
 
-            frameHeight:
-              DECISION_MAP_TILE_SIZE,
+        frameHeight: DECISION_MAP_TILE_SIZE,
 
-            margin: 0,
+        margin: 0,
 
-            spacing: 0,
-          },
-        );
-      },
-    );
+        spacing: 0,
+      });
+    });
 
     // ─────────────────────────────────────────
     // Player
@@ -210,27 +149,21 @@ export class BootScene extends Phaser.Scene {
     // Loading progress
     // ─────────────────────────────────────────
 
-    this.load.on(
-      'progress',
-      (value: number) => {
-        this.emitUI({
-          type: 'GAME_LOADING',
-          loading: true,
-          progress: value,
-        });
-      },
-    );
+    this.load.on('progress', (value: number) => {
+      this.emitUI({
+        type: 'GAME_LOADING',
+        loading: true,
+        progress: value,
+      });
+    });
 
-    this.load.once(
-      'complete',
-      () => {
-        this.emitUI({
-          type: 'GAME_LOADING',
-          loading: false,
-          progress: 1,
-        });
-      },
-    );
+    this.load.once('complete', () => {
+      this.emitUI({
+        type: 'GAME_LOADING',
+        loading: false,
+        progress: 1,
+      });
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -251,14 +184,10 @@ export class BootScene extends Phaser.Scene {
     this.anims.create({
       key: 'elevator-opening',
 
-      frames:
-        this.anims.generateFrameNumbers(
-          'elevator',
-          {
-            start: 0,
-            end: 2,
-          },
-        ),
+      frames: this.anims.generateFrameNumbers('elevator', {
+        start: 0,
+        end: 2,
+      }),
 
       frameRate: 6,
 
@@ -269,20 +198,15 @@ export class BootScene extends Phaser.Scene {
     // Session state
     // ─────────────────────────────────────────
 
-    this.store =
-      new SessionStore();
+    this.store = new SessionStore();
 
     // ─────────────────────────────────────────
     // WebSocket
     // ─────────────────────────────────────────
 
-    this.ws =
-      new WebSocketClient();
+    this.ws = new WebSocketClient();
 
-    this.unsubscribeWs =
-      this.ws.onMessage(
-        this.handleMessage.bind(this),
-      );
+    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
     /**
      * Tell React that the game engine
@@ -307,32 +231,21 @@ export class BootScene extends Phaser.Scene {
   // WebSocket messages
   // ─────────────────────────────────────────────
 
-  private handleMessage(
-    msg: ServerMessage,
-  ): void {
+  private handleMessage(msg: ServerMessage): void {
     // ─────────────────────────────────────────
     // New session
     // ─────────────────────────────────────────
 
-    if (
-      msg.type ===
-      'SESSION_STARTED'
-    ) {
-      this.ws.setSessionId(
-        msg.sessionId,
-      );
+    if (msg.type === 'SESSION_STARTED') {
+      this.ws.setSessionId(msg.sessionId);
 
-      this.store.setSession(
-        msg.sessionId,
-      );
+      this.store.setSession(msg.sessionId);
 
-      this.restoring =
-        false;
+      this.restoring = false;
 
       this.emitUI({
         type: 'SESSION_STARTED',
-        sessionId:
-          msg.sessionId,
+        sessionId: msg.sessionId,
       });
 
       this.leaveBoot();
@@ -341,13 +254,10 @@ export class BootScene extends Phaser.Scene {
        * New sessions always start
        * in the Common Room.
        */
-      this.scene.start(
-        'CommonRoomScene',
-        {
-          ws: this.ws,
-          store: this.store,
-        },
-      );
+      this.scene.start('CommonRoomScene', {
+        ws: this.ws,
+        store: this.store,
+      });
 
       return;
     }
@@ -356,13 +266,8 @@ export class BootScene extends Phaser.Scene {
     // Existing session
     // ─────────────────────────────────────────
 
-    if (
-      msg.type ===
-      'SESSION_RESUMED'
-    ) {
-      this.restoreSession(
-        msg,
-      );
+    if (msg.type === 'SESSION_RESUMED') {
+      this.restoreSession(msg);
 
       return;
     }
@@ -379,13 +284,8 @@ export class BootScene extends Phaser.Scene {
      * arrives immediately after BootScene
      * reconnects.
      */
-    if (
-      msg.type ===
-      'DECISION_CREATED'
-    ) {
-      this.restoreDecision(
-        msg,
-      );
+    if (msg.type === 'DECISION_CREATED') {
+      this.restoreDecision(msg);
     }
   }
 
@@ -393,9 +293,7 @@ export class BootScene extends Phaser.Scene {
   // Restore session
   // ─────────────────────────────────────────────
 
-  private restoreSession(
-    msg: SessionResumedMsg,
-  ): void {
+  private restoreSession(msg: SessionResumedMsg): void {
     /**
      * Prevent duplicate SESSION_RESUMED
      * processing.
@@ -404,43 +302,30 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    this.restoring =
-      true;
+    this.restoring = true;
 
-    this.ws.setSessionId(
-      msg.sessionId,
-    );
+    this.ws.setSessionId(msg.sessionId);
 
-    this.store.hydrate(
-      msg.snapshot,
-    );
+    this.store.hydrate(msg.snapshot);
 
     this.emitUI({
       type: 'SESSION_RESUMED',
-      sessionId:
-        msg.sessionId,
+      sessionId: msg.sessionId,
     });
 
-    const phase =
-      msg.snapshot.phase;
+    const phase = msg.snapshot.phase;
 
     // ─────────────────────────────────────────
     // No problem submitted
     // ─────────────────────────────────────────
 
-    if (
-      phase === 'idle' ||
-      phase === 'awaiting_problem'
-    ) {
+    if (phase === 'idle' || phase === 'awaiting_problem') {
       this.leaveBoot();
 
-      this.scene.start(
-        'CommonRoomScene',
-        {
-          ws: this.ws,
-          store: this.store,
-        },
-      );
+      this.scene.start('CommonRoomScene', {
+        ws: this.ws,
+        store: this.store,
+      });
 
       return;
     }
@@ -449,26 +334,20 @@ export class BootScene extends Phaser.Scene {
     // Waiting for first question
     // ─────────────────────────────────────────
 
-    if (
-      phase ===
-      'awaiting_question'
-    ) {
+    if (phase === 'awaiting_question') {
       this.leaveBoot();
 
-      this.scene.start(
-        'CommonRoomScene',
-        {
-          ws: this.ws,
-          store: this.store,
+      this.scene.start('CommonRoomScene', {
+        ws: this.ws,
+        store: this.store,
 
-          /**
-           * CommonRoomScene will tell
-           * React to display the waiting
-           * elevator UI.
-           */
-          gateWaiting: true,
-        },
-      );
+        /**
+         * CommonRoomScene will tell
+         * React to display the waiting
+         * elevator UI.
+         */
+        gateWaiting: true,
+      });
 
       return;
     }
@@ -477,35 +356,26 @@ export class BootScene extends Phaser.Scene {
     // Session complete
     // ─────────────────────────────────────────
 
-    if (
-      phase ===
-      'complete'
-    ) {
+    if (phase === 'complete') {
       this.leaveBoot();
 
       /**
        * TrophyScene should now be responsible
        * for the completion UI.
        */
-      if (
-        phase === 'complete'
-      ) {
+      if (phase === 'complete') {
         this.emitUI({
           type: 'SESSION_COMPLETE',
-          summary:
-            msg.snapshot.summary ?? '',
-          docContent:
-            msg.snapshot.docContent ?? '',
+          summary: msg.snapshot.summary ?? '',
+          docContent: msg.snapshot.docContent ?? '',
         });
 
         this.leaveBoot();
 
-        this.scene.start(
-          'TrophyScene',
-        );
+        this.scene.start('TrophyScene');
 
-  return;
-}
+        return;
+      }
 
       return;
     }
@@ -514,8 +384,7 @@ export class BootScene extends Phaser.Scene {
     // Active decision
     // ─────────────────────────────────────────
 
-    const currentDecision =
-      this.store.getCurrentDecision();
+    const currentDecision = this.store.getCurrentDecision();
 
     /**
      * If the server says we're in an active
@@ -525,13 +394,10 @@ export class BootScene extends Phaser.Scene {
     if (!currentDecision) {
       this.leaveBoot();
 
-      this.scene.start(
-        'CommonRoomScene',
-        {
-          ws: this.ws,
-          store: this.store,
-        },
-      );
+      this.scene.start('CommonRoomScene', {
+        ws: this.ws,
+        store: this.store,
+      });
 
       return;
     }
@@ -540,81 +406,57 @@ export class BootScene extends Phaser.Scene {
     // Reconstruct DecisionCreatedMsg
     // ─────────────────────────────────────────
 
-    const decision:
-      DecisionCreatedMsg = {
-      type:
-        'DECISION_CREATED',
+    const decision: DecisionCreatedMsg = {
+      type: 'DECISION_CREATED',
 
-      nodeId:
-        currentDecision.nodeId,
+      nodeId: currentDecision.nodeId,
 
-      question:
-        currentDecision.question,
+      question: currentDecision.question,
 
-      options:
-        currentDecision.options,
+      options: currentDecision.options,
 
-      recommendation:
-        currentDecision.recommendation,
+      recommendation: currentDecision.recommendation,
 
-      round:
-        currentDecision.round,
+      round: currentDecision.round,
 
-      dependsOn:
-        msg.snapshot.decisions.find(
-          (item) =>
-            item.id ===
-            currentDecision.nodeId,
-        )?.dependsOn,
+      dependsOn: msg.snapshot.decisions.find((item) => item.id === currentDecision.nodeId)
+        ?.dependsOn,
     };
 
     this.leaveBoot();
 
-    this.scene.start(
-      'DecisionRoomScene',
-      {
-        ws: this.ws,
-        store: this.store,
-        decision,
-        restored: true,
-      },
-    );
+    this.scene.start('DecisionRoomScene', {
+      ws: this.ws,
+      store: this.store,
+      decision,
+      restored: true,
+    });
   }
 
   // ─────────────────────────────────────────────
   // Restore decision
   // ─────────────────────────────────────────────
 
-  private restoreDecision(
-    decision: DecisionCreatedMsg,
-  ): void {
+  private restoreDecision(decision: DecisionCreatedMsg): void {
     this.store.addDecision({
-      nodeId:
-        decision.nodeId,
+      nodeId: decision.nodeId,
 
-      question:
-        decision.question,
+      question: decision.question,
 
-      options:
-        decision.options,
+      options: decision.options,
 
-      recommendation:
-        decision.recommendation,
+      recommendation: decision.recommendation,
 
-      round:
-        decision.round,
+      round: decision.round,
     });
 
     this.leaveBoot();
 
-    this.scene.start(
-      'DecisionRoomScene',
-      {
-        ws: this.ws,
-        store: this.store,
-        decision,
-      },
-    );
+    this.scene.start('DecisionRoomScene', {
+      ws: this.ws,
+      store: this.store,
+      decision,
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -624,7 +466,6 @@ export class BootScene extends Phaser.Scene {
   shutdown(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs =
-      undefined;
+    this.unsubscribeWs = undefined;
   }
 }

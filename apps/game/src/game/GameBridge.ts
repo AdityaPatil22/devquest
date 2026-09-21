@@ -1,9 +1,6 @@
 import Phaser from 'phaser';
 
-import type {
-  DecisionOption,
-  Recommendation,
-} from '../net/protocol';
+import type { DecisionOption, Recommendation } from '../net/protocol';
 
 export type GameUIEvent =
   | {
@@ -91,9 +88,6 @@ export type GameUIEvent =
       message: string;
     };
 
-export function emitUIEvent(
-  game: Phaser.Game,
-  event: GameUIEvent,
-): void {
+export function emitUIEvent(game: Phaser.Game, event: GameUIEvent): void {
   game.events.emit('devquest:ui', event);
 }

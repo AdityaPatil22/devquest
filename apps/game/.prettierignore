@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Vite
+.vite/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Game assets
+apps/game/public/assets/
+
+# Generated / exported files
+*.map
+*.min.js
+*.bundle.js
+
+# Lockfiles
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+.cache/

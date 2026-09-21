@@ -5,14 +5,9 @@ import { CommonRoomScene } from '../scenes/CommonRoomScene';
 import { DecisionRoomScene } from '../scenes/DecisionRoomScene';
 import { TrophyScene } from '../scenes/TrophyScene';
 
-import {
-  GAME_WIDTH,
-  GAME_HEIGHT,
-} from '../config';
+import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 
-export function createPhaserGame(
-  parent: HTMLElement,
-): Phaser.Game {
+export function createPhaserGame(parent: HTMLElement): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
 
@@ -39,12 +34,7 @@ export function createPhaserGame(
       },
     },
 
-    scene: [
-      BootScene,
-      CommonRoomScene,
-      DecisionRoomScene,
-      TrophyScene,
-    ],
+    scene: [BootScene, CommonRoomScene, DecisionRoomScene, TrophyScene],
 
     scale: {
       mode: Phaser.Scale.RESIZE,

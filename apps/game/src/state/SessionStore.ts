@@ -1,8 +1,4 @@
-import type {
-  DecisionOption,
-  Recommendation,
-  SessionSnapshot,
-} from '../net/protocol';
+import type { DecisionOption, Recommendation, SessionSnapshot } from '../net/protocol';
 
 export interface DecisionRecord {
   nodeId: string;
@@ -54,9 +50,7 @@ export class SessionStore {
   }
 
   addDecision(record: DecisionRecord): void {
-    const existing = this.decisions.find(
-      (decision) => decision.nodeId === record.nodeId,
-    );
+    const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
 
     if (existing) {
       Object.assign(existing, record);
@@ -65,16 +59,11 @@ export class SessionStore {
     }
 
     this.currentNodeId = record.nodeId;
-    this.totalRounds = Math.max(
-      this.totalRounds,
-      record.round,
-    );
+    this.totalRounds = Math.max(this.totalRounds, record.round);
   }
 
   getCurrentDecision(): DecisionRecord | undefined {
-    return this.decisions.find(
-      (decision) => decision.nodeId === this.currentNodeId,
-    );
+    return this.decisions.find((decision) => decision.nodeId === this.currentNodeId);
   }
 
   updateCurrent(update: Partial<DecisionRecord>): void {
@@ -85,10 +74,7 @@ export class SessionStore {
     }
   }
 
-  complete(
-    summary: string,
-    docContent: string,
-  ): void {
+  complete(summary: string, docContent: string): void {
     this.finished = true;
     this.summary = summary;
     this.docContent = docContent;
@@ -104,36 +90,27 @@ export class SessionStore {
     this.currentNodeId = snapshot.currentNodeId;
     this.totalRounds = snapshot.round;
 
-    this.decisions = snapshot.decisions.map(
-      (node): DecisionRecord => ({
-        nodeId: node.id,
-        question: node.question,
-        options: node.options,
-        recommendation: node.recommendation,
-        round: node.round,
+    this.decisions = snapshot.decisions.map((node): DecisionRecord => ({
+      nodeId: node.id,
+      question: node.question,
+      options: node.options,
+      recommendation: node.recommendation,
+      round: node.round,
 
-        selectedOptionId:
-          node.decision?.optionId,
+      selectedOptionId: node.decision?.optionId,
 
-        context:
-          node.decision?.context,
+      context: node.decision?.context,
 
-        challenge:
-          node.challenge,
+      challenge: node.challenge,
 
-        defense:
-          node.decision?.defense,
+      defense: node.decision?.defense,
 
-        feedback:
-          node.evaluation?.feedback,
+      feedback: node.evaluation?.feedback,
 
-        consequence:
-          node.evaluation?.consequence,
-      }),
-    );
+      consequence: node.evaluation?.consequence,
+    }));
 
-    this.finished =
-      snapshot.phase === 'complete';
+    this.finished = snapshot.phase === 'complete';
 
     this.summary = snapshot.summary;
     this.docContent = snapshot.docContent;

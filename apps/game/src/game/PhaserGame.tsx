@@ -31,10 +31,5 @@ export function PhaserGame() {
     };
   }, [setGame]);
 
-  return (
-    <div
-      ref={containerRef}
-      className="phaser-layer"
-    />
-  );
+  return <div ref={containerRef} className="phaser-layer" />;
 }

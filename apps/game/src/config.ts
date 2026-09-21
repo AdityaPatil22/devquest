@@ -7,11 +7,9 @@ export const TILE_SIZE = 16;
 
 export const PLAYER_SPEED = 300;
 
-export const WS_URL =
-  import.meta.env.VITE_WS_URL ?? `ws://${window.location.host}/ws`;
+export const WS_URL = import.meta.env.VITE_WS_URL ?? `ws://${window.location.host}/ws`;
 
-export const API_URL =
-  import.meta.env.VITE_API_URL ?? `${window.location.origin}/api`;
+export const API_URL = import.meta.env.VITE_API_URL ?? `${window.location.origin}/api`;
 
 export const COLORS = {
   panelBg: 0x1a1a2e,

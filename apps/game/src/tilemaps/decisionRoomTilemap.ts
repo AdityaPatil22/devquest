@@ -137,9 +137,7 @@ export const DECISION_DOOR_ROW_X_RANGE = { minTileX: 4, maxTileX: 45 };
  * `{ firstgid, source }` tileset stubs with fully embedded tileset
  * definitions that Phaser's Tiled JSON parser can actually use.
  */
-export function patchDecisionRoomTilesets(rawMapJson: {
-  tilesets: unknown[];
-}): void {
+export function patchDecisionRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
   rawMapJson.tilesets = DECISION_TILESETS.map((t) => ({
     columns: t.columns,
     firstgid: t.firstgid,

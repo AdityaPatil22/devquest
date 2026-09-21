@@ -1,11 +1,6 @@
-import {
-  useEffect,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 
-import type {
-  DecisionOption,
-} from '../../net/protocol';
+import type { DecisionOption } from '../../net/protocol';
 
 import './DoorContextModal.css';
 
@@ -14,21 +9,13 @@ interface Props {
 
   open: boolean;
 
-  onSubmit: (
-    context?: string,
-  ) => void;
+  onSubmit: (context?: string) => void;
 
   onCancel: () => void;
 }
 
-export function DoorContextModal({
-  option,
-  open,
-  onSubmit,
-  onCancel,
-}: Props) {
-  const [context, setContext] =
-    useState('');
+export function DoorContextModal({ option, open, onSubmit, onCancel }: Props) {
+  const [context, setContext] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -43,32 +30,19 @@ export function DoorContextModal({
   return (
     <div className="modal-backdrop">
       <section className="decision-modal">
-        <div className="modal-eyebrow">
-          DOOR {option.id}
-        </div>
+        <div className="modal-eyebrow">DOOR {option.id}</div>
 
-        <h2>
-          {option.label}
-        </h2>
+        <h2>{option.label}</h2>
 
-        <p>
-          Add context before
-          entering this decision?
-        </p>
+        <p>Add context before entering this decision?</p>
 
         <textarea
           value={context}
-          onChange={(event) =>
-            setContext(
-              event.target.value,
-            )
-          }
+          onChange={(event) => setContext(event.target.value)}
           onKeyDown={(event) => {
             event.stopPropagation();
           }}
-          placeholder={
-            '"I was also thinking..."'
-          }
+          placeholder={'"I was also thinking..."'}
           autoFocus
         />
 
@@ -85,10 +59,7 @@ export function DoorContextModal({
           <button
             type="button"
             onClick={() => {
-              onSubmit(
-                context.trim() ||
-                  undefined,
-              );
+              onSubmit(context.trim() || undefined);
             }}
           >
             ENTER DOOR

@@ -1,7 +1,4 @@
-import {
-  useEffect,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 
 import './ChallengePanel.css';
 
@@ -10,18 +7,11 @@ interface Props {
 
   question?: string;
 
-  onSubmit: (
-    defense: string,
-  ) => void;
+  onSubmit: (defense: string) => void;
 }
 
-export function ChallengePanel({
-  open,
-  question,
-  onSubmit,
-}: Props) {
-  const [defense, setDefense] =
-    useState('');
+export function ChallengePanel({ open, question, onSubmit }: Props) {
+  const [defense, setDefense] = useState('');
 
   useEffect(() => {
     if (!open) {
@@ -36,25 +26,15 @@ export function ChallengePanel({
   return (
     <div className="modal-backdrop">
       <section className="challenge-panel">
-        <div className="modal-eyebrow">
-          THE GRILL
-        </div>
+        <div className="modal-eyebrow">THE GRILL</div>
 
-        <h2>
-          Defend your decision
-        </h2>
+        <h2>Defend your decision</h2>
 
-        <div className="challenge-question">
-          {question}
-        </div>
+        <div className="challenge-question">{question}</div>
 
         <textarea
           value={defense}
-          onChange={(event) =>
-            setDefense(
-              event.target.value,
-            )
-          }
+          onChange={(event) => setDefense(event.target.value)}
           onKeyDown={(event) => {
             event.stopPropagation();
           }}
@@ -63,15 +43,7 @@ export function ChallengePanel({
         />
 
         <div className="actions">
-          <button
-            type="button"
-            disabled={!defense.trim()}
-            onClick={() =>
-              onSubmit(
-                defense.trim(),
-              )
-            }
-          >
+          <button type="button" disabled={!defense.trim()} onClick={() => onSubmit(defense.trim())}>
             DEFEND MY CHOICE
           </button>
         </div>

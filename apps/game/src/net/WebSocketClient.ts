@@ -1,24 +1,16 @@
 import { WS_URL } from '../config';
-import type {
-  ClientMessage,
-  ServerMessage,
-} from './protocol';
+import type { ClientMessage, ServerMessage } from './protocol';
 
-type MessageHandler = (
-  msg: ServerMessage,
-) => void;
+type MessageHandler = (msg: ServerMessage) => void;
 
-const SESSION_STORAGE_KEY =
-  'devquest_session_id';
+const SESSION_STORAGE_KEY = 'devquest_session_id';
 
 export class WebSocketClient {
   private ws?: WebSocket;
 
   private handlers: MessageHandler[] = [];
 
-  private reconnectTimer?: ReturnType<
-    typeof setTimeout
-  >;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
 
   private reconnectAttempts = 0;
 
@@ -31,10 +23,7 @@ export class WebSocketClient {
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
 
-    this._sessionId =
-      sessionStorage.getItem(
-        SESSION_STORAGE_KEY,
-      ) ?? undefined;
+    this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
   }
 
   get sessionId(): string | undefined {
@@ -44,49 +33,34 @@ export class WebSocketClient {
   setSessionId(id: string): void {
     this._sessionId = id;
 
-    sessionStorage.setItem(
-      SESSION_STORAGE_KEY,
-      id,
-    );
+    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
   }
 
   clearSession(): void {
     this._sessionId = undefined;
 
-    sessionStorage.removeItem(
-      SESSION_STORAGE_KEY,
-    );
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
   connect(): void {
-    if (
-      this.ws &&
-      this.ws.readyState !== WebSocket.CLOSED
-    ) {
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
       this.ws.onclose = null;
       this.ws.close();
     }
 
     try {
       const url = this._sessionId
-        ? `${this.baseUrl}?session_id=${encodeURIComponent(
-            this._sessionId,
-          )}`
+        ? `${this.baseUrl}?session_id=${encodeURIComponent(this._sessionId)}`
         : this.baseUrl;
 
-      console.log(
-        '[WS] Connecting:',
-        url,
-      );
+      console.log('[WS] Connecting:', url);
 
       this.ws = new WebSocket(url);
 
       this.ws.onopen = () => {
         console.log(
           '[WS] Connected',
-          this._sessionId
-            ? `(session ${this._sessionId})`
-            : '(new session)',
+          this._sessionId ? `(session ${this._sessionId})` : '(new session)',
         );
 
         this.reconnectAttempts = 0;
@@ -94,88 +68,55 @@ export class WebSocketClient {
 
       this.ws.onmessage = (event) => {
         try {
-          const msg =
-            JSON.parse(
-              event.data,
-            ) as ServerMessage;
+          const msg = JSON.parse(event.data) as ServerMessage;
 
-          this.handlers.forEach(
-            (handler) => handler(msg),
-          );
+          this.handlers.forEach((handler) => handler(msg));
         } catch (error) {
-          console.error(
-            '[WS] Failed to parse message:',
-            error,
-          );
+          console.error('[WS] Failed to parse message:', error);
         }
       };
 
       this.ws.onclose = () => {
-        console.log(
-          '[WS] Disconnected',
-        );
+        console.log('[WS] Disconnected');
 
         this.scheduleReconnect();
       };
 
       this.ws.onerror = (error) => {
-        console.error(
-          '[WS] Error:',
-          error,
-        );
+        console.error('[WS] Error:', error);
       };
     } catch (error) {
-      console.error(
-        '[WS] Connection failed:',
-        error,
-      );
+      console.error('[WS] Connection failed:', error);
 
       this.scheduleReconnect();
     }
   }
 
   send(msg: ClientMessage): void {
-    if (
-      this.ws?.readyState ===
-      WebSocket.OPEN
-    ) {
-      this.ws.send(
-        JSON.stringify(msg),
-      );
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
     } else {
-      console.warn(
-        '[WS] Message dropped because socket is not connected:',
-        msg.type,
-      );
+      console.warn('[WS] Message dropped because socket is not connected:', msg.type);
     }
   }
 
-  onMessage(
-  handler: MessageHandler,
-    ): () => void {
-      this.handlers.push(handler);
+  onMessage(handler: MessageHandler): () => void {
+    this.handlers.push(handler);
 
-      return () => {
-        const index =
-          this.handlers.indexOf(handler);
+    return () => {
+      const index = this.handlers.indexOf(handler);
 
-        if (index !== -1) {
-          this.handlers.splice(
-            index,
-            1,
-          );
-        }
-      };
-    }
+      if (index !== -1) {
+        this.handlers.splice(index, 1);
+      }
+    };
+  }
 
   disconnect(): void {
     if (this.reconnectTimer) {
-      clearTimeout(
-        this.reconnectTimer,
-      );
+      clearTimeout(this.reconnectTimer);
 
-      this.reconnectTimer =
-        undefined;
+      this.reconnectTimer = undefined;
     }
 
     if (this.ws) {
@@ -186,41 +127,22 @@ export class WebSocketClient {
   }
 
   get connected(): boolean {
-    return (
-      this.ws?.readyState ===
-      WebSocket.OPEN
-    );
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   private scheduleReconnect(): void {
-    if (
-      this.reconnectAttempts >=
-      this.maxReconnectAttempts
-    ) {
-      console.error(
-        '[WS] Maximum reconnect attempts reached',
-      );
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('[WS] Maximum reconnect attempts reached');
 
       return;
     }
 
-    const delay = Math.min(
-      1000 *
-        2 **
-          this.reconnectAttempts,
-      30000,
-    );
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
 
     this.reconnectAttempts += 1;
 
-    console.log(
-      `[WS] Reconnecting in ${delay}ms`,
-    );
+    console.log(`[WS] Reconnecting in ${delay}ms`);
 
-    this.reconnectTimer =
-      setTimeout(
-        () => this.connect(),
-        delay,
-      );
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 }

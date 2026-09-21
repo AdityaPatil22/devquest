@@ -4,26 +4,15 @@ interface Props {
   progress: number;
 }
 
-export function LoadingScreen({
-  progress,
-}: Props) {
-  const percentage = Math.round(
-    Math.max(
-      0,
-      Math.min(1, progress),
-    ) * 100,
-  );
+export function LoadingScreen({ progress }: Props) {
+  const percentage = Math.round(Math.max(0, Math.min(1, progress)) * 100);
 
   return (
     <div className="loading-screen">
       <div className="loading-card">
-        <div className="loading-eyebrow">
-          DEVQUEST
-        </div>
+        <div className="loading-eyebrow">DEVQUEST</div>
 
-        <h1>
-          Loading quest...
-        </h1>
+        <h1>Loading quest...</h1>
 
         <div className="loading-bar">
           <div
@@ -34,9 +23,7 @@ export function LoadingScreen({
           />
         </div>
 
-        <div className="loading-percentage">
-          {percentage}%
-        </div>
+        <div className="loading-percentage">{percentage}%</div>
       </div>
     </div>
   );

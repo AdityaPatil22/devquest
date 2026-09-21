@@ -32,14 +32,62 @@ export interface TilesetDef {
  * as the whole squished spritesheet instead of a single tile.
  */
 export const MAP_TILESETS: TilesetDef[] = [
-  { name: 'FloorAndGround', key: 'tileset-floor-and-ground', path: 'assets/map/FloorAndGround.png', frameWidth: 32, frameHeight: 32 },
-  { name: 'chair', key: 'tileset-chair', path: 'assets/items/chair.png', frameWidth: 32, frameHeight: 64 },
-  { name: 'Modern_Office_Black_Shadow', key: 'tileset-modern-office', path: 'assets/items/Modern_Office_Black_Shadow.png', frameWidth: 32, frameHeight: 32 },
-  { name: 'Generic', key: 'tileset-generic', path: 'assets/items/Generic.png', frameWidth: 32, frameHeight: 32 },
-  { name: 'computer', key: 'tileset-computer', path: 'assets/items/computer.png', frameWidth: 96, frameHeight: 64 },
-  { name: 'whiteboard', key: 'tileset-whiteboard', path: 'assets/items/whiteboard.png', frameWidth: 64, frameHeight: 64 },
-  { name: 'Basement', key: 'tileset-basement', path: 'assets/items/Basement.png', frameWidth: 32, frameHeight: 32 },
-  { name: 'vendingmachine', key: 'tileset-vendingmachine', path: 'assets/items/vendingmachine.png', frameWidth: 48, frameHeight: 72 },
+  {
+    name: 'FloorAndGround',
+    key: 'tileset-floor-and-ground',
+    path: 'assets/map/FloorAndGround.png',
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: 'chair',
+    key: 'tileset-chair',
+    path: 'assets/items/chair.png',
+    frameWidth: 32,
+    frameHeight: 64,
+  },
+  {
+    name: 'Modern_Office_Black_Shadow',
+    key: 'tileset-modern-office',
+    path: 'assets/items/Modern_Office_Black_Shadow.png',
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: 'Generic',
+    key: 'tileset-generic',
+    path: 'assets/items/Generic.png',
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: 'computer',
+    key: 'tileset-computer',
+    path: 'assets/items/computer.png',
+    frameWidth: 96,
+    frameHeight: 64,
+  },
+  {
+    name: 'whiteboard',
+    key: 'tileset-whiteboard',
+    path: 'assets/items/whiteboard.png',
+    frameWidth: 64,
+    frameHeight: 64,
+  },
+  {
+    name: 'Basement',
+    key: 'tileset-basement',
+    path: 'assets/items/Basement.png',
+    frameWidth: 32,
+    frameHeight: 32,
+  },
+  {
+    name: 'vendingmachine',
+    key: 'tileset-vendingmachine',
+    path: 'assets/items/vendingmachine.png',
+    frameWidth: 48,
+    frameHeight: 72,
+  },
 ];
 
 /** Object layers (from map.json) whose tile objects should block player movement */

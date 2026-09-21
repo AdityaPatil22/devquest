@@ -26,9 +26,7 @@ import type {
   DecisionOption,
 } from '../net/protocol';
 
-import {
-  emitUIEvent,
-} from '../game/GameBridge';
+import { emitUIEvent } from '../game/GameBridge';
 
 interface DoorObject {
   option: DecisionOption;
@@ -85,9 +83,7 @@ export class DecisionRoomScene extends Phaser.Scene {
 
   private map!: Phaser.Tilemaps.Tilemap;
 
-  private wallsLayer?: ReturnType<
-    Phaser.Tilemaps.Tilemap['createLayer']
-  >;
+  private wallsLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
 
   private doors: DoorObject[] = [];
 
@@ -110,15 +106,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   preload(): void {
-    this.load.image(
-      'door-closed',
-      'assets/items/door-closed.png',
-    );
+    this.load.image('door-closed', 'assets/items/door-closed.png');
 
-    this.load.image(
-      'door-open',
-      'assets/items/door-open.png',
-    );
+    this.load.image('door-open', 'assets/items/door-open.png');
   }
 
   // ---------------------------------------------------------------------------
@@ -138,19 +128,11 @@ export class DecisionRoomScene extends Phaser.Scene {
 
     this.currentNodeId = data.decision.nodeId;
 
-    this.data.set(
-      'decision',
-      data.decision,
-    );
+    this.data.set('decision', data.decision);
 
-    this.data.set(
-      'restored',
-      data.restored ?? false,
-    );
+    this.data.set('restored', data.restored ?? false);
 
-    this.unsubscribeWs = this.ws.onMessage(
-      this.handleMessage.bind(this),
-    );
+    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
   }
 
   // ---------------------------------------------------------------------------
@@ -165,23 +147,14 @@ export class DecisionRoomScene extends Phaser.Scene {
     this.setupInput();
 
     if (this.wallsLayer) {
-      this.physics.add.collider(
-        this.player.sprite,
-        this.wallsLayer,
-      );
+      this.physics.add.collider(this.player.sprite, this.wallsLayer);
     }
 
-    const decision =
-      this.data.get(
-        'decision',
-      ) as DecisionCreatedMsg;
+    const decision = this.data.get('decision') as DecisionCreatedMsg;
 
     this.renderDecision(decision);
 
-    const restored =
-      this.data.get(
-        'restored',
-      ) as boolean;
+    const restored = this.data.get('restored') as boolean;
 
     if (restored) {
       this.restoreCurrentPhase();
@@ -198,13 +171,8 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   update(): void {
-    if (
-      this.phase ===
-      GamePhase.EXPLORING_DOORS
-    ) {
-      this.player.handleMovement(
-        this.cursors,
-      );
+    if (this.phase === GamePhase.EXPLORING_DOORS) {
+      this.player.handleMovement(this.cursors);
 
       this.checkDoorProximity();
     } else {
@@ -216,15 +184,8 @@ export class DecisionRoomScene extends Phaser.Scene {
   // React communication
   // ---------------------------------------------------------------------------
 
-  private emitUI(
-    event: Parameters<
-      typeof emitUIEvent
-    >[1],
-  ): void {
-    emitUIEvent(
-      this.game,
-      event,
-    );
+  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
+    emitUIEvent(this.game, event);
   }
 
   // ---------------------------------------------------------------------------
@@ -232,8 +193,7 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private restoreCurrentPhase(): void {
-    const decision =
-      this.store.getCurrentDecision();
+    const decision = this.store.getCurrentDecision();
 
     if (!decision) {
       return;
@@ -244,19 +204,14 @@ export class DecisionRoomScene extends Phaser.Scene {
      *
      * The skill has not returned the challenge yet.
      */
-    if (
-      decision.selectedOptionId &&
-      !decision.challenge
-    ) {
-      this.phase =
-        GamePhase.WAITING_FOR_CHALLENGE;
+    if (decision.selectedOptionId && !decision.challenge) {
+      this.phase = GamePhase.WAITING_FOR_CHALLENGE;
 
       this.player.stop();
 
       this.emitUI({
         type: 'WAITING',
-        message:
-          'Waiting for the challenge...',
+        message: 'Waiting for the challenge...',
       });
 
       return;
@@ -268,19 +223,14 @@ export class DecisionRoomScene extends Phaser.Scene {
      * React should display the challenge
      * and defense input.
      */
-    if (
-      decision.challenge &&
-      !decision.defense
-    ) {
-      this.phase =
-        GamePhase.RESPONDING_TO_CHALLENGE;
+    if (decision.challenge && !decision.defense) {
+      this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
 
       this.player.stop();
 
       this.emitUI({
         type: 'CHALLENGE',
-        question:
-          decision.challenge,
+        question: decision.challenge,
       });
 
       return;
@@ -291,19 +241,14 @@ export class DecisionRoomScene extends Phaser.Scene {
      *
      * Waiting for evaluation.
      */
-    if (
-      decision.defense &&
-      !decision.feedback
-    ) {
-      this.phase =
-        GamePhase.WAITING_FOR_EVALUATION;
+    if (decision.defense && !decision.feedback) {
+      this.phase = GamePhase.WAITING_FOR_EVALUATION;
 
       this.player.stop();
 
       this.emitUI({
         type: 'WAITING',
-        message:
-          'Waiting for evaluation...',
+        message: 'Waiting for evaluation...',
       });
 
       return;
@@ -313,17 +258,14 @@ export class DecisionRoomScene extends Phaser.Scene {
      * Evaluation already exists.
      */
     if (decision.feedback) {
-      this.phase =
-        GamePhase.SHOWING_EVALUATION;
+      this.phase = GamePhase.SHOWING_EVALUATION;
 
       this.player.stop();
 
       this.emitUI({
         type: 'EVALUATION',
-        feedback:
-          decision.feedback,
-        consequence:
-          decision.consequence ?? '',
+        feedback: decision.feedback,
+        consequence: decision.consequence ?? '',
       });
 
       return;
@@ -332,8 +274,7 @@ export class DecisionRoomScene extends Phaser.Scene {
     /**
      * Nothing selected.
      */
-    this.phase =
-      GamePhase.EXPLORING_DOORS;
+    this.phase = GamePhase.EXPLORING_DOORS;
 
     this.emitUI({
       type: 'EXPLORING_DOORS',
@@ -351,117 +292,55 @@ export class DecisionRoomScene extends Phaser.Scene {
      * Patch them into the cached map before creating
      * the Phaser tilemap.
      */
-    const cached =
-      this.cache.tilemap.get(
-        DECISION_TILEMAP_KEY,
-      );
+    const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
 
     if (cached?.data) {
-      patchDecisionRoomTilesets(
-        cached.data,
-      );
+      patchDecisionRoomTilesets(cached.data);
     }
 
-    this.map =
-      this.make.tilemap({
-        key: DECISION_TILEMAP_KEY,
-      });
+    this.map = this.make.tilemap({
+      key: DECISION_TILEMAP_KEY,
+    });
 
-    const tilesets =
-      DECISION_TILESETS
-        .map((tileset) =>
-          this.map.addTilesetImage(
-            tileset.name,
-            tileset.key,
-          ),
-        )
-        .filter(
-          (
-            tileset,
-          ): tileset is Phaser.Tilemaps.Tileset =>
-            tileset !== null,
-        );
+    const tilesets = DECISION_TILESETS.map((tileset) =>
+      this.map.addTilesetImage(tileset.name, tileset.key),
+    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-    DECISION_TILE_LAYERS.forEach(
-      (
-        layerName,
-        depth,
-      ) => {
-        const layer =
-          this.map.createLayer(
-            layerName,
-            tilesets,
-          );
+    DECISION_TILE_LAYERS.forEach((layerName, depth) => {
+      const layer = this.map.createLayer(layerName, tilesets);
 
-        layer?.setDepth(depth);
+      layer?.setDepth(depth);
 
-        if (
-          layerName ===
-          DECISION_COLLIDABLE_LAYER
-        ) {
-          layer?.setCollisionByExclusion(
-            [-1],
-          );
+      if (layerName === DECISION_COLLIDABLE_LAYER) {
+        layer?.setCollisionByExclusion([-1]);
 
-          this.wallsLayer =
-            layer ?? undefined;
-        }
-      },
-    );
+        this.wallsLayer = layer ?? undefined;
+      }
+    });
 
-    const {
-      minTileX,
-      maxTileX,
-      minTileY,
-      maxTileY,
-    } = DECISION_MAP_BOUNDS;
+    const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
 
-    const boundsX =
-      minTileX *
-      DECISION_MAP_TILE_SIZE;
+    const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
 
-    const boundsY =
-      minTileY *
-      DECISION_MAP_TILE_SIZE;
+    const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
 
-    const boundsWidthPx =
-      (maxTileX -
-        minTileX +
-        1) *
-      DECISION_MAP_TILE_SIZE;
+    const boundsWidthPx = (maxTileX - minTileX + 1) * DECISION_MAP_TILE_SIZE;
 
-    const boundsHeightPx =
-      (maxTileY -
-        minTileY +
-        1) *
-      DECISION_MAP_TILE_SIZE;
+    const boundsHeightPx = (maxTileY - minTileY + 1) * DECISION_MAP_TILE_SIZE;
 
-    this.physics.world.setBounds(
-      boundsX,
-      boundsY,
-      boundsWidthPx,
-      boundsHeightPx,
-    );
+    this.physics.world.setBounds(boundsX, boundsY, boundsWidthPx, boundsHeightPx);
 
-    this.cameras.main.centerOn(
-      boundsX +
-        boundsWidthPx / 2,
-      boundsY +
-        boundsHeightPx / 2,
-    );
+    this.cameras.main.centerOn(boundsX + boundsWidthPx / 2, boundsY + boundsHeightPx / 2);
   }
 
   // ---------------------------------------------------------------------------
   // Decision rendering
   // ---------------------------------------------------------------------------
 
-  private renderDecision(
-    decision: DecisionCreatedMsg,
-  ): void {
+  private renderDecision(decision: DecisionCreatedMsg): void {
     this.clearDecision();
 
-    this.currentNodeId =
-      decision.nodeId;
+    this.currentNodeId = decision.nodeId;
 
     /**
      * React owns the question and recommendation.
@@ -474,83 +353,44 @@ export class DecisionRoomScene extends Phaser.Scene {
       nodeId: decision.nodeId,
       question: decision.question,
       options: decision.options,
-      recommendation:
-        decision.recommendation,
+      recommendation: decision.recommendation,
       round: decision.round,
     });
 
-    const options =
-      decision.options;
+    const options = decision.options;
 
-    const rangeStartPx =
-      DECISION_DOOR_ROW_X_RANGE.minTileX *
-      DECISION_MAP_TILE_SIZE;
+    const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
 
     const rangeWidthPx =
-      (
-        DECISION_DOOR_ROW_X_RANGE.maxTileX -
-        DECISION_DOOR_ROW_X_RANGE.minTileX +
-        1
-      ) *
+      (DECISION_DOOR_ROW_X_RANGE.maxTileX - DECISION_DOOR_ROW_X_RANGE.minTileX + 1) *
       DECISION_MAP_TILE_SIZE;
 
-    const spacing =
-      options.length > 0
-        ? Math.min(
-            120,
-            rangeWidthPx /
-              (options.length + 1),
-          )
-        : 120;
+    const spacing = options.length > 0 ? Math.min(120, rangeWidthPx / (options.length + 1)) : 120;
 
-    const doorY =
-      DECISION_DOOR_ROW_TILE_Y *
-        DECISION_MAP_TILE_SIZE +
-      DECISION_MAP_TILE_SIZE / 2;
+    const doorY = DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
-    options.forEach(
-      (
+    options.forEach((option, index) => {
+      const doorX = rangeStartPx + spacing * (index + 1);
+
+      const isRecommended = decision.recommendation?.option === option.id;
+
+      const doorSprite = this.add
+        .image(doorX, doorY, 'door-closed')
+        .setOrigin(0.5, 1.42)
+        .setDepth(5)
+        .setScale(DOOR_SCALE);
+
+      this.doors.push({
         option,
-        index,
-      ) => {
-        const doorX =
-          rangeStartPx +
-          spacing *
-            (index + 1);
+        x: doorX,
+        y: doorY,
+        doorSprite,
+        isRecommended,
+        isOpen: false,
+      });
+    });
 
-        const isRecommended =
-          decision.recommendation
-            ?.option === option.id;
-
-        const doorSprite =
-          this.add
-            .image(
-              doorX,
-              doorY,
-              'door-closed',
-            )
-            .setOrigin(
-              0.5,
-              1.42,
-            )
-            .setDepth(5)
-            .setScale(
-              DOOR_SCALE,
-            );
-
-        this.doors.push({
-          option,
-          x: doorX,
-          y: doorY,
-          doorSprite,
-          isRecommended,
-          isOpen: false,
-        });
-      },
-    );
-
-    this.phase =
-      GamePhase.EXPLORING_DOORS;
+    this.phase = GamePhase.EXPLORING_DOORS;
 
     this.emitUI({
       type: 'EXPLORING_DOORS',
@@ -562,16 +402,13 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private clearDecision(): void {
-    this.doors.forEach(
-      (door) => {
-        door.doorSprite.destroy();
-      },
-    );
+    this.doors.forEach((door) => {
+      door.doorSprite.destroy();
+    });
 
     this.doors = [];
 
-    this.currentDoor =
-      undefined;
+    this.currentDoor = undefined;
   }
 
   // ---------------------------------------------------------------------------
@@ -579,22 +416,11 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private createPlayer(): void {
-    const spawnX =
-      DECISION_SPAWN_TILE.x *
-        DECISION_MAP_TILE_SIZE +
-      DECISION_MAP_TILE_SIZE / 2;
+    const spawnX = DECISION_SPAWN_TILE.x * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
-    const spawnY =
-      DECISION_SPAWN_TILE.y *
-        DECISION_MAP_TILE_SIZE +
-      DECISION_MAP_TILE_SIZE / 2;
+    const spawnY = DECISION_SPAWN_TILE.y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
-    this.player =
-      new Player(
-        this,
-        spawnX,
-        spawnY,
-      );
+    this.player = new Player(this, spawnX, spawnY);
   }
 
   // ---------------------------------------------------------------------------
@@ -602,13 +428,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private setupInput(): void {
-    this.cursors =
-      this.input.keyboard!.createCursorKeys();
+    this.cursors = this.input.keyboard!.createCursorKeys();
 
-    this.interactKey =
-      this.input.keyboard!.addKey(
-        Phaser.Input.Keyboard.KeyCodes.E,
-      );
+    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
   }
 
   // ---------------------------------------------------------------------------
@@ -616,61 +438,39 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private checkDoorProximity(): void {
-    let nearest:
-      | DoorObject
-      | null = null;
+    let nearest: DoorObject | null = null;
 
-    let minDist =
-      Infinity;
+    let minDist = Infinity;
 
-    for (
-      const door of this.doors
-    ) {
-      const distance =
-        Phaser.Math.Distance.Between(
-          this.player.sprite.x,
-          this.player.sprite.y,
-          door.x,
-          door.y,
-        );
+    for (const door of this.doors) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.sprite.x,
+        this.player.sprite.y,
+        door.x,
+        door.y,
+      );
 
-      if (
-        distance < 50 &&
-        distance < minDist
-      ) {
-        minDist =
-          distance;
+      if (distance < 50 && distance < minDist) {
+        minDist = distance;
 
-        nearest =
-          door;
+        nearest = door;
       }
     }
 
     /**
      * Entering a door's proximity.
      */
-    if (
-      nearest &&
-      nearest !==
-        this.currentDoor
-    ) {
-      this.currentDoor =
-        nearest;
+    if (nearest && nearest !== this.currentDoor) {
+      this.currentDoor = nearest;
 
-      this.showDoorPrompt(
-        nearest,
-      );
+      this.showDoorPrompt(nearest);
     }
 
     /**
      * Leaving door proximity.
      */
-    else if (
-      !nearest &&
-      this.currentDoor
-    ) {
-      this.currentDoor =
-        undefined;
+    else if (!nearest && this.currentDoor) {
+      this.currentDoor = undefined;
 
       this.hideDoorPrompt();
     }
@@ -678,15 +478,8 @@ export class DecisionRoomScene extends Phaser.Scene {
     /**
      * Press E.
      */
-    if (
-      nearest &&
-      Phaser.Input.Keyboard.JustDown(
-        this.interactKey,
-      )
-    ) {
-      this.approachDoor(
-        nearest,
-      );
+    if (nearest && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.approachDoor(nearest);
     }
   }
 
@@ -694,12 +487,8 @@ export class DecisionRoomScene extends Phaser.Scene {
   // Door prompt
   // ---------------------------------------------------------------------------
 
-  private showDoorPrompt(
-    door: DoorObject,
-  ): void {
-    door.doorSprite.setTint(
-      0xffaa44,
-    );
+  private showDoorPrompt(door: DoorObject): void {
+    door.doorSprite.setTint(0xffaa44);
 
     /**
      * React renders the actual
@@ -713,11 +502,9 @@ export class DecisionRoomScene extends Phaser.Scene {
   }
 
   private hideDoorPrompt(): void {
-    this.doors.forEach(
-      (door) => {
-        door.doorSprite.clearTint();
-      },
-    );
+    this.doors.forEach((door) => {
+      door.doorSprite.clearTint();
+    });
 
     this.emitUI({
       type: 'DOOR_PROXIMITY',
@@ -729,14 +516,10 @@ export class DecisionRoomScene extends Phaser.Scene {
   // Enter door
   // ---------------------------------------------------------------------------
 
-  private approachDoor(
-    door: DoorObject,
-  ): void {
-    this.phase =
-      GamePhase.DOOR_CONTEXT;
+  private approachDoor(door: DoorObject): void {
+    this.phase = GamePhase.DOOR_CONTEXT;
 
-    this.currentDoor =
-      door;
+    this.currentDoor = door;
 
     this.hideDoorPrompt();
 
@@ -746,20 +529,9 @@ export class DecisionRoomScene extends Phaser.Scene {
      * The modal itself is React.
      */
     if (!door.isOpen) {
-      door.isOpen =
-        true;
+      door.isOpen = true;
 
-      door.doorSprite
-        .setTexture(
-          'door-open',
-        )
-        .setOrigin(
-          0.5,
-          1.32,
-        )
-        .setScale(
-          DOOR_OPEN_SCALE,
-        );
+      door.doorSprite.setTexture('door-open').setOrigin(0.5, 1.32).setScale(DOOR_OPEN_SCALE);
     }
 
     this.emitUI({
@@ -777,20 +549,14 @@ export class DecisionRoomScene extends Phaser.Scene {
    * Called by React when the user confirms
    * the selected door/context.
    */
-  public confirmDoorSelection(
-    context?: string,
-  ): void {
+  public confirmDoorSelection(context?: string): void {
     if (!this.currentDoor) {
       return;
     }
 
-    const door =
-      this.currentDoor;
+    const door = this.currentDoor;
 
-    this.selectDoor(
-      door,
-      context,
-    );
+    this.selectDoor(door, context);
   }
 
   /**
@@ -798,35 +564,22 @@ export class DecisionRoomScene extends Phaser.Scene {
    * the door context modal.
    */
   public cancelDoorSelection(): void {
-    if (
-      this.phase !==
-      GamePhase.DOOR_CONTEXT
-    ) {
+    if (this.phase !== GamePhase.DOOR_CONTEXT) {
       return;
     }
 
     if (this.currentDoor) {
-      this.currentDoor.isOpen =
-        false;
+      this.currentDoor.isOpen = false;
 
       this.currentDoor.doorSprite
-        .setTexture(
-          'door-closed',
-        )
-        .setOrigin(
-          0.5,
-          1.42,
-        )
-        .setScale(
-          DOOR_SCALE,
-        );
+        .setTexture('door-closed')
+        .setOrigin(0.5, 1.42)
+        .setScale(DOOR_SCALE);
     }
 
-    this.phase =
-      GamePhase.EXPLORING_DOORS;
+    this.phase = GamePhase.EXPLORING_DOORS;
 
-    this.currentDoor =
-      undefined;
+    this.currentDoor = undefined;
 
     this.emitUI({
       type: 'DOOR_CONTEXT',
@@ -834,33 +587,25 @@ export class DecisionRoomScene extends Phaser.Scene {
     });
   }
 
-  private selectDoor(
-    door: DoorObject,
-    context?: string,
-  ): void {
-    this.phase =
-      GamePhase.WAITING_FOR_CHALLENGE;
+  private selectDoor(door: DoorObject, context?: string): void {
+    this.phase = GamePhase.WAITING_FOR_CHALLENGE;
 
     this.player.stop();
 
     this.emitUI({
       type: 'WAITING',
-      message:
-        'Entering door...',
+      message: 'Entering door...',
     });
 
     this.store.updateCurrent({
-      selectedOptionId:
-        door.option.id,
+      selectedOptionId: door.option.id,
       context,
     });
 
     this.ws.send({
       type: 'OPTION_SELECTED',
-      nodeId:
-        this.currentNodeId,
-      optionId:
-        door.option.id,
+      nodeId: this.currentNodeId,
+      optionId: door.option.id,
       context,
     });
   }
@@ -878,25 +623,20 @@ export class DecisionRoomScene extends Phaser.Scene {
    * type for defense submission, change the
    * `type` below to the exact protocol value.
    */
-  public submitDefense(
-    defense: string,
-  ): void {
-    const trimmed =
-      defense.trim();
+  public submitDefense(defense: string): void {
+    const trimmed = defense.trim();
 
     if (!trimmed) {
       return;
     }
 
-    const decision =
-      this.store.getCurrentDecision();
+    const decision = this.store.getCurrentDecision();
 
     if (!decision) {
       return;
     }
 
-    this.phase =
-      GamePhase.WAITING_FOR_EVALUATION;
+    this.phase = GamePhase.WAITING_FOR_EVALUATION;
 
     this.player.stop();
 
@@ -906,8 +646,7 @@ export class DecisionRoomScene extends Phaser.Scene {
 
     this.emitUI({
       type: 'WAITING',
-      message:
-        'Waiting for evaluation...',
+      message: 'Waiting for evaluation...',
     });
 
     this.ws.send({
@@ -921,32 +660,26 @@ export class DecisionRoomScene extends Phaser.Scene {
   // Server messages
   // ---------------------------------------------------------------------------
 
-  private handleMessage(
-    msg: ServerMessage,
-  ): void {
+  private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
       // -----------------------------------------------------------------------
       // Challenge
       // -----------------------------------------------------------------------
 
       case 'CHALLENGE': {
-        const challenge =
-          msg as ChallengeMsg;
+        const challenge = msg as ChallengeMsg;
 
         this.store.updateCurrent({
-          challenge:
-            challenge.question,
+          challenge: challenge.question,
         });
 
-        this.phase =
-          GamePhase.RESPONDING_TO_CHALLENGE;
+        this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
 
         this.player.stop();
 
         this.emitUI({
           type: 'CHALLENGE',
-          question:
-            challenge.question,
+          question: challenge.question,
         });
 
         break;
@@ -957,27 +690,21 @@ export class DecisionRoomScene extends Phaser.Scene {
       // -----------------------------------------------------------------------
 
       case 'EVALUATION': {
-        const evaluation =
-          msg as EvaluationMsg;
+        const evaluation = msg as EvaluationMsg;
 
         this.store.updateCurrent({
-          feedback:
-            evaluation.feedback,
-          consequence:
-            evaluation.consequence,
+          feedback: evaluation.feedback,
+          consequence: evaluation.consequence,
         });
 
-        this.phase =
-          GamePhase.SHOWING_EVALUATION;
+        this.phase = GamePhase.SHOWING_EVALUATION;
 
         this.player.stop();
 
         this.emitUI({
           type: 'EVALUATION',
-          feedback:
-            evaluation.feedback,
-          consequence:
-            evaluation.consequence,
+          feedback: evaluation.feedback,
+          consequence: evaluation.consequence,
         });
 
         break;
@@ -988,24 +715,17 @@ export class DecisionRoomScene extends Phaser.Scene {
       // -----------------------------------------------------------------------
 
       case 'DECISION_CREATED': {
-        const decision =
-          msg as DecisionCreatedMsg;
+        const decision = msg as DecisionCreatedMsg;
 
         this.store.addDecision({
-          nodeId:
-            decision.nodeId,
-          question:
-            decision.question,
-          options:
-            decision.options,
-          recommendation:
-            decision.recommendation,
-          round:
-            decision.round,
+          nodeId: decision.nodeId,
+          question: decision.question,
+          options: decision.options,
+          recommendation: decision.recommendation,
+          round: decision.round,
         });
 
-        this.phase =
-          GamePhase.EXPLORING_DOORS;
+        this.phase = GamePhase.EXPLORING_DOORS;
 
         /**
          * React can show a short transition
@@ -1015,16 +735,11 @@ export class DecisionRoomScene extends Phaser.Scene {
           type: 'NEXT_DECISION_LOADING',
         });
 
-        this.time.delayedCall(
-          500,
-          () => {
-            this.clearDecision();
+        this.time.delayedCall(500, () => {
+          this.clearDecision();
 
-            this.renderDecision(
-              decision,
-            );
-          },
-        );
+          this.renderDecision(decision);
+        });
         break;
       }
 
@@ -1033,17 +748,11 @@ export class DecisionRoomScene extends Phaser.Scene {
       // -----------------------------------------------------------------------
 
       case 'SESSION_COMPLETE': {
-        const complete =
-          msg as SessionCompleteMsg;
+        const complete = msg as SessionCompleteMsg;
 
-        this.store.complete(
-          complete.summary,
-          complete.docContent,
-        );
+        this.store.complete(complete.summary, complete.docContent);
 
-
-        this.phase =
-          GamePhase.EXPLORING_DOORS;
+        this.phase = GamePhase.EXPLORING_DOORS;
 
         this.player.stop();
 
@@ -1052,10 +761,8 @@ export class DecisionRoomScene extends Phaser.Scene {
          */
         this.emitUI({
           type: 'SESSION_COMPLETE',
-          summary:
-            complete.summary,
-          docContent:
-            complete.docContent,
+          summary: complete.summary,
+          docContent: complete.docContent,
         });
 
         break;
@@ -1078,15 +785,11 @@ export class DecisionRoomScene extends Phaser.Scene {
       // -----------------------------------------------------------------------
 
       case 'ERROR': {
-        console.error(
-          'Server error:',
-          msg.message,
-        );
+        console.error('Server error:', msg.message);
 
         this.emitUI({
           type: 'ERROR',
-          message:
-            msg.message,
+          message: msg.message,
         });
 
         break;
@@ -1101,25 +804,20 @@ export class DecisionRoomScene extends Phaser.Scene {
   private leaveBoot(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs =
-      undefined;
+    this.unsubscribeWs = undefined;
   }
 
   shutdown(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs =
-      undefined;
+    this.unsubscribeWs = undefined;
 
-    this.doors.forEach(
-      (door) => {
-        door.doorSprite.destroy();
-      },
-    );
+    this.doors.forEach((door) => {
+      door.doorSprite.destroy();
+    });
 
     this.doors = [];
 
-    this.currentDoor =
-      undefined;
+    this.currentDoor = undefined;
   }
 }

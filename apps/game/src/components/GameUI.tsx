@@ -72,10 +72,7 @@ export function GameUI() {
             screen: 'common',
             modal: 'elevator',
             elevatorWaiting: Boolean(event.waiting),
-            waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : undefined,
+            waitingMessage: typeof event.message === 'string' ? event.message : undefined,
             error: undefined,
           }));
           break;
@@ -86,9 +83,7 @@ export function GameUI() {
             modal: 'elevator',
             elevatorWaiting: true,
             waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Entering the elevator...',
+              typeof event.message === 'string' ? event.message : 'Entering the elevator...',
             error: undefined,
           }));
           break;
@@ -124,21 +119,10 @@ export function GameUI() {
             ...previous,
             screen: 'decision',
             modal: null,
-            question:
-              typeof event.question === 'string'
-                ? event.question
-                : undefined,
-            options: Array.isArray(event.options)
-              ? (event.options as DecisionOption[])
-              : [],
-            recommendation:
-              event.recommendation as
-                | typeof previous.recommendation
-                | undefined,
-            round:
-              typeof event.round === 'number'
-                ? event.round
-                : undefined,
+            question: typeof event.question === 'string' ? event.question : undefined,
+            options: Array.isArray(event.options) ? (event.options as DecisionOption[]) : [],
+            recommendation: event.recommendation as typeof previous.recommendation | undefined,
+            round: typeof event.round === 'number' ? event.round : undefined,
             selectedOption: undefined,
             challenge: undefined,
             feedback: undefined,
@@ -162,9 +146,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             doorNear: Boolean(event.visible),
-            nearDoorOption: event.option as
-              | DecisionOption
-              | undefined,
+            nearDoorOption: event.option as DecisionOption | undefined,
             elevatorNear: false,
           }));
           break;
@@ -172,13 +154,8 @@ export function GameUI() {
         case 'DOOR_CONTEXT':
           setState((previous) => ({
             ...previous,
-            modal:
-              event.visible === false
-                ? null
-                : 'door-context',
-            selectedOption: event.option as
-              | DecisionOption
-              | undefined,
+            modal: event.visible === false ? null : 'door-context',
+            selectedOption: event.option as DecisionOption | undefined,
           }));
           break;
 
@@ -186,10 +163,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'waiting',
-            waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Waiting...',
+            waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
           }));
           break;
 
@@ -197,10 +171,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'challenge',
-            challenge:
-              typeof event.question === 'string'
-                ? event.question
-                : undefined,
+            challenge: typeof event.question === 'string' ? event.question : undefined,
             waitingMessage: undefined,
             error: undefined,
           }));
@@ -210,14 +181,8 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'evaluation',
-            feedback:
-              typeof event.feedback === 'string'
-                ? event.feedback
-                : undefined,
-            consequence:
-              typeof event.consequence === 'string'
-                ? event.consequence
-                : undefined,
+            feedback: typeof event.feedback === 'string' ? event.feedback : undefined,
+            consequence: typeof event.consequence === 'string' ? event.consequence : undefined,
             waitingMessage: undefined,
           }));
           break;
@@ -235,14 +200,8 @@ export function GameUI() {
             ...previous,
             screen: 'complete',
             modal: null,
-            summary:
-              typeof event.summary === 'string'
-                ? event.summary
-                : undefined,
-            docContent:
-              typeof event.docContent === 'string'
-                ? event.docContent
-                : undefined,
+            summary: typeof event.summary === 'string' ? event.summary : undefined,
+            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
             waitingMessage: undefined,
             error: undefined,
           }));
@@ -251,10 +210,7 @@ export function GameUI() {
         case 'ERROR':
           setState((previous) => ({
             ...previous,
-            error:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Something went wrong.',
+            error: typeof event.message === 'string' ? event.message : 'Something went wrong.',
             elevatorWaiting: false,
           }));
           break;
@@ -270,9 +226,7 @@ export function GameUI() {
 
   const submitProblem = useCallback(
     (problem: string) => {
-      const scene = game?.scene.getScene(
-        'CommonRoomScene',
-      ) as
+      const scene = game?.scene.getScene('CommonRoomScene') as
         | {
             submitProblem?: (value: string) => void;
           }
@@ -284,9 +238,7 @@ export function GameUI() {
   );
 
   const closeElevator = useCallback(() => {
-    const scene = game?.scene.getScene(
-      'CommonRoomScene',
-    ) as
+    const scene = game?.scene.getScene('CommonRoomScene') as
       | {
           closeGate?: () => void;
         }
@@ -297,13 +249,9 @@ export function GameUI() {
 
   const submitDoorContext = useCallback(
     (context?: string) => {
-      const scene = game?.scene.getScene(
-        'DecisionRoomScene',
-      ) as
+      const scene = game?.scene.getScene('DecisionRoomScene') as
         | {
-            confirmDoorSelection?: (
-              value?: string,
-            ) => void;
+            confirmDoorSelection?: (value?: string) => void;
           }
         | undefined;
 
@@ -313,9 +261,7 @@ export function GameUI() {
   );
 
   const cancelDoorContext = useCallback(() => {
-    const scene = game?.scene.getScene(
-      'DecisionRoomScene',
-    ) as
+    const scene = game?.scene.getScene('DecisionRoomScene') as
       | {
           cancelDoorSelection?: () => void;
         }
@@ -326,9 +272,7 @@ export function GameUI() {
 
   const submitDefense = useCallback(
     (defense: string) => {
-      const scene = game?.scene.getScene(
-        'DecisionRoomScene',
-      ) as
+      const scene = game?.scene.getScene('DecisionRoomScene') as
         | {
             submitDefense?: (value: string) => void;
           }
@@ -360,18 +304,12 @@ export function GameUI() {
       <HUD />
 
       <InteractionPrompt
-        visible={
-          state.elevatorNear &&
-          state.modal === null
-        }
+        visible={state.elevatorNear && state.modal === null}
         text="Press E to enter the elevator"
       />
 
       <InteractionPrompt
-        visible={
-          state.doorNear &&
-          state.modal === null
-        }
+        visible={state.doorNear && state.modal === null}
         text={
           state.nearDoorOption
             ? `Press E to enter ${state.nearDoorOption.label}`
@@ -406,16 +344,9 @@ export function GameUI() {
         consequence={state.consequence}
       />
 
-      <WaitingOverlay
-        open={state.modal === 'waiting'}
-        message={state.waitingMessage}
-      />
+      <WaitingOverlay open={state.modal === 'waiting'} message={state.waitingMessage} />
 
-      {state.error && (
-        <div className="game-error">
-          {state.error}
-        </div>
-      )}
+      {state.error && <div className="game-error">{state.error}</div>}
     </>
   );
 }

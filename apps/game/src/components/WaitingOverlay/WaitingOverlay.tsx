@@ -5,10 +5,7 @@ interface Props {
   message?: string;
 }
 
-export function WaitingOverlay({
-  open,
-  message,
-}: Props) {
+export function WaitingOverlay({ open, message }: Props) {
   if (!open) {
     return null;
   }
@@ -18,13 +15,9 @@ export function WaitingOverlay({
       <div className="waiting-card">
         <div className="spinner" />
 
-        <div className="waiting-title">
-          PLEASE WAIT
-        </div>
+        <div className="waiting-title">PLEASE WAIT</div>
 
-        <div className="waiting-message">
-          {message || 'Waiting...'}
-        </div>
+        <div className="waiting-message">{message || 'Waiting...'}</div>
       </div>
     </div>
   );
