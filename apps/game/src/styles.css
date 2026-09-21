@@ -108,3 +108,50 @@ button {
 
   z-index: 100;
 }
+
+.dev-toolbar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.dev-toolbar__title {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.dev-toolbar select,
+.dev-toolbar button {
+  padding: 6px 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+
+  background: #222;
+  color: #fff;
+
+  font: inherit;
+}
+
+.dev-toolbar button {
+  cursor: pointer;
+}
+
+.dev-toolbar button:hover:not(:disabled) {
+  background: #333;
+}
+
+.dev-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
