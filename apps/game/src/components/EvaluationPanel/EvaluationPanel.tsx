@@ -51,8 +51,8 @@ export function EvaluationPanel({
         </div>
 
         <div className="evaluation-hint">
-          Preparing the next
-          decision...
+          The next decision will appear
+          automatically...
         </div>
       </section>
     </div>

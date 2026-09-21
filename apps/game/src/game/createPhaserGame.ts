@@ -18,12 +18,12 @@ export function createPhaserGame(
 
     parent,
 
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+
     pixelArt: true,
 
-    transparent: true,
-
-    backgroundColor:
-      'rgba(0, 0, 0, 0)',
+    backgroundColor: '#070712',
 
     physics: {
       default: 'arcade',
@@ -47,7 +47,6 @@ export function createPhaserGame(
 
     scale: {
       mode: Phaser.Scale.RESIZE,
-
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
     },

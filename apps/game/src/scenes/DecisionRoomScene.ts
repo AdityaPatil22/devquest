@@ -26,6 +26,10 @@ import type {
   DecisionOption,
 } from '../net/protocol';
 
+import {
+  emitUIEvent,
+} from '../game/GameBridge';
+
 interface DoorObject {
   option: DecisionOption;
   x: number;
@@ -213,10 +217,12 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private emitUI(
-    event: Record<string, unknown>,
+    event: Parameters<
+      typeof emitUIEvent
+    >[1],
   ): void {
-    this.game.events.emit(
-      'devquest:ui',
+    emitUIEvent(
+      this.game,
       event,
     );
   }
@@ -758,6 +764,7 @@ export class DecisionRoomScene extends Phaser.Scene {
 
     this.emitUI({
       type: 'DOOR_CONTEXT',
+      visible: true,
       option: door.option,
     });
   }
@@ -1011,12 +1018,13 @@ export class DecisionRoomScene extends Phaser.Scene {
         this.time.delayedCall(
           500,
           () => {
+            this.clearDecision();
+
             this.renderDecision(
               decision,
             );
           },
         );
-
         break;
       }
 

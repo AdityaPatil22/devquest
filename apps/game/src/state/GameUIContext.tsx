@@ -38,6 +38,9 @@ export interface UIState {
   elevatorNear: boolean;
   elevatorWaiting: boolean;
 
+  doorNear: boolean;
+  nearDoorOption?: DecisionOption;
+
   problem?: string;
 
   round?: number;
@@ -81,6 +84,9 @@ const initialState: UIState = {
 
   elevatorNear: false,
   elevatorWaiting: false,
+
+  doorNear: false,
+  nearDoorOption: undefined,
 
   options: [],
 };

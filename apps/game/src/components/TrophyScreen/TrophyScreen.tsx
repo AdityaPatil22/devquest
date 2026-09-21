@@ -7,14 +7,18 @@ import './TrophyScreen.css';
 interface Props {
   summary?: string;
   docContent?: string;
+  onRestart: () => void;
 }
 
 export function TrophyScreen({
   summary,
   docContent,
+  onRestart,
 }: Props) {
-  const [showDocument, setShowDocument] =
-    useState(false);
+  const [
+    showDocument,
+    setShowDocument,
+  ] = useState(false);
 
   return (
     <div className="trophy-screen">
@@ -49,6 +53,13 @@ export function TrophyScreen({
             {showDocument
               ? 'HIDE DOCUMENT'
               : 'VIEW DOCUMENT'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onRestart}
+          >
+            PLAY AGAIN
           </button>
         </div>
 

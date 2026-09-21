@@ -20,6 +20,10 @@ import type {
   DecisionCreatedMsg,
 } from '../net/protocol';
 
+import {
+  emitUIEvent,
+} from '../game/GameBridge';
+
 interface SceneData {
   ws: WebSocketClient;
   store: SessionStore;
@@ -252,10 +256,12 @@ export class CommonRoomScene extends Phaser.Scene {
    * Send events from Phaser → React.
    */
   private emitUI(
-    event: Record<string, unknown>,
+    event: Parameters<
+      typeof emitUIEvent
+    >[1],
   ): void {
-    this.game.events.emit(
-      'devquest:ui',
+    emitUIEvent(
+      this.game,
       event,
     );
   }
@@ -737,29 +743,18 @@ export class CommonRoomScene extends Phaser.Scene {
    * Called by React or Escape.
    */
   public closeGate(): void {
-    /**
-     * Do not allow closing while
-     * the server is processing.
-     */
     if (this.gateWaiting) {
       return;
     }
 
     this.gateOpen = false;
-
+    this.gateWaiting = false;
     this.gateSubmitted = false;
 
-    /**
-     * Close elevator.
-     */
     this.elevator?.setFrame(0);
 
-    this.elevatorAnimating =
-      false;
+    this.elevatorAnimating = false;
 
-    /**
-     * Tell React to close the modal.
-     */
     this.emitUI({
       type: 'ELEVATOR_CLOSED',
     });

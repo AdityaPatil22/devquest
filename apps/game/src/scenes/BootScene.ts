@@ -30,6 +30,10 @@ import type {
   DecisionCreatedMsg,
 } from '../net/protocol';
 
+import {
+  emitUIEvent,
+} from '../game/GameBridge';
+
 export class BootScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
   // Network / state
@@ -71,10 +75,12 @@ export class BootScene extends Phaser.Scene {
    * screen, text, progress bar, etc.
    */
   private emitUI(
-    event: Record<string, unknown>,
+    event: Parameters<
+      typeof emitUIEvent
+    >[1],
   ): void {
-    this.game.events.emit(
-      'devquest:ui',
+    emitUIEvent(
+      this.game,
       event,
     );
   }
@@ -481,12 +487,25 @@ export class BootScene extends Phaser.Scene {
        * TrophyScene should now be responsible
        * for the completion UI.
        */
-      this.scene.start(
-        'TrophyScene',
-        {
-          store: this.store,
-        },
-      );
+      if (
+        phase === 'complete'
+      ) {
+        this.emitUI({
+          type: 'SESSION_COMPLETE',
+          summary:
+            msg.snapshot.summary ?? '',
+          docContent:
+            msg.snapshot.docContent ?? '',
+        });
+
+        this.leaveBoot();
+
+        this.scene.start(
+          'TrophyScene',
+        );
+
+  return;
+}
 
       return;
     }
@@ -584,12 +603,6 @@ export class BootScene extends Phaser.Scene {
 
       round:
         decision.round,
-    });
-
-    this.emitUI({
-      type: 'DECISION_RESTORED',
-      nodeId:
-        decision.nodeId,
     });
 
     this.leaveBoot();

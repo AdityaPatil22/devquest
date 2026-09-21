@@ -62,7 +62,7 @@ export type GameUIEvent =
     }
   | {
       type: 'DOOR_CONTEXT';
-      visible?: boolean;
+      visible: boolean;
       option?: DecisionOption;
     }
   | {
@@ -95,8 +95,5 @@ export function emitUIEvent(
   game: Phaser.Game,
   event: GameUIEvent,
 ): void {
-  game.events.emit(
-    'devquest:ui',
-    event,
-  );
+  game.events.emit('devquest:ui', event);
 }
