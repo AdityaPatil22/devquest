@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 
-import { PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG } from '../tiles';
-
 import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
 
 import {
@@ -93,12 +91,6 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 280,
       frameHeight: 285,
     });
-
-    // ─────────────────────────────────────────
-    // Patterns
-    // ─────────────────────────────────────────
-
-    this.load.spritesheet(PATTERNS_KEY, PATTERNS_PATH, PATTERNS_CONFIG);
 
     // ─────────────────────────────────────────
     // Common Room
