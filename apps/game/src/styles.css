@@ -8,7 +8,6 @@
     sans-serif;
 
   color: #ffffff;
-  background: #070712;
 }
 
 * {
@@ -20,14 +19,16 @@ body,
 #root {
   width: 100%;
   height: 100%;
-
   margin: 0;
 }
 
 body {
   overflow: hidden;
-
-  background: #070712;
+  background-image: url("/assets/background/background.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 button,
@@ -47,8 +48,6 @@ button {
   height: 100vh;
 
   overflow: hidden;
-
-  background: #070712;
 }
 
 .phaser-layer {
