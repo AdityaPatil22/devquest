@@ -750,10 +750,7 @@ export class DecisionRoomScene extends Phaser.Scene {
       case 'SESSION_COMPLETE': {
         const complete = msg as SessionCompleteMsg;
 
-        this.store.complete(
-          complete.summary,
-          complete.docContent,
-        );
+        this.store.complete(complete.summary, complete.docContent);
 
         this.player.stop();
 

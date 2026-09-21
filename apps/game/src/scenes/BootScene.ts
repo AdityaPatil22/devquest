@@ -146,20 +146,13 @@ export class BootScene extends Phaser.Scene {
       });
     });
 
-    
     // ─────────────────────────────────────────
     // Trophy Room
     // ─────────────────────────────────────────
-    
-    this.load.image(
-      'trophy',
-      'assets/items/trophy.png',
-    );
-    
-    this.load.tilemapTiledJSON(
-      TROPHY_TILEMAP_KEY,
-      TROPHY_TILEMAP_PATH,
-    );
+
+    this.load.image('trophy', 'assets/items/trophy.png');
+
+    this.load.tilemapTiledJSON(TROPHY_TILEMAP_KEY, TROPHY_TILEMAP_PATH);
 
     const trophySeenKeys = new Set<string>();
 

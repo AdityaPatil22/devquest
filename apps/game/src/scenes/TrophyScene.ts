@@ -26,17 +26,14 @@ const TROPHY_TILE = {
   y: 12,
 };
 
-const TROPHY_INTERACTION_DISTANCE =
-  TROPHY_MAP_TILE_SIZE * 2.5;
+const TROPHY_INTERACTION_DISTANCE = TROPHY_MAP_TILE_SIZE * 2.5;
 
 export class TrophyScene extends Phaser.Scene {
   private store!: SessionStore;
 
   private map!: Phaser.Tilemaps.Tilemap;
 
-  private wallsLayer?: ReturnType<
-    Phaser.Tilemaps.Tilemap['createLayer']
-  >;
+  private wallsLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
 
   private player!: Player;
 
@@ -80,154 +77,80 @@ export class TrophyScene extends Phaser.Scene {
   }
 
   private buildRoom(): void {
-    const cached =
-      this.cache.tilemap.get(
-        TROPHY_TILEMAP_KEY,
-      );
+    const cached = this.cache.tilemap.get(TROPHY_TILEMAP_KEY);
 
     if (cached?.data) {
-      patchTrophyRoomTilesets(
-        cached.data,
-      );
+      patchTrophyRoomTilesets(cached.data);
     }
 
     this.map = this.make.tilemap({
       key: TROPHY_TILEMAP_KEY,
     });
 
-    const tilesets =
-      TROPHY_TILESETS.map(
-        (tileset) =>
-          this.map.addTilesetImage(
-            tileset.name,
-            tileset.key,
-          ),
-      ).filter(
-        (
-          tileset,
-        ): tileset is Phaser.Tilemaps.Tileset =>
-          tileset !== null,
-      );
+    const tilesets = TROPHY_TILESETS.map((tileset) =>
+      this.map.addTilesetImage(tileset.name, tileset.key),
+    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-    TROPHY_TILE_LAYERS.forEach(
-      (layerName, depth) => {
-        const layer =
-          this.map.createLayer(
-            layerName,
-            tilesets,
-          );
+    TROPHY_TILE_LAYERS.forEach((layerName, depth) => {
+      const layer = this.map.createLayer(layerName, tilesets);
 
-        if (!layer) {
-          console.warn(
-            `TrophyScene: unable to create layer "${layerName}"`,
-          );
+      if (!layer) {
+        console.warn(`TrophyScene: unable to create layer "${layerName}"`);
 
-          return;
-        }
+        return;
+      }
 
-        layer.setDepth(depth);
+      layer.setDepth(depth);
 
-        if (
-          layerName ===
-          TROPHY_COLLIDABLE_LAYER
-        ) {
-          layer.setCollisionByExclusion([
-            -1,
-          ]);
+      if (layerName === TROPHY_COLLIDABLE_LAYER) {
+        layer.setCollisionByExclusion([-1]);
 
-          this.wallsLayer = layer;
-        }
-      },
-    );
+        this.wallsLayer = layer;
+      }
+    });
 
-    const {
-      minTileX,
-      maxTileX,
-      minTileY,
-      maxTileY,
-    } = TROPHY_MAP_BOUNDS;
+    const { minTileX, maxTileX, minTileY, maxTileY } = TROPHY_MAP_BOUNDS;
 
-    const boundsX =
-      minTileX *
-      TROPHY_MAP_TILE_SIZE;
+    const boundsX = minTileX * TROPHY_MAP_TILE_SIZE;
 
-    const boundsY =
-      minTileY *
-      TROPHY_MAP_TILE_SIZE;
+    const boundsY = minTileY * TROPHY_MAP_TILE_SIZE;
 
-    const mapWidth =
-      (maxTileX - minTileX + 1) *
-      TROPHY_MAP_TILE_SIZE;
+    const mapWidth = (maxTileX - minTileX + 1) * TROPHY_MAP_TILE_SIZE;
 
-    const mapHeight =
-      (maxTileY - minTileY + 1) *
-      TROPHY_MAP_TILE_SIZE;
+    const mapHeight = (maxTileY - minTileY + 1) * TROPHY_MAP_TILE_SIZE;
 
-    this.physics.world.setBounds(
-      boundsX,
-      boundsY,
-      mapWidth,
-      mapHeight,
-    );
+    this.physics.world.setBounds(boundsX, boundsY, mapWidth, mapHeight);
 
     /*
      * The map is smaller than the viewport,
      * so don't use camera bounds.
      */
-    this.cameras.main.centerOn(
-      boundsX + mapWidth / 2,
-      boundsY + mapHeight / 2,
-    );
+    this.cameras.main.centerOn(boundsX + mapWidth / 2, boundsY + mapHeight / 2);
 
     this.cameras.main.stopFollow();
   }
 
   private createPlayer(): void {
-    const spawnX =
-      TROPHY_SPAWN_TILE.x *
-        TROPHY_MAP_TILE_SIZE +
-      TROPHY_MAP_TILE_SIZE / 2;
+    const spawnX = TROPHY_SPAWN_TILE.x * TROPHY_MAP_TILE_SIZE + TROPHY_MAP_TILE_SIZE / 2;
 
-    const spawnY =
-      TROPHY_SPAWN_TILE.y *
-        TROPHY_MAP_TILE_SIZE +
-      TROPHY_MAP_TILE_SIZE / 2;
+    const spawnY = TROPHY_SPAWN_TILE.y * TROPHY_MAP_TILE_SIZE + TROPHY_MAP_TILE_SIZE / 2;
 
-    this.player = new Player(
-      this,
-      spawnX,
-      spawnY,
-    );
+    this.player = new Player(this, spawnX, spawnY);
 
-    this.player.sprite.setCollideWorldBounds(
-      true,
-    );
+    this.player.sprite.setCollideWorldBounds(true);
 
     if (this.wallsLayer) {
-      this.physics.add.collider(
-        this.player.sprite,
-        this.wallsLayer,
-      );
+      this.physics.add.collider(this.player.sprite, this.wallsLayer);
     }
   }
 
   private createTrophy(): void {
-    const trophyX =
-      TROPHY_TILE.x *
-        TROPHY_MAP_TILE_SIZE +
-      TROPHY_MAP_TILE_SIZE / 2;
+    const trophyX = TROPHY_TILE.x * TROPHY_MAP_TILE_SIZE + TROPHY_MAP_TILE_SIZE / 2;
 
-    const trophyY =
-      TROPHY_TILE.y *
-        TROPHY_MAP_TILE_SIZE +
-      TROPHY_MAP_TILE_SIZE / 2;
+    const trophyY = TROPHY_TILE.y * TROPHY_MAP_TILE_SIZE + TROPHY_MAP_TILE_SIZE / 2;
 
     this.trophy = this.add
-      .image(
-        trophyX,
-        trophyY,
-        TROPHY_KEY,
-      )
+      .image(trophyX, trophyY, TROPHY_KEY)
       .setOrigin(0.5)
       .setDepth(8)
       .setScale(0.08);
@@ -247,13 +170,9 @@ export class TrophyScene extends Phaser.Scene {
       return;
     }
 
-    this.cursors =
-      this.input.keyboard.createCursorKeys();
+    this.cursors = this.input.keyboard.createCursorKeys();
 
-    this.interactKey =
-      this.input.keyboard.addKey(
-        Phaser.Input.Keyboard.KeyCodes.E,
-      );
+    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
   }
 
   update(): void {
@@ -271,9 +190,7 @@ export class TrophyScene extends Phaser.Scene {
       return;
     }
 
-    this.player.handleMovement(
-      this.cursors,
-    );
+    this.player.handleMovement(this.cursors);
 
     this.checkTrophyProximity();
   }
@@ -283,25 +200,19 @@ export class TrophyScene extends Phaser.Scene {
       return;
     }
 
-    const distance =
-      Phaser.Math.Distance.Between(
-        this.player.sprite.x,
-        this.player.sprite.y,
-        this.trophy.x,
-        this.trophy.y,
-      );
+    const distance = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.trophy.x,
+      this.trophy.y,
+    );
 
-    const isNear =
-      distance <=
-      TROPHY_INTERACTION_DISTANCE;
+    const isNear = distance <= TROPHY_INTERACTION_DISTANCE;
 
     /*
      * Player entered interaction range.
      */
-    if (
-      isNear &&
-      !this.nearTrophy
-    ) {
+    if (isNear && !this.nearTrophy) {
       this.nearTrophy = true;
 
       emitUIEvent(this.game, {
@@ -313,10 +224,7 @@ export class TrophyScene extends Phaser.Scene {
     /*
      * Player left interaction range.
      */
-    if (
-      !isNear &&
-      this.nearTrophy
-    ) {
+    if (!isNear && this.nearTrophy) {
       this.nearTrophy = false;
 
       emitUIEvent(this.game, {
@@ -328,12 +236,7 @@ export class TrophyScene extends Phaser.Scene {
     /*
      * Player pressed E while near trophy.
      */
-    if (
-      isNear &&
-      Phaser.Input.Keyboard.JustDown(
-        this.interactKey,
-      )
-    ) {
+    if (isNear && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
       this.openSummary();
     }
   }
@@ -366,17 +269,14 @@ export class TrophyScene extends Phaser.Scene {
      * Recalculate proximity so React can
      * display the prompt again if necessary.
      */
-    const distance =
-      Phaser.Math.Distance.Between(
-        this.player.sprite.x,
-        this.player.sprite.y,
-        this.trophy.x,
-        this.trophy.y,
-      );
+    const distance = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.trophy.x,
+      this.trophy.y,
+    );
 
-    const isNear =
-      distance <=
-      TROPHY_INTERACTION_DISTANCE;
+    const isNear = distance <= TROPHY_INTERACTION_DISTANCE;
 
     this.nearTrophy = isNear;
 

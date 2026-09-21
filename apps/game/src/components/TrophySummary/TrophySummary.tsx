@@ -9,39 +9,27 @@ interface Props {
   onClose: () => void;
 }
 
-export function TrophySummary({
-  open,
-  problem,
-  summary,
-  docContent,
-  onClose,
-}: Props) {
+export function TrophySummary({ open, problem, summary, docContent, onClose }: Props) {
   if (!open) {
     return null;
   }
   useEffect(() => {
-  if (!open) {
-    return;
-  }
-
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      onClose();
+    if (!open) {
+      return;
     }
-  };
 
-  window.addEventListener(
-    'keydown',
-    handleKeyDown,
-  );
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
 
-  return () => {
-    window.removeEventListener(
-      'keydown',
-      handleKeyDown,
-    );
-  };
-}, [open, onClose]);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, onClose]);
 
   return (
     <div className="trophy-summary-backdrop">
@@ -49,11 +37,7 @@ export function TrophySummary({
         <div className="trophy-summary-header">
           <h1>SESSION SUMMARY</h1>
 
-          <button
-            className="trophy-summary-close"
-            onClick={onClose}
-            aria-label="Close summary"
-          >
+          <button className="trophy-summary-close" onClick={onClose} aria-label="Close summary">
             ×
           </button>
         </div>

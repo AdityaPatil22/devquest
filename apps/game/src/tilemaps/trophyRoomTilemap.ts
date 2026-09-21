@@ -8,8 +8,7 @@
 
 export const TROPHY_TILEMAP_KEY = 'trophy-room-map';
 
-export const TROPHY_TILEMAP_PATH =
-  'assets/map/trophyroom/trophyroom.json';
+export const TROPHY_TILEMAP_PATH = 'assets/map/trophyroom/trophyroom.json';
 
 export const TROPHY_MAP_TILE_SIZE = 16;
 
@@ -77,12 +76,7 @@ export const TROPHY_TILESETS: TrophyTilesetDef[] = [
   },
 ];
 
-export const TROPHY_TILE_LAYERS = [
-  'Tile Layer 1',
-  'Walls',
-  'furniture',
-  'computers',
-];
+export const TROPHY_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'];
 
 export const TROPHY_COLLIDABLE_LAYER = 'Walls';
 
@@ -101,9 +95,7 @@ export const TROPHY_SPAWN_TILE = {
   y: 16,
 };
 
-export function patchTrophyRoomTilesets(rawMapJson: {
-  tilesets: unknown[];
-}): void {
+export function patchTrophyRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
   rawMapJson.tilesets = TROPHY_TILESETS.map((t) => ({
     columns: t.columns,
     firstgid: t.firstgid,

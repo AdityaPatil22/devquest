@@ -227,21 +227,12 @@ export function GameUI() {
             ...previous,
             trophyNear: false,
             trophySummaryOpen: true,
-            trophyProblem:
-              typeof event.problem === 'string'
-                ? event.problem
-                : undefined,
-            summary:
-              typeof event.summary === 'string'
-                ? event.summary
-                : undefined,
-            docContent:
-              typeof event.docContent === 'string'
-                ? event.docContent
-                : undefined,
+            trophyProblem: typeof event.problem === 'string' ? event.problem : undefined,
+            summary: typeof event.summary === 'string' ? event.summary : undefined,
+            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
           }));
           break;
-        }
+      }
     };
 
     game.events.on('devquest:ui', handler);
@@ -310,100 +301,84 @@ export function GameUI() {
     [game],
   );
 
-    const closeTrophySummary = useCallback(() => {
-      const scene = game?.scene.getScene('TrophyScene');
+  const closeTrophySummary = useCallback(() => {
+    const scene = game?.scene.getScene('TrophyScene');
 
-      if (scene) {
-        const trophyScene = scene as unknown as {
-          closeSummary?: () => void;
-        };
+    if (scene) {
+      const trophyScene = scene as unknown as {
+        closeSummary?: () => void;
+      };
 
-        trophyScene.closeSummary?.();
-      }
+      trophyScene.closeSummary?.();
+    }
 
-      setState((previous) => ({
-        ...previous,
-        trophySummaryOpen: false,
-      }));
-    }, [game, setState]);
+    setState((previous) => ({
+      ...previous,
+      trophySummaryOpen: false,
+    }));
+  }, [game, setState]);
 
   return (
-  <>
-    <HUD />
+    <>
+      <HUD />
 
-    <InteractionPrompt
-      visible={
-        state.elevatorNear &&
-        state.modal === null
-      }
-      text="Press E to enter the elevator"
-    />
+      <InteractionPrompt
+        visible={state.elevatorNear && state.modal === null}
+        text="Press E to enter the elevator"
+      />
 
-    <InteractionPrompt
-      visible={
-        state.doorNear &&
-        state.modal === null
-      }
-      text={
-        state.nearDoorOption
-          ? `Press E to enter ${state.nearDoorOption.label}`
-          : 'Press E to enter the door'
-      }
-    />
+      <InteractionPrompt
+        visible={state.doorNear && state.modal === null}
+        text={
+          state.nearDoorOption
+            ? `Press E to enter ${state.nearDoorOption.label}`
+            : 'Press E to enter the door'
+        }
+      />
 
-    <InteractionPrompt
-      visible={
-        state.trophyNear &&
-        !state.trophySummaryOpen
-      }
-      text="Press E to view summary"
-    />
+      <InteractionPrompt
+        visible={state.trophyNear && !state.trophySummaryOpen}
+        text="Press E to view summary"
+      />
 
-    <ElevatorModal
-      open={state.modal === 'elevator'}
-      waiting={state.elevatorWaiting}
-      onSubmit={submitProblem}
-      onClose={closeElevator}
-      error={state.error}
-    />
+      <ElevatorModal
+        open={state.modal === 'elevator'}
+        waiting={state.elevatorWaiting}
+        onSubmit={submitProblem}
+        onClose={closeElevator}
+        error={state.error}
+      />
 
-    <DoorContextModal
-      open={state.modal === 'door-context'}
-      option={state.selectedOption}
-      onSubmit={submitDoorContext}
-      onCancel={cancelDoorContext}
-    />
+      <DoorContextModal
+        open={state.modal === 'door-context'}
+        option={state.selectedOption}
+        onSubmit={submitDoorContext}
+        onCancel={cancelDoorContext}
+      />
 
-    <ChallengePanel
-      open={state.modal === 'challenge'}
-      question={state.challenge}
-      onSubmit={submitDefense}
-    />
+      <ChallengePanel
+        open={state.modal === 'challenge'}
+        question={state.challenge}
+        onSubmit={submitDefense}
+      />
 
-    <EvaluationPanel
-      open={state.modal === 'evaluation'}
-      feedback={state.feedback}
-      consequence={state.consequence}
-    />
+      <EvaluationPanel
+        open={state.modal === 'evaluation'}
+        feedback={state.feedback}
+        consequence={state.consequence}
+      />
 
-    <WaitingOverlay
-      open={state.modal === 'waiting'}
-      message={state.waitingMessage}
-    />
+      <WaitingOverlay open={state.modal === 'waiting'} message={state.waitingMessage} />
 
-    <TrophySummary
-      open={state.trophySummaryOpen}
-      problem={state.trophyProblem}
-      summary={state.summary}
-      docContent={state.docContent}
-      onClose={closeTrophySummary}
-    />
+      <TrophySummary
+        open={state.trophySummaryOpen}
+        problem={state.trophyProblem}
+        summary={state.summary}
+        docContent={state.docContent}
+        onClose={closeTrophySummary}
+      />
 
-    {state.error && (
-      <div className="game-error">
-        {state.error}
-      </div>
-    )}
-  </>
-);
+      {state.error && <div className="game-error">{state.error}</div>}
+    </>
+  );
 }
