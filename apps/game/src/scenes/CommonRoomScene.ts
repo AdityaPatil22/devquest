@@ -2,24 +2,14 @@ import Phaser from 'phaser';
 
 import { Player } from '../entities/Player';
 
-import { GameTextInput } from '../ui/GameTextInput';
-import { TextButton } from '../ui/TextButton';
-
 import {
-  GAME_WIDTH,
-  GAME_HEIGHT,
-  COLORS,
-  FONTS,
-} from '../config';
-
-import {
-  TILEMAP_KEY,
   MAP_TILESETS,
   MAP_TILE_SIZE,
   COLLIDABLE_OBJECT_LAYERS,
   DECOR_OBJECT_LAYERS,
   SPAWN_TILE,
   GATE_TILE,
+  TILEMAP_KEY,
 } from '../tilemaps/commonRoomTilemap';
 
 import { WebSocketClient } from '../net/WebSocketClient';
@@ -35,21 +25,11 @@ interface SceneData {
   store: SessionStore;
 
   /**
-   * Used when restoring a session that is currently
-   * waiting for the skill to generate the first decision.
+   * True when the session was restored while
+   * waiting for the first decision.
    */
   gateWaiting?: boolean;
 }
-
-const GATE_INPUT_WIDTH = 600;
-const GATE_INPUT_HEIGHT = 120;
-
-const GATE_INPUT_Y = 210;
-
-const GATE_BUTTON_Y =
-  GATE_INPUT_Y +
-  GATE_INPUT_HEIGHT +
-  40;
 
 // ─────────────────────────────────────────────
 // Elevator
@@ -58,23 +38,29 @@ const GATE_BUTTON_Y =
 const ELEVATOR_KEY = 'elevator';
 
 /**
- * The uploaded elevator image contains 3 horizontal frames:
+ * Elevator spritesheet:
  *
  * Frame 0 → doors closed
  * Frame 1 → doors opening
  * Frame 2 → doors open
- *
- * Adjust this if the elevator looks too large/small.
  */
 const ELEVATOR_SCALE = 0.35;
 
 /**
- * Delay between elevator frames in milliseconds.
+ * Delay between elevator frames.
  */
 const ELEVATOR_FRAME_DELAY = 150;
 
 export class CommonRoomScene extends Phaser.Scene {
+  // ─────────────────────────────────────────────
+  // Player
+  // ─────────────────────────────────────────────
+
   private player!: Player;
+
+  // ─────────────────────────────────────────────
+  // Map
+  // ─────────────────────────────────────────────
 
   private map!: Phaser.Tilemaps.Tilemap;
 
@@ -84,23 +70,25 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private walls!: Phaser.Physics.Arcade.StaticGroup;
 
+  // ─────────────────────────────────────────────
+  // Input
+  // ─────────────────────────────────────────────
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
 
   private interactKey!: Phaser.Input.Keyboard.Key;
 
   private escapeKey!: Phaser.Input.Keyboard.Key;
 
-  private promptText?: Phaser.GameObjects.Text;
+  // ─────────────────────────────────────────────
+  // Network / state
+  // ─────────────────────────────────────────────
 
   private ws!: WebSocketClient;
 
   private store!: SessionStore;
 
-  private gateX = 0;
-
-  private gateY = 0;
-
-  private nearGate = false;
+  private unsubscribeWs?: () => void;
 
   // ─────────────────────────────────────────────
   // Elevator
@@ -110,30 +98,40 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private elevatorAnimating = false;
 
-  // ─────────────────────────────────────────────
-  // Gate UI
-  // ─────────────────────────────────────────────
-
-  private gateOpen = false;
-
-  private gateWaiting = false;
-
-  private gateSubmitted = false;
-
-  private gateOverlay?: Phaser.GameObjects.Rectangle;
-
-  private gatePanel?: Phaser.GameObjects.Container;
-
-  private gateTextInput?: GameTextInput;
-
-  private gateSubmitButton?: TextButton;
-
-  private gateStatusText?: Phaser.GameObjects.Text;
-
   private elevatorInteractionX = 0;
+
   private elevatorInteractionY = 0;
 
-  private unsubscribeWs?: () => void;
+  // ─────────────────────────────────────────────
+  // Gate state
+  // ─────────────────────────────────────────────
+
+  /**
+   * Whether the React elevator modal is open.
+   */
+  private gateOpen = false;
+
+  /**
+   * Whether the server is currently generating
+   * the first decision.
+   */
+  private gateWaiting = false;
+
+  /**
+   * Prevent duplicate problem submissions.
+   */
+  private gateSubmitted = false;
+
+  /**
+   * Whether the player is close enough to
+   * interact with the elevator.
+   */
+  private nearGate = false;
+
+  private gateX = 0;
+  private gateY = 0;
+
+  // ─────────────────────────────────────────────
 
   constructor() {
     super({
@@ -141,25 +139,36 @@ export class CommonRoomScene extends Phaser.Scene {
     });
   }
 
+  // ─────────────────────────────────────────────
+  // Scene initialization
+  // ─────────────────────────────────────────────
+
   init(data: SceneData): void {
     this.ws = data.ws;
+
     this.store = data.store;
 
     this.gateWaiting =
       data.gateWaiting ?? false;
 
     this.gateOpen = false;
+
     this.gateSubmitted = false;
+
     this.elevatorAnimating = false;
+
+    this.nearGate = false;
   }
+
+  // ─────────────────────────────────────────────
+  // Create
+  // ─────────────────────────────────────────────
 
   create(): void {
     this.walls =
       this.physics.add.staticGroup();
 
     this.buildRoom();
-
-    this.createUI();
 
     this.createPlayer();
 
@@ -182,27 +191,39 @@ export class CommonRoomScene extends Phaser.Scene {
         this.handleMessage.bind(this),
       );
 
-    /*
-     * If the session was restored while the server
-     * was generating the first decision, immediately
-     * show the gate waiting UI.
+    /**
+     * Tell React that the common room
+     * has been loaded.
+     */
+    this.emitUI({
+      type: 'COMMON_ROOM_READY',
+    });
+
+    /**
+     * If the session was restored while
+     * waiting for the first decision,
+     * reopen the React elevator UI.
      */
     if (this.gateWaiting) {
       this.openGateWaiting();
     }
   }
 
+  // ─────────────────────────────────────────────
+  // Game loop
+  // ─────────────────────────────────────────────
+
   update(): void {
-    /*
-     * Don't allow the player to move while the
-     * gate dialog is open.
+    /**
+     * Stop player movement while the
+     * React elevator UI is open.
      */
     if (this.gateOpen) {
       this.player.stop();
 
-      /*
-       * Escape closes the gate dialog only when
-       * we're not waiting for the server.
+      /**
+       * Escape closes the React modal
+       * unless we're waiting for the server.
        */
       if (
         !this.gateWaiting &&
@@ -224,27 +245,49 @@ export class CommonRoomScene extends Phaser.Scene {
   }
 
   // ─────────────────────────────────────────────
+  // React bridge
+  // ─────────────────────────────────────────────
+
+  /**
+   * Send events from Phaser → React.
+   */
+  private emitUI(
+    event: Record<string, unknown>,
+  ): void {
+    this.game.events.emit(
+      'devquest:ui',
+      event,
+    );
+  }
+
+  // ─────────────────────────────────────────────
   // Room
   // ─────────────────────────────────────────────
 
   private buildRoom(): void {
-    this.map = this.make.tilemap({
-      key: TILEMAP_KEY,
-    });
+    this.map =
+      this.make.tilemap({
+        key: TILEMAP_KEY,
+      });
 
-    const tilesets = MAP_TILESETS
-      .map((t) =>
-        this.map.addTilesetImage(
-          t.name,
-          t.key,
-        ),
-      )
-      .filter(
-        (
-          t,
-        ): t is Phaser.Tilemaps.Tileset =>
-          t !== null,
-      );
+    const tilesets =
+      MAP_TILESETS
+        .map((tileset) =>
+          this.map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
+        )
+        .filter(
+          (
+            tileset,
+          ): tileset is Phaser.Tilemaps.Tileset =>
+            tileset !== null,
+        );
+
+    // ─────────────────────────────────────────
+    // Ground
+    // ─────────────────────────────────────────
 
     this.groundLayer =
       this.map.createLayer(
@@ -256,17 +299,18 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.groundLayer?.setDepth(0);
 
-    /*
-     * Ground tiles with the collides property
-     * block the player.
+    /**
+     * Ground tiles with the `collides`
+     * property block the player.
      */
     this.groundLayer?.setCollisionByProperty({
       collides: true,
     });
 
-    /*
-     * Collidable objects.
-     */
+    // ─────────────────────────────────────────
+    // Collidable objects
+    // ─────────────────────────────────────────
+
     for (
       const layerName of
       COLLIDABLE_OBJECT_LAYERS
@@ -280,21 +324,24 @@ export class CommonRoomScene extends Phaser.Scene {
           },
         ) as Phaser.GameObjects.Image[];
 
-      objects.forEach((obj) => {
-        this.physics.add.existing(
-          obj,
-          true,
-        );
+      objects.forEach(
+        (object) => {
+          this.physics.add.existing(
+            object,
+            true,
+          );
 
-        obj.setDepth(5);
+          object.setDepth(5);
 
-        this.walls.add(obj);
-      });
+          this.walls.add(object);
+        },
+      );
     }
 
-    /*
-     * Decorative objects.
-     */
+    // ─────────────────────────────────────────
+    // Decorative objects
+    // ─────────────────────────────────────────
+
     for (
       const layerName of
       DECOR_OBJECT_LAYERS
@@ -308,10 +355,16 @@ export class CommonRoomScene extends Phaser.Scene {
           },
         ) as Phaser.GameObjects.Image[];
 
-      objects.forEach((obj) => {
-        obj.setDepth(4);
-      });
+      objects.forEach(
+        (object) => {
+          object.setDepth(4);
+        },
+      );
     }
+
+    // ─────────────────────────────────────────
+    // World bounds
+    // ─────────────────────────────────────────
 
     const mapWidthPx =
       this.map.widthInPixels;
@@ -337,10 +390,6 @@ export class CommonRoomScene extends Phaser.Scene {
     // Elevator
     // ─────────────────────────────────────────
 
-    /*
-     * GATE_TILE is now only used as the
-     * elevator's position.
-     */
     this.gateX =
       GATE_TILE.x *
         MAP_TILE_SIZE +
@@ -351,29 +400,37 @@ export class CommonRoomScene extends Phaser.Scene {
         MAP_TILE_SIZE +
       MAP_TILE_SIZE / 2;
 
-    this.elevatorInteractionX = this.gateX;
+    this.elevatorInteractionX =
+      this.gateX;
 
     this.elevatorInteractionY =
-      this.gateY + MAP_TILE_SIZE * 2;
+      this.gateY +
+      MAP_TILE_SIZE * 2;
 
-    /*
-     * Create the elevator.
-     *
-     * Frame 0 = closed elevator.
+    /**
+     * Frame 0 = elevator closed.
      */
-    this.elevator = this.add
-      .sprite(
-        this.gateX,
-        this.gateY + MAP_TILE_SIZE / 2,
-        ELEVATOR_KEY,
-        0,
-      )
-      .setOrigin(0.5, 1)
-      .setScale(ELEVATOR_SCALE)
-      .setDepth(10);
+    this.elevator =
+      this.add
+        .sprite(
+          this.gateX,
+          this.gateY +
+            MAP_TILE_SIZE / 2,
+          ELEVATOR_KEY,
+          0,
+        )
+        .setOrigin(0.5, 1)
+        .setScale(
+          ELEVATOR_SCALE,
+        )
+        .setDepth(10);
 
-      // Invisible collision area at the bottom of the elevator.
-      const elevatorCollider = this.add.rectangle(
+    /**
+     * Invisible collision area at
+     * the bottom of the elevator.
+     */
+    const elevatorCollider =
+      this.add.rectangle(
         this.gateX,
         this.gateY - 10,
         105,
@@ -382,12 +439,14 @@ export class CommonRoomScene extends Phaser.Scene {
         0,
       );
 
-      this.physics.add.existing(
-        elevatorCollider,
-        true,
-      );
+    this.physics.add.existing(
+      elevatorCollider,
+      true,
+    );
 
-      this.walls.add(elevatorCollider);
+    this.walls.add(
+      elevatorCollider,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -402,15 +461,20 @@ export class CommonRoomScene extends Phaser.Scene {
       return;
     }
 
-    this.elevatorAnimating = true;
+    this.elevatorAnimating =
+      true;
 
-    /*
-     * Start with closed doors.
+    /**
+     * Frame 0
+     *
+     * Closed.
      */
     this.elevator.setFrame(0);
 
-    /*
-     * Frame 1 → doors opening.
+    /**
+     * Frame 1
+     *
+     * Opening.
      */
     this.time.delayedCall(
       ELEVATOR_FRAME_DELAY,
@@ -423,8 +487,10 @@ export class CommonRoomScene extends Phaser.Scene {
       },
     );
 
-    /*
-     * Frame 2 → doors fully open.
+    /**
+     * Frame 2
+     *
+     * Fully open.
      */
     this.time.delayedCall(
       ELEVATOR_FRAME_DELAY * 2,
@@ -437,104 +503,16 @@ export class CommonRoomScene extends Phaser.Scene {
       },
     );
 
-    /*
-     * Keep the elevator open.
+    /**
+     * Animation complete.
      */
     this.time.delayedCall(
       ELEVATOR_FRAME_DELAY * 3,
       () => {
-        this.elevatorAnimating = false;
+        this.elevatorAnimating =
+          false;
       },
     );
-  }
-
-  // ─────────────────────────────────────────────
-  // HUD
-  // ─────────────────────────────────────────────
-
-  private createUI(): void {
-    const HEADER_HEIGHT = 76;
-
-    const FOOTER_HEIGHT = 40;
-
-    this.add
-      .rectangle(
-        GAME_WIDTH / 2,
-        HEADER_HEIGHT / 2,
-        GAME_WIDTH,
-        HEADER_HEIGHT,
-        0x0a0a1a,
-        0.75,
-      )
-      .setScrollFactor(0)
-      .setDepth(98);
-
-    this.add
-      .rectangle(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT -
-          FOOTER_HEIGHT / 2,
-        GAME_WIDTH,
-        FOOTER_HEIGHT,
-        0x0a0a1a,
-        0.75,
-      )
-      .setScrollFactor(0)
-      .setDepth(98);
-
-    this.add
-      .text(
-        GAME_WIDTH / 2,
-        24,
-        'DEVQUEST',
-        {
-          fontFamily:
-            FONTS.pixel,
-          fontSize: '24px',
-          color:
-            COLORS.textHighlight,
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(100);
-
-    this.add
-      .text(
-        GAME_WIDTH / 2,
-        56,
-        'Engineering Decision Simulator',
-        {
-          fontFamily:
-            FONTS.pixel,
-          fontSize:
-            FONTS.size.md,
-          color:
-            COLORS.textSecondary,
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(100);
-
-    this.add
-      .text(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT -
-          FOOTER_HEIGHT / 2,
-        'Walk to the Elevator and press E',
-        {
-          fontFamily:
-            FONTS.pixel,
-          fontSize:
-            FONTS.size.sm,
-          color:
-            COLORS.textPrimary,
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(100);
   }
 
   // ─────────────────────────────────────────────
@@ -573,7 +551,8 @@ export class CommonRoomScene extends Phaser.Scene {
 
   private setupInput(): void {
     this.cursors =
-      this.input.keyboard!.createCursorKeys();
+      this.input.keyboard!
+        .createCursorKeys();
 
     this.interactKey =
       this.input.keyboard!.addKey(
@@ -591,7 +570,7 @@ export class CommonRoomScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
 
   private checkGateProximity(): void {
-    const dist =
+    const distance =
       Phaser.Math.Distance.Between(
         this.player.sprite.x,
         this.player.sprite.y,
@@ -600,13 +579,21 @@ export class CommonRoomScene extends Phaser.Scene {
       );
 
     if (
-      dist <
+      distance <
       MAP_TILE_SIZE * 3
     ) {
       if (!this.nearGate) {
         this.nearGate = true;
 
-        this.showPrompt();
+        /**
+         * React displays:
+         *
+         * "Press E to enter elevator"
+         */
+        this.emitUI({
+          type: 'ELEVATOR_PROXIMITY',
+          visible: true,
+        });
       }
 
       if (
@@ -621,55 +608,15 @@ export class CommonRoomScene extends Phaser.Scene {
     ) {
       this.nearGate = false;
 
-      this.hidePrompt();
+      this.emitUI({
+        type: 'ELEVATOR_PROXIMITY',
+        visible: false,
+      });
     }
-  }
-
-  private showPrompt(): void {
-    if (!this.promptText) {
-      this.promptText =
-        this.add.text(
-          0,
-          0,
-          'Press E to Enter Elevator',
-          {
-            fontFamily:
-              FONTS.pixel,
-            fontSize:
-              FONTS.size.md,
-            color:
-              COLORS.textWarning,
-            backgroundColor:
-              '#1a1a2e',
-            padding: {
-              x: 6,
-              y: 4,
-            },
-          },
-        )
-        .setDepth(100);
-    }
-
-    this.promptText.setPosition(
-      this.gateX -
-        this.promptText.width / 2,
-      this.gateY +
-        MAP_TILE_SIZE * 2,
-    );
-
-    this.promptText.setVisible(
-      true,
-    );
-  }
-
-  private hidePrompt(): void {
-    this.promptText?.setVisible(
-      false,
-    );
   }
 
   // ─────────────────────────────────────────────
-  // Gate UI
+  // Open elevator
   // ─────────────────────────────────────────────
 
   private openGate(): void {
@@ -681,16 +628,29 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.nearGate = false;
 
-    this.hidePrompt();
+    this.emitUI({
+      type: 'ELEVATOR_PROXIMITY',
+      visible: false,
+    });
 
-    /*
-     * Play elevator opening animation
-     * before showing the problem UI.
+    /**
+     * Play elevator opening animation.
      */
     this.playElevatorAnimation();
 
-    this.createGatePanel();
+    /**
+     * React now displays the problem
+     * statement modal.
+     */
+    this.emitUI({
+      type: 'ELEVATOR_OPEN',
+      waiting: false,
+    });
   }
+
+  // ─────────────────────────────────────────────
+  // Restore waiting state
+  // ─────────────────────────────────────────────
 
   private openGateWaiting(): void {
     if (this.gateOpen) {
@@ -698,338 +658,125 @@ export class CommonRoomScene extends Phaser.Scene {
     }
 
     this.gateOpen = true;
+
     this.nearGate = false;
 
-    this.hidePrompt();
-
-    /*
-     * If we're restoring a session, also
-     * show the elevator as open.
+    /**
+     * Show elevator fully open.
      */
     if (this.elevator) {
       this.elevator.setFrame(2);
     }
 
-    this.createGatePanel();
-  }
-
-  private createGatePanel(): void {
-    /*
-     * Dark transparent overlay.
+    /**
+     * React owns the waiting UI.
      */
-    this.gateOverlay =
-      this.add
-        .rectangle(
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2,
-          GAME_WIDTH,
-          GAME_HEIGHT,
-          0x000000,
-          0.55,
-        )
-        .setScrollFactor(0)
-        .setDepth(140)
-        .setInteractive();
-
-    /*
-     * Main panel.
-     */
-    const panelBg =
-      this.add
-        .rectangle(
-          GAME_WIDTH / 2,
-          GAME_HEIGHT / 2,
-          700,
-          430,
-          COLORS.panelBg,
-          0.98,
-        )
-        .setStrokeStyle(
-          2,
-          COLORS.panelBorder,
-        )
-        .setScrollFactor(0)
-        .setDepth(150);
-
-    const title =
-      this.add
-        .text(
-          GAME_WIDTH / 2,
-          90,
-          'THE ELEVATOR',
-          {
-            fontFamily:
-              FONTS.pixel,
-            fontSize: '18px',
-            color:
-              COLORS.textHighlight,
-          },
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(151);
-
-    const subtitle =
-      this.add
-        .text(
-          GAME_WIDTH / 2,
-          138,
-          'What do you want to be grilled on?',
-          {
-            fontFamily:
-              FONTS.pixel,
-            fontSize:
-              FONTS.size.lg,
-            color:
-              COLORS.textPrimary,
-          },
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(151);
-
-    const subtitle2 =
-      this.add
-        .text(
-          GAME_WIDTH / 2,
-          166,
-          'Enter your problem statement below',
-          {
-            fontFamily:
-              FONTS.pixel,
-            fontSize:
-              FONTS.size.sm,
-            color:
-              COLORS.textSecondary,
-          },
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(151);
-
-    this.gatePanel =
-      this.add.container(
-        0,
-        0,
-        [
-          panelBg,
-          title,
-          subtitle,
-          subtitle2,
-        ],
-      );
-
-    this.gatePanel
-      .setScrollFactor(0)
-      .setDepth(150);
-
-    /*
-     * If the server is already generating the
-     * decision, don't show the textarea.
-     */
-    if (this.gateWaiting) {
-      this.showGateWaiting(
+    this.emitUI({
+      type: 'ELEVATOR_OPEN',
+      waiting: true,
+      message:
         'Waiting for the next decision...',
-      );
+    });
+  }
 
+  // ─────────────────────────────────────────────
+  // Problem submission
+  // ─────────────────────────────────────────────
+
+  /**
+   * Called by React when the user submits
+   * the problem statement.
+   */
+  public submitProblem(
+    problem: string,
+  ): void {
+    if (this.gateSubmitted) {
       return;
     }
 
-    this.createGateInput();
-  }
+    const trimmed =
+      problem.trim();
 
-  private createGateInput(): void {
-    this.gateTextInput =
-      new GameTextInput(
-        this.game.canvas
-          .parentElement as HTMLElement,
-      );
-
-    const canvasRect =
-      this.game.canvas.getBoundingClientRect();
-
-    const scaleX =
-      canvasRect.width /
-      this.cameras.main.width;
-
-    const scaleY =
-      canvasRect.height /
-      this.cameras.main.height;
-
-    const inputX =
-      canvasRect.left +
-      (
-        GAME_WIDTH / 2 -
-        GATE_INPUT_WIDTH / 2
-      ) *
-        scaleX;
-
-    const inputY =
-      canvasRect.top +
-      GATE_INPUT_Y *
-        scaleY;
-
-    this.gateTextInput.show(
-      inputX,
-      inputY,
-      GATE_INPUT_WIDTH *
-        scaleX,
-      GATE_INPUT_HEIGHT *
-        scaleY,
-      'e.g. "Should I rewrite the auth service in Go?" or "Design a caching strategy for our API"',
-    );
-
-    this.gateSubmitButton =
-      new TextButton(
-        this,
-        {
-          x:
-            GAME_WIDTH / 2,
-          y:
-            GATE_BUTTON_Y,
-          text:
-            'ENTER THE ELEVATOR',
-          width: 240,
-          height: 40,
-          onClick: () =>
-            this.handleGateSubmit(),
-        },
-      );
-
-    this.gateSubmitButton
-      .container
-      .setScrollFactor(0)
-      .setDepth(160);
-  }
-
-  private handleGateSubmit(): void {
-    if (
-      this.gateSubmitted
-    ) {
-      return;
-    }
-
-    const problem =
-      this.gateTextInput
-        ?.getValue()
-        .trim() ?? '';
-
-    if (
-      problem.length === 0
-    ) {
+    if (!trimmed) {
       return;
     }
 
     this.gateSubmitted = true;
 
     this.store.setProblem(
-      problem,
+      trimmed,
     );
-
-    this.gateTextInput?.hide();
-
-    this.gateSubmitButton?.destroy();
 
     this.gateWaiting = true;
 
-    this.showGateWaiting(
-      'Entering the elevator...',
-    );
+    /**
+     * React switches the modal into
+     * its loading/waiting state.
+     */
+    this.emitUI({
+      type: 'ELEVATOR_SUBMITTING',
+      message:
+        'Entering the elevator...',
+    });
 
+    /**
+     * Existing backend protocol.
+     */
     this.ws.send({
       type:
         'PROBLEM_SUBMITTED',
-      problem,
+      problem: trimmed,
     });
   }
 
-  private showGateWaiting(
-    message: string,
-  ): void {
-    this.gateStatusText?.destroy();
+  // ─────────────────────────────────────────────
+  // Close elevator
+  // ─────────────────────────────────────────────
 
-    this.gateStatusText =
-      this.add
-        .text(
-          GAME_WIDTH / 2,
-          410,
-          message,
-          {
-            fontFamily:
-              FONTS.pixel,
-            fontSize:
-              FONTS.size.sm,
-            color:
-              COLORS.textSecondary,
-          },
-        )
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(161);
-
-    this.tweens.add({
-      targets:
-        this.gateStatusText,
-      alpha: 0.3,
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-    });
-  }
-
-  private closeGate(): void {
-    if (
-      this.gateWaiting
-    ) {
+  /**
+   * Called by React or Escape.
+   */
+  public closeGate(): void {
+    /**
+     * Do not allow closing while
+     * the server is processing.
+     */
+    if (this.gateWaiting) {
       return;
     }
 
     this.gateOpen = false;
 
-    this.gateTextInput?.hide();
+    this.gateSubmitted = false;
 
-    this.gateSubmitButton?.destroy();
-
-    this.gateSubmitButton =
-      undefined;
-
-    this.gateStatusText?.destroy();
-
-    this.gateStatusText =
-      undefined;
-
-    this.gatePanel?.destroy();
-
-    this.gatePanel =
-      undefined;
-
-    this.gateOverlay?.destroy();
-
-    this.gateOverlay =
-      undefined;
-
-    this.gateTextInput =
-      undefined;
-
-    this.gateSubmitted =
-      false;
-
-    /*
-     * Close the elevator again.
+    /**
+     * Close elevator.
      */
     this.elevator?.setFrame(0);
 
-    this.elevatorAnimating = false;
+    this.elevatorAnimating =
+      false;
+
+    /**
+     * Tell React to close the modal.
+     */
+    this.emitUI({
+      type: 'ELEVATOR_CLOSED',
+    });
   }
 
   // ─────────────────────────────────────────────
-  // WebSocket
+  // WebSocket messages
   // ─────────────────────────────────────────────
 
   private handleMessage(
     msg: ServerMessage,
   ): void {
     switch (msg.type) {
+      // ───────────────────────────────────────
+      // Session started
+      // ───────────────────────────────────────
+
       case 'SESSION_STARTED': {
         this.ws.setSessionId(
           msg.sessionId,
@@ -1039,8 +786,18 @@ export class CommonRoomScene extends Phaser.Scene {
           msg.sessionId,
         );
 
+        this.emitUI({
+          type: 'SESSION_STARTED',
+          sessionId:
+            msg.sessionId,
+        });
+
         break;
       }
+
+      // ───────────────────────────────────────
+      // Session resumed
+      // ───────────────────────────────────────
 
       case 'SESSION_RESUMED': {
         this.ws.setSessionId(
@@ -1051,8 +808,16 @@ export class CommonRoomScene extends Phaser.Scene {
           msg.snapshot,
         );
 
+        this.emitUI({
+          type: 'SESSION_RESUMED',
+        });
+
         break;
       }
+
+      // ───────────────────────────────────────
+      // Decision created
+      // ───────────────────────────────────────
 
       case 'DECISION_CREATED': {
         const decision =
@@ -1061,18 +826,45 @@ export class CommonRoomScene extends Phaser.Scene {
         this.store.addDecision({
           nodeId:
             decision.nodeId,
+
           question:
             decision.question,
+
           options:
             decision.options,
+
           recommendation:
             decision.recommendation,
+
           round:
             decision.round,
         });
 
-        this.gateTextInput?.hide();
+        /**
+         * Stop showing the elevator
+         * React UI.
+         */
+        this.gateOpen = false;
 
+        this.gateWaiting = false;
+
+        this.gateSubmitted = false;
+
+        /**
+         * Close elevator.
+         */
+        this.elevator?.setFrame(0);
+
+        this.elevatorAnimating =
+          false;
+
+        this.emitUI({
+          type: 'ELEVATOR_CLOSED',
+        });
+
+        /**
+         * Start DecisionRoom.
+         */
         this.scene.start(
           'DecisionRoomScene',
           {
@@ -1084,6 +876,10 @@ export class CommonRoomScene extends Phaser.Scene {
 
         break;
       }
+
+      // ───────────────────────────────────────
+      // Error
+      // ───────────────────────────────────────
 
       case 'ERROR': {
         console.error(
@@ -1097,24 +893,47 @@ export class CommonRoomScene extends Phaser.Scene {
         this.gateWaiting =
           false;
 
-        this.gateStatusText?.setText(
-          `Error: ${msg.message}`,
-        );
+        /**
+         * Keep the elevator modal open
+         * and let React display the error.
+         */
+        this.emitUI({
+          type: 'ERROR',
+          message:
+            msg.message,
+        });
 
         break;
       }
+
+      // ───────────────────────────────────────
 
       default:
         break;
     }
   }
 
+  // ─────────────────────────────────────────────
+  // Cleanup
+  // ─────────────────────────────────────────────
+
   shutdown(): void {
     this.unsubscribeWs?.();
-    this.unsubscribeWs = undefined;
 
-    this.gateTextInput?.hide();
+    this.unsubscribeWs =
+      undefined;
 
-    this.gateSubmitButton?.destroy();
+    this.elevator =
+      undefined;
+
+    this.player?.stop();
+
+    this.gateOpen = false;
+
+    this.gateWaiting = false;
+
+    this.gateSubmitted = false;
+
+    this.nearGate = false;
   }
 }

@@ -31,16 +31,17 @@ import type {
 } from '../net/protocol';
 
 export class BootScene extends Phaser.Scene {
+  // ─────────────────────────────────────────────
+  // Network / state
+  // ─────────────────────────────────────────────
+
   private ws!: WebSocketClient;
+
   private store!: SessionStore;
+
   private unsubscribeWs?: () => void;
 
   private restoring = false;
-
-  private leaveBoot(): void {
-    this.unsubscribeWs?.();
-    this.unsubscribeWs = undefined;
-  }
 
   constructor() {
     super({
@@ -48,8 +49,54 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  // ─────────────────────────────────────────────
+  // Cleanup
+  // ─────────────────────────────────────────────
+
+  private leaveBoot(): void {
+    this.unsubscribeWs?.();
+
+    this.unsubscribeWs =
+      undefined;
+  }
+
+  // ─────────────────────────────────────────────
+  // React bridge
+  // ─────────────────────────────────────────────
+
+  /**
+   * Send non-game UI events to React.
+   *
+   * Phaser should not create any loading
+   * screen, text, progress bar, etc.
+   */
+  private emitUI(
+    event: Record<string, unknown>,
+  ): void {
+    this.game.events.emit(
+      'devquest:ui',
+      event,
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Preload
+  // ─────────────────────────────────────────────
+
   preload(): void {
-    this.createLoadingBar();
+    /**
+     * Tell React that Phaser has started
+     * loading the game assets.
+     */
+    this.emitUI({
+      type: 'GAME_LOADING',
+      loading: true,
+      progress: 0,
+    });
+
+    // ─────────────────────────────────────────
+    // Elevator
+    // ─────────────────────────────────────────
 
     this.load.spritesheet(
       'elevator',
@@ -57,8 +104,12 @@ export class BootScene extends Phaser.Scene {
       {
         frameWidth: 280,
         frameHeight: 285,
-      }
+      },
     );
+
+    // ─────────────────────────────────────────
+    // Patterns
+    // ─────────────────────────────────────────
 
     this.load.spritesheet(
       PATTERNS_KEY,
@@ -66,7 +117,10 @@ export class BootScene extends Phaser.Scene {
       PATTERNS_CONFIG,
     );
 
+    // ─────────────────────────────────────────
     // Common Room
+    // ─────────────────────────────────────────
+
     this.load.tilemapTiledJSON(
       TILEMAP_KEY,
       TILEMAP_PATH,
@@ -92,20 +146,31 @@ export class BootScene extends Phaser.Scene {
       },
     );
 
+    // ─────────────────────────────────────────
     // Decision Room
+    // ─────────────────────────────────────────
+
     this.load.tilemapTiledJSON(
       DECISION_TILEMAP_KEY,
       DECISION_TILEMAP_PATH,
     );
 
-    const seenKeys = new Set<string>();
+    const seenKeys =
+      new Set<string>();
 
     DECISION_TILESETS.forEach(
       ({
         key,
         path,
       }) => {
-        if (seenKeys.has(key)) {
+        /**
+         * Some decision-room tilesets
+         * can reference the same asset more
+         * than once.
+         */
+        if (
+          seenKeys.has(key)
+        ) {
           return;
         }
 
@@ -117,34 +182,93 @@ export class BootScene extends Phaser.Scene {
           {
             frameWidth:
               DECISION_MAP_TILE_SIZE,
+
             frameHeight:
               DECISION_MAP_TILE_SIZE,
+
             margin: 0,
+
             spacing: 0,
           },
         );
       },
     );
 
+    // ─────────────────────────────────────────
     // Player
+    // ─────────────────────────────────────────
+
     Player.preload(this);
+
+    // ─────────────────────────────────────────
+    // Loading progress
+    // ─────────────────────────────────────────
+
+    this.load.on(
+      'progress',
+      (value: number) => {
+        this.emitUI({
+          type: 'GAME_LOADING',
+          loading: true,
+          progress: value,
+        });
+      },
+    );
+
+    this.load.once(
+      'complete',
+      () => {
+        this.emitUI({
+          type: 'GAME_LOADING',
+          loading: false,
+          progress: 1,
+        });
+      },
+    );
   }
 
+  // ─────────────────────────────────────────────
+  // Create
+  // ─────────────────────────────────────────────
+
   create(): void {
+    // ─────────────────────────────────────────
+    // Player animations
+    // ─────────────────────────────────────────
+
     Player.createAnimations(this);
+
+    // ─────────────────────────────────────────
+    // Elevator animation
+    // ─────────────────────────────────────────
 
     this.anims.create({
       key: 'elevator-opening',
-      frames: this.anims.generateFrameNumbers('elevator', {
-        start: 0,
-        end: 2,
-      }),
+
+      frames:
+        this.anims.generateFrameNumbers(
+          'elevator',
+          {
+            start: 0,
+            end: 2,
+          },
+        ),
+
       frameRate: 6,
+
       repeat: 0,
     });
 
+    // ─────────────────────────────────────────
+    // Session state
+    // ─────────────────────────────────────────
+
     this.store =
       new SessionStore();
+
+    // ─────────────────────────────────────────
+    // WebSocket
+    // ─────────────────────────────────────────
 
     this.ws =
       new WebSocketClient();
@@ -152,34 +276,42 @@ export class BootScene extends Phaser.Scene {
     this.unsubscribeWs =
       this.ws.onMessage(
         this.handleMessage.bind(this),
-    );
+      );
 
-    /*
-     * IMPORTANT:
-     *
-     * BootScene now owns the initial WebSocket.
+    /**
+     * Tell React that the game engine
+     * is ready to establish the session.
+     */
+    this.emitUI({
+      type: 'GAME_READY',
+    });
+
+    /**
+     * BootScene owns the initial WebSocket.
      *
      * If sessionStorage contains a session ID,
-     * WebSocketClient reconnects to that session.
+     * WebSocketClient reconnects to it.
      *
-     * If there is no session ID, the server creates
-     * a brand-new session.
+     * Otherwise the server creates a new session.
      */
     this.ws.connect();
   }
 
+  // ─────────────────────────────────────────────
+  // WebSocket messages
+  // ─────────────────────────────────────────────
+
   private handleMessage(
     msg: ServerMessage,
   ): void {
+    // ─────────────────────────────────────────
+    // New session
+    // ─────────────────────────────────────────
+
     if (
       msg.type ===
       'SESSION_STARTED'
     ) {
-      /*
-       * Brand-new session.
-       *
-       * Always begin in Common Room.
-       */
       this.ws.setSessionId(
         msg.sessionId,
       );
@@ -188,8 +320,112 @@ export class BootScene extends Phaser.Scene {
         msg.sessionId,
       );
 
-      this.restoring = false;
+      this.restoring =
+        false;
 
+      this.emitUI({
+        type: 'SESSION_STARTED',
+        sessionId:
+          msg.sessionId,
+      });
+
+      this.leaveBoot();
+
+      /**
+       * New sessions always start
+       * in the Common Room.
+       */
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+        },
+      );
+
+      return;
+    }
+
+    // ─────────────────────────────────────────
+    // Existing session
+    // ─────────────────────────────────────────
+
+    if (
+      msg.type ===
+      'SESSION_RESUMED'
+    ) {
+      this.restoreSession(
+        msg,
+      );
+
+      return;
+    }
+
+    // ─────────────────────────────────────────
+    // Decision fallback
+    // ─────────────────────────────────────────
+
+    /**
+     * Normally DECISION_CREATED is handled
+     * by the active scene.
+     *
+     * This fallback handles a decision that
+     * arrives immediately after BootScene
+     * reconnects.
+     */
+    if (
+      msg.type ===
+      'DECISION_CREATED'
+    ) {
+      this.restoreDecision(
+        msg,
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Restore session
+  // ─────────────────────────────────────────────
+
+  private restoreSession(
+    msg: SessionResumedMsg,
+  ): void {
+    /**
+     * Prevent duplicate SESSION_RESUMED
+     * processing.
+     */
+    if (this.restoring) {
+      return;
+    }
+
+    this.restoring =
+      true;
+
+    this.ws.setSessionId(
+      msg.sessionId,
+    );
+
+    this.store.hydrate(
+      msg.snapshot,
+    );
+
+    this.emitUI({
+      type: 'SESSION_RESUMED',
+      sessionId:
+        msg.sessionId,
+    });
+
+    const phase =
+      msg.snapshot.phase;
+
+    // ─────────────────────────────────────────
+    // No problem submitted
+    // ─────────────────────────────────────────
+
+    if (
+      phase === 'idle' ||
+      phase === 'awaiting_problem'
+    ) {
       this.leaveBoot();
 
       this.scene.start(
@@ -203,160 +439,132 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
+    // ─────────────────────────────────────────
+    // Waiting for first question
+    // ─────────────────────────────────────────
+
     if (
-      msg.type ===
-      'SESSION_RESUMED'
+      phase ===
+      'awaiting_question'
     ) {
-      this.restoreSession(msg);
+      this.leaveBoot();
+
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+
+          /**
+           * CommonRoomScene will tell
+           * React to display the waiting
+           * elevator UI.
+           */
+          gateWaiting: true,
+        },
+      );
 
       return;
     }
 
-    /*
-     * Normally DECISION_CREATED is handled by the
-     * active scene.
-     *
-     * This fallback handles a decision that arrives
-     * immediately after Boot reconnects.
-     */
+    // ─────────────────────────────────────────
+    // Session complete
+    // ─────────────────────────────────────────
+
     if (
-      msg.type ===
-      'DECISION_CREATED'
+      phase ===
+      'complete'
     ) {
-      this.restoreDecision(
-        msg,
+      this.leaveBoot();
+
+      /**
+       * TrophyScene should now be responsible
+       * for the completion UI.
+       */
+      this.scene.start(
+        'TrophyScene',
+        {
+          store: this.store,
+        },
       );
+
+      return;
     }
-  }
 
-  private restoreSession(
-  msg: SessionResumedMsg,
-): void {
-  if (this.restoring) {
-    return;
-  }
+    // ─────────────────────────────────────────
+    // Active decision
+    // ─────────────────────────────────────────
 
-  this.restoring = true;
+    const currentDecision =
+      this.store.getCurrentDecision();
 
-  this.ws.setSessionId(
-    msg.sessionId,
-  );
+    /**
+     * If the server says we're in an active
+     * phase but there is no decision available,
+     * safely return to Common Room.
+     */
+    if (!currentDecision) {
+      this.leaveBoot();
 
-  this.store.hydrate(
-    msg.snapshot,
-  );
+      this.scene.start(
+        'CommonRoomScene',
+        {
+          ws: this.ws,
+          store: this.store,
+        },
+      );
 
-  const phase =
-    msg.snapshot.phase;
+      return;
+    }
 
-  // No problem submitted yet.
-  if (
-    phase === 'idle' ||
-    phase === 'awaiting_problem'
-  ) {
+    // ─────────────────────────────────────────
+    // Reconstruct DecisionCreatedMsg
+    // ─────────────────────────────────────────
+
+    const decision:
+      DecisionCreatedMsg = {
+      type:
+        'DECISION_CREATED',
+
+      nodeId:
+        currentDecision.nodeId,
+
+      question:
+        currentDecision.question,
+
+      options:
+        currentDecision.options,
+
+      recommendation:
+        currentDecision.recommendation,
+
+      round:
+        currentDecision.round,
+
+      dependsOn:
+        msg.snapshot.decisions.find(
+          (item) =>
+            item.id ===
+            currentDecision.nodeId,
+        )?.dependsOn,
+    };
+
     this.leaveBoot();
 
     this.scene.start(
-      'CommonRoomScene',
+      'DecisionRoomScene',
       {
         ws: this.ws,
         store: this.store,
+        decision,
+        restored: true,
       },
     );
-
-    return;
   }
 
-  // Problem submitted, waiting for AI-generated question.
-  if (
-    phase === 'awaiting_question'
-  ) {
-    this.leaveBoot();
-
-    this.scene.start(
-      'CommonRoomScene',
-      {
-        ws: this.ws,
-        store: this.store,
-        gateWaiting: true,
-      },
-    );
-
-    return;
-  }
-
-  // Session finished.
-  if (
-    phase === 'complete'
-  ) {
-    this.leaveBoot();
-
-    this.scene.start(
-      'TrophyScene',
-      {
-        store: this.store,
-      },
-    );
-
-    return;
-  }
-
-  // Active decision.
-  const currentDecision =
-    this.store.getCurrentDecision();
-
-  if (!currentDecision) {
-    this.leaveBoot();
-
-    this.scene.start(
-      'CommonRoomScene',
-      {
-        ws: this.ws,
-        store: this.store,
-      },
-    );
-
-    return;
-  }
-
-  const decision: DecisionCreatedMsg = {
-    type: 'DECISION_CREATED',
-
-    nodeId:
-      currentDecision.nodeId,
-
-    question:
-      currentDecision.question,
-
-    options:
-      currentDecision.options,
-
-    recommendation:
-      currentDecision.recommendation,
-
-    round:
-      currentDecision.round,
-
-    dependsOn:
-      msg.snapshot.decisions.find(
-        (d) =>
-          d.id ===
-          currentDecision.nodeId,
-      )?.dependsOn,
-  };
-
-  this.leaveBoot();
-
-  this.scene.start(
-    'DecisionRoomScene',
-    {
-      ws: this.ws,
-      store: this.store,
-      decision,
-      restored: true,
-    },
-  );
-  }
+  // ─────────────────────────────────────────────
+  // Restore decision
+  // ─────────────────────────────────────────────
 
   private restoreDecision(
     decision: DecisionCreatedMsg,
@@ -364,14 +572,24 @@ export class BootScene extends Phaser.Scene {
     this.store.addDecision({
       nodeId:
         decision.nodeId,
+
       question:
         decision.question,
+
       options:
         decision.options,
+
       recommendation:
         decision.recommendation,
+
       round:
         decision.round,
+    });
+
+    this.emitUI({
+      type: 'DECISION_RESTORED',
+      nodeId:
+        decision.nodeId,
     });
 
     this.leaveBoot();
@@ -386,64 +604,14 @@ export class BootScene extends Phaser.Scene {
     );
   }
 
-  private createLoadingBar(): void {
-    const width =
-      this.cameras.main.width;
+  // ─────────────────────────────────────────────
+  // Cleanup
+  // ─────────────────────────────────────────────
 
-    const height =
-      this.cameras.main.height;
+  shutdown(): void {
+    this.unsubscribeWs?.();
 
-    const barWidth = 320;
-    const barHeight = 20;
-
-    this.add
-      .rectangle(
-        width / 2,
-        height / 2,
-        barWidth + 4,
-        barHeight + 4,
-      )
-      .setStrokeStyle(
-        2,
-        0x4a9eff,
-      );
-
-    const fill =
-      this.add
-        .rectangle(
-          width / 2 -
-            barWidth / 2 +
-            2,
-          height / 2,
-          0,
-          barHeight,
-          0x4a9eff,
-        )
-        .setOrigin(
-          0,
-          0.5,
-        );
-
-    this.add
-      .text(
-        width / 2,
-        height / 2 - 24,
-        'LOADING...',
-        {
-          fontFamily:
-            '"Press Start 2P"',
-          fontSize: '12px',
-          color: '#4a9eff',
-        },
-      )
-      .setOrigin(0.5);
-
-    this.load.on(
-      'progress',
-      (value: number) => {
-        fill.width =
-          barWidth * value;
-      },
-    );
+    this.unsubscribeWs =
+      undefined;
   }
 }
