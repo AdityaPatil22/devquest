@@ -770,3 +770,7 @@ DevQuest is licensed under the MIT License.
 ## Repository
 
 [DevQuest on GitHub](https://github.com/AdityaPatil22/devquest)
+
+### Continuous world resume state
+
+The continuous-world flow now persists the generated room list and player position/current room through the session snapshot. On reconnect, the client rebuilds any generated corridor/random rooms that are present in the snapshot and restores the player before resuming the decision phase.
