@@ -35,6 +35,8 @@ def build_session_snapshot(
             session.current_node_id
         ),
         "decisions": graph["nodes"],
+        "world": session.world,
+        "player": session.player,
         "summary": session.summary,
         "docContent": session.doc_content,
     }
