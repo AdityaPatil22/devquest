@@ -140,13 +140,6 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player.sprite, this.commonWalls);
 
-    this.zones
-      .filter((zone) => zone.kind !== 'common')
-      .forEach((zone) => {
-        const mapKey = zone.id === 'decision-room' ? DECISION_TILEMAP_KEY : zone.id === 'corridor-1' || zone.id === 'corridor-2' || zone.id === 'corridor-3' || zone.id === 'corridor-4' ? 'corridor' : zone.id;
-        if (!this.cache.tilemap.exists(mapKey)) return;
-      });
-
     if (this.commonGround) {
       this.physics.add.collider(this.player.sprite, this.commonGround);
     }
@@ -221,29 +214,7 @@ export class GameWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
     this.cameras.main.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
 
-    if (firstCorridor) {
-      this.store.registerRoom({
-        id: 'corridor-1',
-        mapKey: 'corridor',
-        kind: 'corridor',
-        order: 2,
-        generatedAt: Date.now(),
-        metadata: { minX: firstCorridor.minX, maxX: firstCorridor.maxX },
-      });
-    }
-
-    for (let index = 1; index <= 4; index += 1) {
-      const room = this.zones.find((zone) => zone.id === `room-${index}`);
-      this.store.registerRoom({
-        id: `room-${index}`,
-        mapKey: `room-${index}`,
-        kind: 'random',
-        variant: String(index),
-        order: 2 + index,
-        generatedAt: Date.now(),
-        metadata: room ? { minX: room.minX, maxX: room.maxX } : undefined,
-      });
-    }
+    void firstCorridor;
   }
 
   private buildCommonRoom(): void {
