@@ -164,6 +164,7 @@ export function GameUI() {
             ...previous,
             modal: 'waiting',
             waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
+            error: event.generationStatus === 'generating' ? undefined : previous.error,
           }));
           break;
 
