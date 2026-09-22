@@ -133,6 +133,13 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player.sprite, this.commonWalls);
 
+    this.zones
+      .filter((zone) => zone.kind !== 'common')
+      .forEach((zone) => {
+        const mapKey = zone.id === 'decision-room' ? DECISION_TILEMAP_KEY : zone.id === 'corridor-1' || zone.id === 'corridor-2' || zone.id === 'corridor-3' || zone.id === 'corridor-4' ? 'corridor' : zone.id;
+        if (!this.cache.tilemap.exists(mapKey)) return;
+      });
+
     if (this.commonGround) {
       this.physics.add.collider(this.player.sprite, this.commonGround);
     }
