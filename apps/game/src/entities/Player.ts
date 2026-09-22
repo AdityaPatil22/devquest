@@ -103,8 +103,15 @@ export class Player {
     });
   }
 
-  handleMovement(cursors: Phaser.Types.Input.Keyboard.CursorKeys): void {
+  handleMovement(
+    cursors: Phaser.Types.Input.Keyboard.CursorKeys,
+    wasd?: { up: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key },
+  ): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+    const up = cursors.up.isDown || Boolean(wasd?.up.isDown);
+    const down = cursors.down.isDown || Boolean(wasd?.down.isDown);
+    const left = cursors.left.isDown || Boolean(wasd?.left.isDown);
+    const right = cursors.right.isDown || Boolean(wasd?.right.isDown);
 
     body.setVelocity(0);
 
@@ -113,12 +120,12 @@ export class Player {
     /*
      * Horizontal movement
      */
-    if (cursors.left.isDown) {
+    if (left) {
       body.setVelocityX(-PLAYER_SPEED);
 
       this.direction = 'left';
       moving = true;
-    } else if (cursors.right.isDown) {
+    } else if (right) {
       body.setVelocityX(PLAYER_SPEED);
 
       this.direction = 'right';
@@ -128,12 +135,12 @@ export class Player {
     /*
      * Vertical movement
      */
-    if (cursors.up.isDown) {
+    if (up) {
       body.setVelocityY(-PLAYER_SPEED);
 
       this.direction = 'up';
       moving = true;
-    } else if (cursors.down.isDown) {
+    } else if (down) {
       body.setVelocityY(PLAYER_SPEED);
 
       this.direction = 'down';
