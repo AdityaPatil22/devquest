@@ -10,13 +10,10 @@ export interface DecisionRecord {
   options: DecisionOption[];
   recommendation?: Recommendation;
   round: number;
-
   selectedOptionId?: string;
   context?: string;
-
   challenge?: string;
   defense?: string;
-
   feedback?: string;
   consequence?: string;
 }
@@ -29,12 +26,9 @@ export class SessionStore {
   sessionId?: string;
   problem?: string;
   currentNodeId?: string;
-
   decisions: DecisionRecord[] = [];
-
   totalRounds = 0;
   finished = false;
-
   docContent?: string;
   summary?: string;
 
@@ -47,19 +41,13 @@ export class SessionStore {
     this.finished = false;
     this.docContent = undefined;
     this.summary = undefined;
-
     this.world.reset();
     this.player.reset();
     this.decision.reset();
   }
 
-  setSession(sessionId: string): void {
-    this.sessionId = sessionId;
-  }
-
-  setProblem(problem: string): void {
-    this.problem = problem;
-  }
+  setSession(sessionId: string): void { this.sessionId = sessionId; }
+  setProblem(problem: string): void { this.problem = problem; }
 
   registerRoom(room: import('./WorldState').GeneratedRoomState): void {
     this.world.registerRoom(room);
@@ -74,31 +62,16 @@ export class SessionStore {
     this.world.setCurrentRoom(roomId);
   }
 
-  get worldState() {
-    return this.world.snapshot();
-  }
-
-  get playerState() {
-    return this.player.snapshot();
-  }
-
-  get decisionState() {
-    return this.decision.snapshot();
-  }
+  get worldState() { return this.world.snapshot(); }
+  get playerState() { return this.player.snapshot(); }
+  get decisionState() { return this.decision.snapshot(); }
 
   addDecision(record: DecisionRecord): void {
     const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
-
     if (existing) {
-      Object.assign(existing, {
-        ...record,
-        options: [...record.options],
-      });
+      Object.assign(existing, { ...record, options: [...record.options] });
     } else {
-      this.decisions.push({
-        ...record,
-        options: [...record.options],
-      });
+      this.decisions.push({ ...record, options: [...record.options] });
     }
 
     this.currentNodeId = record.nodeId;
@@ -119,33 +92,17 @@ export class SessionStore {
 
   updateCurrent(update: Partial<DecisionRecord>): void {
     const current = this.getCurrentDecision();
-
-    if (!current) {
-      return;
-    }
+    if (!current) return;
 
     Object.assign(current, update);
 
     if (update.selectedOptionId !== undefined || update.context !== undefined) {
-      this.decision.selectOption(
-        current.selectedOptionId ?? '',
-        current.context,
-      );
+      this.decision.selectOption(current.selectedOptionId ?? '', current.context);
     }
-
-    if (update.challenge !== undefined) {
-      this.decision.setChallenge(update.challenge);
-    }
-
-    if (update.defense !== undefined) {
-      this.decision.setDefense(update.defense);
-    }
-
+    if (update.challenge !== undefined) this.decision.setChallenge(update.challenge);
+    if (update.defense !== undefined) this.decision.setDefense(update.defense);
     if (update.feedback !== undefined || update.consequence !== undefined) {
-      this.decision.setEvaluation(
-        current.feedback ?? '',
-        current.consequence ?? '',
-      );
+      this.decision.setEvaluation(current.feedback ?? '', current.consequence ?? '');
     }
   }
 
@@ -167,7 +124,6 @@ export class SessionStore {
       options: node.options.map((option) => ({ ...option })),
       recommendation: node.recommendation ? { ...node.recommendation } : undefined,
       round: node.round,
-
       selectedOptionId: node.decision?.optionId,
       context: node.decision?.context,
       challenge: node.challenge,
@@ -176,27 +132,29 @@ export class SessionStore {
       consequence: node.evaluation?.consequence,
     }));
 
+    this.world.hydrate(snapshot.world);
+    this.player.hydrate(snapshot.player);
     this.finished = snapshot.phase === 'complete';
     this.summary = snapshot.summary;
     this.docContent = snapshot.docContent;
 
     this.decision.reset();
     const current = this.getCurrentDecision();
-    if (current) {
-      this.decision.setDecision({
-        nodeId: current.nodeId,
-        question: current.question,
-        options: current.options,
-        recommendation: current.recommendation,
-        round: current.round,
-      });
+    if (!current) return;
 
-      if (current.selectedOptionId) this.decision.selectOption(current.selectedOptionId, current.context);
-      if (current.challenge) this.decision.setChallenge(current.challenge);
-      if (current.defense) this.decision.setDefense(current.defense);
-      if (current.feedback || current.consequence) {
-        this.decision.setEvaluation(current.feedback ?? '', current.consequence ?? '');
-      }
+    this.decision.setDecision({
+      nodeId: current.nodeId,
+      question: current.question,
+      options: current.options,
+      recommendation: current.recommendation,
+      round: current.round,
+    });
+
+    if (current.selectedOptionId) this.decision.selectOption(current.selectedOptionId, current.context);
+    if (current.challenge) this.decision.setChallenge(current.challenge);
+    if (current.defense) this.decision.setDefense(current.defense);
+    if (current.feedback || current.consequence) {
+      this.decision.setEvaluation(current.feedback ?? '', current.consequence ?? '');
     }
   }
 
