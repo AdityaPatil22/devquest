@@ -40,6 +40,7 @@ interface GameWorldData {
   ws: WebSocketClient;
   store: SessionStore;
   gateWaiting?: boolean;
+  restored?: boolean;
 }
 
 interface DecisionLike {
@@ -121,6 +122,7 @@ export class GameWorldScene extends Phaser.Scene {
     this.ws = data.ws;
     this.store = data.store;
     this.gateWaiting = data.gateWaiting ?? false;
+    this.data.set('restored', data.restored ?? false);
   }
 
   create(): void {
