@@ -95,6 +95,7 @@ export class GameWorldScene extends Phaser.Scene {
 
   private decisionMap?: Phaser.Tilemaps.Tilemap;
   private decisionWalls?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
+  private persistentWallLayers: Array<ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>> = [];
 
   private doors: DoorObject[] = [];
   private currentDoor?: DoorObject;
@@ -149,6 +150,10 @@ export class GameWorldScene extends Phaser.Scene {
     if (this.decisionWalls) {
       this.physics.add.collider(this.player.sprite, this.decisionWalls);
     }
+
+    this.persistentWallLayers.forEach((layer) => {
+      if (layer) this.physics.add.collider(this.player.sprite, layer);
+    });
 
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
@@ -380,8 +385,7 @@ export class GameWorldScene extends Phaser.Scene {
         layer?.setDepth(depth + 1);
         if (layerName === DECISION_COLLIDABLE_LAYER) {
           layer?.setCollisionByExclusion([-1]);
-          this.decisionWalls = this.decisionWalls ?? layer ?? undefined;
-          if (layer) this.physics.add.collider(this.player?.sprite ?? this.add.rectangle(-9999, -9999, 1, 1, 0, 0), layer);
+          if (layer) this.persistentWallLayers.push(layer);
         }
       });
 
