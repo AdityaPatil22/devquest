@@ -27,7 +27,12 @@ export class DecisionState {
     };
   }
 
-  setDecision(input: Omit<DecisionStateData, 'selectedOptionId' | 'context' | 'challenge' | 'defense' | 'feedback' | 'consequence'>): void {
+  setDecision(
+    input: Omit<
+      DecisionStateData,
+      'selectedOptionId' | 'context' | 'challenge' | 'defense' | 'feedback' | 'consequence'
+    >,
+  ): void {
     this.data = {
       ...this.data,
       ...input,
