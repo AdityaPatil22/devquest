@@ -244,7 +244,7 @@ export function GameUI() {
 
   const submitProblem = useCallback(
     (problem: string) => {
-      const scene = game?.scene.getScene('CommonRoomScene') as
+      const scene = game?.scene.getScene('GameWorldScene') as
         | {
             submitProblem?: (value: string) => void;
           }
@@ -256,7 +256,7 @@ export function GameUI() {
   );
 
   const closeElevator = useCallback(() => {
-    const scene = game?.scene.getScene('CommonRoomScene') as
+    const scene = game?.scene.getScene('GameWorldScene') as
       | {
           closeGate?: () => void;
         }
@@ -267,7 +267,7 @@ export function GameUI() {
 
   const submitDoorContext = useCallback(
     (context?: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
+      const scene = game?.scene.getScene('GameWorldScene') as
         | {
             confirmDoorSelection?: (value?: string) => void;
           }
@@ -279,7 +279,7 @@ export function GameUI() {
   );
 
   const cancelDoorContext = useCallback(() => {
-    const scene = game?.scene.getScene('DecisionRoomScene') as
+    const scene = game?.scene.getScene('GameWorldScene') as
       | {
           cancelDoorSelection?: () => void;
         }
@@ -290,7 +290,7 @@ export function GameUI() {
 
   const submitDefense = useCallback(
     (defense: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
+      const scene = game?.scene.getScene('GameWorldScene') as
         | {
             submitDefense?: (value: string) => void;
           }
