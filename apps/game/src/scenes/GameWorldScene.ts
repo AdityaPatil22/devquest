@@ -203,7 +203,6 @@ export class GameWorldScene extends Phaser.Scene {
     this.buildRepeatedMapZones('corridor', 'corridor', 4, true);
     this.buildRepeatedMapZones('room', 'random', 4, false);
 
-    const firstCorridor = this.zones.find((zone) => zone.id === 'corridor-1');
     const lastRoom = this.zones.find((zone) => zone.id === 'room-4');
 
     const worldMinX = 0;
@@ -214,7 +213,6 @@ export class GameWorldScene extends Phaser.Scene {
     this.physics.world.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
     this.cameras.main.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
 
-    void firstCorridor;
   }
 
   private buildCommonRoom(): void {
