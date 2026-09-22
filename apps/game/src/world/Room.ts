@@ -1,5 +1,6 @@
 export type Direction = 'north' | 'south' | 'east' | 'west';
 export type ConnectionKind = 'entrance' | 'exit';
+export type RoomKind = 'common' | 'decision' | 'corridor' | 'random' | 'trophy';
 
 export interface Point { x: number; y: number; }
 export interface Size { width: number; height: number; }
@@ -14,7 +15,7 @@ export interface ConnectionPoint {
 
 export interface Room {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: RoomKind;
   readonly mapKey: string;
   readonly bounds: Rect;
   readonly connections: readonly ConnectionPoint[];
@@ -25,7 +26,7 @@ export interface Room {
 
 export interface RoomDefinition {
   id: string;
-  kind: string;
+  kind: RoomKind;
   mapKey: string;
   position: Point;
   size: Size;
@@ -34,7 +35,7 @@ export interface RoomDefinition {
 
 export class RoomInstance implements Room {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: RoomKind;
   readonly mapKey: string;
   readonly bounds: Rect;
   readonly connections: readonly ConnectionPoint[];
