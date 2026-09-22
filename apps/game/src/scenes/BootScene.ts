@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
+import { GameWorldScene } from './GameWorldScene';
 
 import {
   DECISION_TILEMAP_KEY,
@@ -24,6 +25,15 @@ import { SessionStore } from '../state/SessionStore';
 import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
 
 import { emitUIEvent } from '../game/GameBridge';
+
+const CONTINUOUS_WORLD_MAPS = [
+  ['corridor-map', 'assets/map/corridor/corridor.json'],
+  ['room-1', 'assets/map/randomrooms/room-1.json'],
+  ['room-2', 'assets/map/randomrooms/room-2.json'],
+  ['room-3', 'assets/map/randomrooms/room-3.json'],
+  ['room-4', 'assets/map/randomrooms/room-4.json'],
+] as const;
+
 
 export class BootScene extends Phaser.Scene {
   // ─────────────────────────────────────────────
@@ -136,6 +146,14 @@ export class BootScene extends Phaser.Scene {
 
         spacing: 0,
       });
+    });
+
+    // ─────────────────────────────────────────
+    // Continuous world areas
+    // ─────────────────────────────────────────
+
+    CONTINUOUS_WORLD_MAPS.forEach(([key, path]) => {
+      this.load.tilemapTiledJSON(key, path);
     });
 
     // ─────────────────────────────────────────
@@ -278,7 +296,7 @@ export class BootScene extends Phaser.Scene {
        * New sessions always start
        * in the Common Room.
        */
-      this.scene.start('CommonRoomScene', {
+      this.scene.start('GameWorldScene', {
         ws: this.ws,
         store: this.store,
       });
@@ -435,7 +453,7 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GameWorldScene', {
       ws: this.ws,
       store: this.store,
       decision,
