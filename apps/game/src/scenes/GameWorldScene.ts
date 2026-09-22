@@ -28,8 +28,7 @@ import {
 } from '../tilemaps/decisionRoomTilemap';
 
 import { emitUIEvent } from '../game/GameBridge';
-import { TiledRoomFactory } from '../world/RoomFactory';
-import type { RoomInstance } from '../world/Room';
+import { RoomManager } from '../world/RoomManager';
 
 import type {
   ServerMessage,
@@ -111,8 +110,7 @@ export class GameWorldScene extends Phaser.Scene {
   private nearGate = false;
 
   private zones: WorldZone[] = [];
-  private roomFactory = new TiledRoomFactory();
-  private roomInstances = new Map<string, RoomInstance>();
+  private roomManager = new RoomManager(undefined, { gap: ZONE_GAP });
 
   constructor() {
     super({ key: 'GameWorldScene' });
@@ -197,16 +195,17 @@ export class GameWorldScene extends Phaser.Scene {
   }
 
   private buildWorld(): void {
+    this.roomManager.clear();
     this.zones = [];
     this.buildCommonRoom();
     this.buildDecisionRoom();
     this.buildRepeatedMapZones('corridor', 'corridor', 4, true);
     this.buildRepeatedMapZones('room', 'random', 4, false);
 
-    const lastRoom = this.zones.find((zone) => zone.id === 'room-4');
+    const lastRoom = this.roomManager.getRoom('room-4');
 
     const worldMinX = 0;
-    const worldMaxX = (lastRoom?.maxX ?? 0) + SIDE_ACCESS;
+    const worldMaxX = lastRoom.bounds.x + lastRoom.bounds.width + SIDE_ACCESS;
     const worldHeight = Math.max(COMMON_WIDTH, 624) + 2 * SIDE_ACCESS;
     const worldMinY = -SIDE_ACCESS;
 
@@ -267,11 +266,10 @@ export class GameWorldScene extends Phaser.Scene {
     this.physics.add.existing(elevatorCollider, true);
     this.commonWalls.add(elevatorCollider);
 
-    const room = this.roomFactory.createFromBounds({
+    const room = this.roomManager.addRoom({
       id: 'common-room',
       kind: 'common',
       mapKey: TILEMAP_KEY,
-      position: { x: 0, y: 0 },
       size: { width: COMMON_WIDTH, height: this.commonMap?.heightInPixels ?? 0 },
       connections: [
         {
@@ -282,7 +280,6 @@ export class GameWorldScene extends Phaser.Scene {
         },
       ],
     });
-    this.roomInstances.set(room.id, room);
 
     this.store.registerRoom({
       id: room.id,
@@ -315,7 +312,7 @@ export class GameWorldScene extends Phaser.Scene {
       map.addTilesetImage(tileset.name, tileset.key),
     ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-    const decisionOffsetX = this.zones[this.zones.length - 1].maxX + ZONE_GAP - DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
+    const decisionOffsetX = this.roomManager.nextX - DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
 
     DECISION_TILE_LAYERS.forEach((layerName, depth) => {
       const layer = map.createLayer(layerName, tilesets, decisionOffsetX, 0);
@@ -327,14 +324,10 @@ export class GameWorldScene extends Phaser.Scene {
       }
     });
 
-    const minX = decisionOffsetX + DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
-    const maxX = minX + DECISION_WIDTH;
-
-    const room = this.roomFactory.createFromBounds({
+    const room = this.roomManager.addRoom({
       id: 'decision-room',
       kind: 'decision',
       mapKey: DECISION_TILEMAP_KEY,
-      position: { x: minX, y: 0 },
       size: {
         width: DECISION_WIDTH,
         height: (DECISION_MAP_BOUNDS.maxTileY - DECISION_MAP_BOUNDS.minTileY + 1) * DECISION_MAP_TILE_SIZE,
@@ -354,7 +347,6 @@ export class GameWorldScene extends Phaser.Scene {
         },
       ],
     });
-    this.roomInstances.set(room.id, room);
 
     this.store.registerRoom({
       id: room.id,
@@ -374,7 +366,12 @@ export class GameWorldScene extends Phaser.Scene {
     });
   }
 
-  private buildRepeatedMapZones(prefix: string, kind: 'corridor' | 'random', count: number, isCorridor: boolean): void {
+  private buildRepeatedMapZones(
+    prefix: string,
+    kind: 'corridor' | 'random',
+    count: number,
+    isCorridor: boolean,
+  ): void {
     const mapKeys = isCorridor
       ? Array.from({ length: count }, () => 'corridor')
       : ['room-1', 'room-2', 'room-3', 'room-4'];
@@ -384,49 +381,48 @@ export class GameWorldScene extends Phaser.Scene {
     const mapHeight = 30 * tileWidth;
 
     for (let index = 0; index < count; index += 1) {
-      const previous = this.zones[this.zones.length - 1];
-      const minX = previous.maxX + ZONE_GAP;
-      const maxX = minX + mapWidth;
-
       const key = mapKeys[index];
-
-      const map = this.make.tilemap({ key });
-
-      const tilesets = DECISION_TILESETS.map((tileset) =>
-        map.addTilesetImage(tileset.name, tileset.key),
-      ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
-
-      DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-        const layer = map.createLayer(layerName, tilesets, minX - (-16 * tileWidth), 0);
-        layer?.setDepth(depth + 1);
-        if (layerName === DECISION_COLLIDABLE_LAYER) {
-          layer?.setCollisionByExclusion([-1]);
-          if (layer) this.persistentWallLayers.push(layer);
-        }
-      });
-
-      const room = this.roomFactory.createFromBounds({
-        id: `${prefix}-${index + 1}`,
+      const roomId = `${prefix}-${index + 1}`;
+      const room = this.roomManager.addRoom({
+        id: roomId,
         kind,
         mapKey: key,
-        position: { x: minX, y: 0 },
         size: { width: mapWidth, height: mapHeight },
         connections: [
           {
-            id: `${prefix}-${index + 1}-west`,
+            id: `${roomId}-west`,
             kind: 'entrance',
             direction: 'west',
             position: { x: 0, y: mapHeight / 2 },
           },
           {
-            id: `${prefix}-${index + 1}-east`,
+            id: `${roomId}-east`,
             kind: 'exit',
             direction: 'east',
             position: { x: mapWidth, y: mapHeight / 2 },
           },
         ],
       });
-      this.roomInstances.set(room.id, room);
+
+      const map = this.make.tilemap({ key });
+      const tilesets = DECISION_TILESETS.map((tileset) =>
+        map.addTilesetImage(tileset.name, tileset.key),
+      ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
+
+      DECISION_TILE_LAYERS.forEach((layerName, depth) => {
+        const layer = map.createLayer(
+          layerName,
+          tilesets,
+          room.bounds.x - (-16 * tileWidth),
+          room.bounds.y,
+        );
+        layer?.setDepth(depth + 1);
+
+        if (layerName === DECISION_COLLIDABLE_LAYER) {
+          layer?.setCollisionByExclusion([-1]);
+          if (layer) this.persistentWallLayers.push(layer);
+        }
+      });
 
       this.zones.push({
         id: room.id,
@@ -446,6 +442,18 @@ export class GameWorldScene extends Phaser.Scene {
         metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
       });
 
+      const previousRoom = this.roomManager.getRoomAt(this.roomManager.getRooms().length - 2);
+      const previousExit = previousRoom?.getExit();
+      const entrance = room.getEntrance();
+
+      if (previousRoom && previousExit && entrance) {
+        this.roomManager.connectSequentially(
+          previousRoom.id,
+          previousExit.id,
+          room.id,
+          entrance.id,
+        );
+      }
     }
   }
 
