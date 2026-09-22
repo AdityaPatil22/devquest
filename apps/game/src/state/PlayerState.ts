@@ -1,7 +1,4 @@
-export interface PlayerPosition {
-  x: number;
-  y: number;
-}
+export interface PlayerPosition { x: number; y: number; }
 
 export interface PlayerStateData {
   position: PlayerPosition;
@@ -10,49 +7,27 @@ export interface PlayerStateData {
 }
 
 export class PlayerState {
-  private data: PlayerStateData = {
-    position: { x: 0, y: 0 },
-    completedRooms: [],
-  };
+  private data: PlayerStateData = { position: { x: 0, y: 0 }, completedRooms: [] };
 
-  reset(): void {
-    this.data = {
-      position: { x: 0, y: 0 },
-      completedRooms: [],
-    };
-  }
-
-  setPosition(x: number, y: number): void {
-    this.data.position = { x, y };
-  }
-
-  setRoom(roomId: string | undefined): void {
-    this.data.currentRoomId = roomId;
-  }
-
+  reset(): void { this.data = { position: { x: 0, y: 0 }, completedRooms: [] }; }
+  setPosition(x: number, y: number): void { this.data.position = { x, y }; }
+  setRoom(roomId: string | undefined): void { this.data.currentRoomId = roomId; }
   markRoomComplete(roomId: string): void {
-    if (!this.data.completedRooms.includes(roomId)) {
-      this.data.completedRooms.push(roomId);
-    }
+    if (!this.data.completedRooms.includes(roomId)) this.data.completedRooms.push(roomId);
   }
-
-  get position(): PlayerPosition {
-    return { ...this.data.position };
+  hydrate(snapshot: PlayerStateData | undefined): void {
+    this.data = snapshot
+      ? {
+          position: { ...snapshot.position },
+          currentRoomId: snapshot.currentRoomId,
+          completedRooms: [...snapshot.completedRooms],
+        }
+      : { position: { x: 0, y: 0 }, completedRooms: [] };
   }
-
-  get currentRoomId(): string | undefined {
-    return this.data.currentRoomId;
-  }
-
-  get completedRooms(): string[] {
-    return [...this.data.completedRooms];
-  }
-
+  get position(): PlayerPosition { return { ...this.data.position }; }
+  get currentRoomId(): string | undefined { return this.data.currentRoomId; }
+  get completedRooms(): string[] { return [...this.data.completedRooms]; }
   snapshot(): PlayerStateData {
-    return {
-      position: this.position,
-      currentRoomId: this.currentRoomId,
-      completedRooms: this.completedRooms,
-    };
+    return { position: this.position, currentRoomId: this.currentRoomId, completedRooms: this.completedRooms };
   }
 }
