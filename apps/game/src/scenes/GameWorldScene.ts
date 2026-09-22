@@ -375,7 +375,6 @@ export class GameWorldScene extends Phaser.Scene {
 
       const map = this.make.tilemap({ key });
 
-      
       const tilesets = DECISION_TILESETS.map((tileset) =>
         map.addTilesetImage(tileset.name, tileset.key),
       ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
@@ -389,26 +388,47 @@ export class GameWorldScene extends Phaser.Scene {
         }
       });
 
-      this.zones.push({
+      const room = this.roomFactory.createFromBounds({
         id: `${prefix}-${index + 1}`,
         kind,
-        minX,
-        maxX,
-        centerY: mapHeight / 2,
+        mapKey: key,
+        position: { x: minX, y: 0 },
+        size: { width: mapWidth, height: mapHeight },
+        connections: [
+          {
+            id: `${prefix}-${index + 1}-west`,
+            kind: 'entrance',
+            direction: 'west',
+            position: { x: 0, y: mapHeight / 2 },
+          },
+          {
+            id: `${prefix}-${index + 1}-east`,
+            kind: 'exit',
+            direction: 'east',
+            position: { x: mapWidth, y: mapHeight / 2 },
+          },
+        ],
+      });
+      this.roomInstances.set(room.id, room);
+
+      this.zones.push({
+        id: room.id,
+        kind: room.kind as WorldZone['kind'],
+        minX: room.bounds.x,
+        maxX: room.bounds.x + room.bounds.width,
+        centerY: room.bounds.y + room.bounds.height / 2,
       });
 
       this.store.registerRoom({
-        id: `${prefix}-${index + 1}`,
-        mapKey: key,
+        id: room.id,
+        mapKey: room.mapKey,
         kind,
         variant: kind === 'random' ? String(index + 1) : undefined,
         order: this.zones.length - 1,
         generatedAt: Date.now(),
-        metadata: { minX, maxX },
+        metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
       });
 
-      const walls = map.getLayer(DECISION_COLLIDABLE_LAYER)?.tilemapLayer;
-      if (walls) walls.setCollisionByExclusion([-1]);
     }
   }
 
