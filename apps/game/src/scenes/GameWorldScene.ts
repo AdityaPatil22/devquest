@@ -207,6 +207,7 @@ export class GameWorldScene extends Phaser.Scene {
   private buildWorld(): void {
     this.roomManager.clear();
     this.zones = [];
+    this.persistentWallLayers = [];
     this.roomGeneration.reset();
 
     this.buildCommonRoom();
