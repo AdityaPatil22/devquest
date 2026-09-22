@@ -147,10 +147,8 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player.sprite, this.commonWalls);
 
-    if (this.commonGround) {
-      this.physics.add.collider(this.player.sprite, this.commonGround);
-    }
-
+    // Ground is visual only. Collision is handled by the explicit Wall
+    // object layer; colliding with the Ground layer can trap the player at spawn.
     if (this.decisionWalls) {
       this.physics.add.collider(this.player.sprite, this.decisionWalls);
     }
