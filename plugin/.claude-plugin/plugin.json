@@ -1,0 +1,11 @@
+{
+  "name": "devquest",
+  "version": "1.0.0",
+  "description": "Interactive engineering decision grilling game for Claude Code.",
+  "author": {
+    "name": "Aditya Patil",
+    "url": "https://github.com/AdityaPatil22"
+  },
+  "repository": "https://github.com/AdityaPatil22/devquest",
+  "license": "MIT"
+}
