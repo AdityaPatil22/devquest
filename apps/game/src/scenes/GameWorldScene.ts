@@ -95,7 +95,7 @@ export class GameWorldScene extends Phaser.Scene {
 
   private decisionMap?: Phaser.Tilemaps.Tilemap;
   private decisionWalls?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
-  private persistentWallLayers: Array<ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>> = [];
+  private persistentWallLayers: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>[] = [];
 
   private doors: DoorObject[] = [];
   private currentDoor?: DoorObject;
