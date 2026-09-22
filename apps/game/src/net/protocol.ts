@@ -8,7 +8,19 @@ export interface OptionSelectedMsg { type: 'OPTION_SELECTED'; nodeId: string; op
 export interface ChallengeResponseMsg { type: 'CHALLENGE_RESPONSE'; nodeId: string; response: string; }
 export interface ReconsiderMsg { type: 'RECONSIDER'; nodeId: string; }
 export interface ContinueMsg { type: 'CONTINUE'; }
-export type ClientMessage = StartSessionMsg | SubmitProblemMsg | OptionSelectedMsg | ChallengeResponseMsg | ReconsiderMsg | ContinueMsg;
+export interface StateSyncMsg {
+  type: 'STATE_SYNC';
+  world: WorldSnapshot;
+  player: PlayerSnapshot;
+}
+export type ClientMessage =
+  | StartSessionMsg
+  | SubmitProblemMsg
+  | OptionSelectedMsg
+  | ChallengeResponseMsg
+  | ReconsiderMsg
+  | ContinueMsg
+  | StateSyncMsg;
 
 export interface DecisionOption { id: string; label: string; }
 export interface Recommendation { option: string; why: string; }
