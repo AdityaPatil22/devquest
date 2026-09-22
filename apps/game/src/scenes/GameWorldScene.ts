@@ -160,7 +160,7 @@ export class GameWorldScene extends Phaser.Scene {
         options: current.options,
         recommendation: current.recommendation,
         round: current.round,
-      }, true);
+      }, Boolean(this.data.get('restored')));
     } else {
       this.setZone('common-room');
       this.emitUI({ type: 'COMMON_ROOM_READY' });
