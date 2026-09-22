@@ -29,6 +29,7 @@ import {
 
 import { emitUIEvent } from '../game/GameBridge';
 import { RoomManager } from '../world/RoomManager';
+import { RoomGenerationState } from '../state/RoomGenerationState';
 
 import type {
   ServerMessage,
@@ -109,7 +110,7 @@ export class GameWorldScene extends Phaser.Scene {
   private gateSubmitted = false;
   private nearGate = false;
   private generatedDecisionCount = 0;
-  private generatingNextRoom = false;
+  private readonly roomGeneration = new RoomGenerationState();
 
   private zones: WorldZone[] = [];
   private roomManager = new RoomManager(undefined, { gap: ZONE_GAP });
@@ -698,6 +699,7 @@ export class GameWorldScene extends Phaser.Scene {
 
   public confirmDoorSelection(context?: string): void {
     if (!this.currentDoor || this.phase !== GamePhase.DOOR_CONTEXT) return;
+    if (this.roomGeneration.status === 'generating') return;
 
     const optionId = this.currentDoor.option.id;
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
@@ -705,8 +707,6 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.store.updateCurrent({ selectedOptionId: optionId, context });
     this.generateNextRoomForSelection();
-
-    this.emitUI({ type: 'WAITING', message: 'Preparing the next room...' });
 
     this.ws.send({
       type: 'OPTION_SELECTED',
@@ -716,34 +716,59 @@ export class GameWorldScene extends Phaser.Scene {
     });
   }
 
+  public get roomGenerationStatus() {
+    return this.roomGeneration.snapshot;
+  }
+
   private generateNextRoomForSelection(): void {
-    if (this.generatingNextRoom) return;
+    if (!this.roomGeneration.begin()) return;
 
-    const corridorNumber = this.roomManager.getRooms('corridor').length + 1;
-    const roomNumber = this.roomManager.getRooms('random').length + 1;
+    this.emitGenerationFeedback('generating', 'Preparing the next room...');
 
-    if (roomNumber > 4) {
-      return;
+    try {
+      const corridorNumber = this.roomManager.getRooms('corridor').length + 1;
+      const roomNumber = this.roomManager.getRooms('random').length + 1;
+
+      if (roomNumber > 4) {
+        this.roomGeneration.ready();
+        this.emitGenerationFeedback('ready', 'The world is ready.');
+        return;
+      }
+
+      this.generatedDecisionCount += 1;
+      this.appendGeneratedRoom('corridor', corridorNumber, 'corridor');
+      this.appendGeneratedRoom('room', roomNumber, `room-${roomNumber}`);
+
+      const nextRoom = this.roomManager.getRoom(`room-${roomNumber}`);
+      const entrance = nextRoom.getEntrance();
+
+      if (entrance) {
+        const targetX = nextRoom.bounds.x + entrance.position.x + 48;
+        const targetY = nextRoom.bounds.y + entrance.position.y;
+        this.player.setPosition(targetX, targetY);
+        this.store.setPlayerPosition(targetX, targetY);
+        this.setZone(nextRoom.id);
+      }
+
+      this.roomGeneration.ready();
+      this.emitGenerationFeedback('ready', 'The next room is ready.');
+    } catch (error) {
+      this.roomGeneration.fail(error);
+      this.emitGenerationFeedback(
+        'error',
+        `Could not prepare the next room: ${this.roomGeneration.error ?? 'unknown error'}`,
+      );
+      this.phase = GamePhase.EXPLORING_DOORS;
+      this.currentDoor = undefined;
+      this.emitUI({ type: 'DOOR_CONTEXT', visible: false });
     }
+  }
 
-    this.generatingNextRoom = true;
-    this.generatedDecisionCount += 1;
-
-    this.appendGeneratedRoom('corridor', corridorNumber, 'corridor');
-    this.appendGeneratedRoom('room', roomNumber, `room-${roomNumber}`);
-
-    const nextRoom = this.roomManager.getRoom(`room-${roomNumber}`);
-    const entrance = nextRoom.getEntrance();
-
-    if (entrance) {
-      const targetX = nextRoom.bounds.x + entrance.position.x + 48;
-      const targetY = nextRoom.bounds.y + entrance.position.y;
-      this.player.setPosition(targetX, targetY);
-      this.store.setPlayerPosition(targetX, targetY);
-      this.setZone(nextRoom.id);
-    }
-
-    this.generatingNextRoom = false;
+  private emitGenerationFeedback(
+    status: 'generating' | 'ready' | 'error',
+    message: string,
+  ): void {
+    this.emitUI({ type: 'WAITING', message, generationStatus: status });
   }
 
   private appendGeneratedRoom(prefix: 'corridor' | 'room', index: number, mapKey: string): void {
