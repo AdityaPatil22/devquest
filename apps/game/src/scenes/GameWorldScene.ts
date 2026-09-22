@@ -328,6 +328,7 @@ export class GameWorldScene extends Phaser.Scene {
       id: 'decision-room',
       kind: 'decision',
       mapKey: DECISION_TILEMAP_KEY,
+      attachTo: { roomId: 'common-room', connectionId: 'common-to-decision' },
       size: {
         width: DECISION_WIDTH,
         height: (DECISION_MAP_BOUNDS.maxTileY - DECISION_MAP_BOUNDS.minTileY + 1) * DECISION_MAP_TILE_SIZE,
@@ -383,10 +384,14 @@ export class GameWorldScene extends Phaser.Scene {
     for (let index = 0; index < count; index += 1) {
       const key = mapKeys[index];
       const roomId = `${prefix}-${index + 1}`;
+      const previousRoom = this.roomManager.getLastRoom();
       const room = this.roomManager.addRoom({
         id: roomId,
         kind,
         mapKey: key,
+        attachTo: previousRoom
+          ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
+          : undefined,
         size: { width: mapWidth, height: mapHeight },
         connections: [
           {
@@ -442,7 +447,6 @@ export class GameWorldScene extends Phaser.Scene {
         metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
       });
 
-      const previousRoom = this.roomManager.getRoomAt(this.roomManager.getRooms().length - 2);
       const previousExit = previousRoom?.getExit();
       const entrance = room.getEntrance();
 
