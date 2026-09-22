@@ -76,7 +76,6 @@ const COMMON_WIDTH = 31 * MAP_TILE_SIZE;
 const DECISION_WIDTH = (DECISION_MAP_BOUNDS.maxTileX - DECISION_MAP_BOUNDS.minTileX + 1) * DECISION_MAP_TILE_SIZE;
 const SIDE_ACCESS = 96;
 const PLAYER_JOIN_OFFSET_X = 48;
-const ROOM_WALL_CLEARANCE = 24;
 
 export class GameWorldScene extends Phaser.Scene {
   private player!: Player;
@@ -857,7 +856,7 @@ export class GameWorldScene extends Phaser.Scene {
       const layer = map.createLayer(
         layerName,
         tilesets,
-        room.bounds.x - (-16 * tileWidth),
+        room.bounds.x - (-16 * MAP_TILE_SIZE),
         room.bounds.y,
       );
       layer?.setDepth(depth + 1);
