@@ -32,9 +32,6 @@ import { emitUIEvent } from '../game/GameBridge';
 import type {
   ServerMessage,
   DecisionCreatedMsg,
-  ChallengeMsg,
-  EvaluationMsg,
-  SessionCompleteMsg,
   DecisionOption,
   SessionResumedMsg,
 } from '../net/protocol';
@@ -45,6 +42,14 @@ interface GameWorldData {
   gateWaiting?: boolean;
 }
 
+interface DecisionLike {
+  nodeId: string;
+  question: string;
+  options: DecisionOption[];
+  recommendation?: DecisionCreatedMsg['recommendation'];
+  round: number;
+}
+
 interface DoorObject {
   option: DecisionOption;
   x: number;
@@ -53,11 +58,21 @@ interface DoorObject {
   isOpen: boolean;
 }
 
-type Zone = 'common' | 'decision' | 'corridor' | 'random';
+interface WorldZone {
+  id: string;
+  kind: 'common' | 'decision' | 'corridor' | 'random';
+  minX: number;
+  maxX: number;
+  centerY: number;
+}
 
 const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
-const ROOM_GAP = 64;
+const ZONE_GAP = 64;
+const CORRIDOR_WIDTH = 64 * DECISION_MAP_TILE_SIZE;
+const COMMON_WIDTH = 31 * MAP_TILE_SIZE;
+const DECISION_WIDTH = (DECISION_MAP_BOUNDS.maxTileX - DECISION_MAP_BOUNDS.minTileX + 1) * DECISION_MAP_TILE_SIZE;
+const SIDE_ACCESS = 96;
 
 export class GameWorldScene extends Phaser.Scene {
   private player!: Player;
@@ -70,15 +85,21 @@ export class GameWorldScene extends Phaser.Scene {
   private unsubscribeWs?: () => void;
 
   private phase = GamePhase.MENU;
-  private zone: Zone = 'common';
+  private zoneId = 'common-room';
 
   private commonMap?: Phaser.Tilemaps.Tilemap;
   private commonGround?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
   private commonWalls!: Phaser.Physics.Arcade.StaticGroup;
-  private commonOffsetX = 0;
-  private commonOffsetY = 0;
   private gateX = 0;
   private gateY = 0;
+
+  private decisionMap?: Phaser.Tilemaps.Tilemap;
+  private decisionWalls?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
+
+  private doors: DoorObject[] = [];
+  private currentDoor?: DoorObject;
+  private currentNodeId = '';
+
   private elevator?: Phaser.GameObjects.Sprite;
   private elevatorAnimating = false;
   private gateOpen = false;
@@ -86,16 +107,7 @@ export class GameWorldScene extends Phaser.Scene {
   private gateSubmitted = false;
   private nearGate = false;
 
-  private decisionMap?: Phaser.Tilemaps.Tilemap;
-  private decisionWalls?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
-  private decisionOffsetX = 0;
-  private decisionOffsetY = 0;
-  private doors: DoorObject[] = [];
-  private currentDoor?: DoorObject;
-  private currentNodeId = '';
-
-  private corridorOffsetX = 0;
-  private randomRoomOffsets: Record<string, { x: number; y: number }> = {};
+  private zones: WorldZone[] = [];
 
   constructor() {
     super({ key: 'GameWorldScene' });
@@ -110,17 +122,12 @@ export class GameWorldScene extends Phaser.Scene {
     this.ws = data.ws;
     this.store = data.store;
     this.gateWaiting = data.gateWaiting ?? false;
-    this.phase = GamePhase.MENU;
-    this.zone = 'common';
   }
 
   create(): void {
     this.commonWalls = this.physics.add.staticGroup();
 
-    this.buildCommonRoom();
-    this.buildDecisionRoom();
-    this.buildPersistentCorridor();
-    this.buildPersistentRandomRooms();
+    this.buildWorld();
 
     this.createPlayer();
     this.setupInput();
@@ -137,34 +144,23 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
-    this.store.registerRoom({
-      id: 'common-room',
-      mapKey: TILEMAP_KEY,
-      kind: 'random',
-      variant: 'common',
-      order: 0,
-      generatedAt: Date.now(),
-    });
-
-    this.store.registerRoom({
-      id: 'decision-room',
-      mapKey: DECISION_TILEMAP_KEY,
-      kind: 'decision',
-      order: 1,
-      generatedAt: Date.now(),
-    });
-
-    this.store.setPlayerRoom('common-room');
-
-    this.emitUI({ type: 'COMMON_ROOM_READY' });
-
-    if (this.gateWaiting) {
-      this.openGateWaiting();
-      this.phase = GamePhase.WAITING_FOR_QUESTION;
-    } else if (this.store.getCurrentDecision()) {
-      this.activateDecision(this.store.getCurrentDecision() as DecisionCreatedMsg | never, true);
+    if (this.store.getCurrentDecision()) {
+      const current = this.store.getCurrentDecision()!;
+      this.activateDecision({
+        nodeId: current.nodeId,
+        question: current.question,
+        options: current.options,
+        recommendation: current.recommendation,
+        round: current.round,
+      }, true);
     } else {
-      this.phase = GamePhase.MENU;
+      this.setZone('common-room');
+      this.emitUI({ type: 'COMMON_ROOM_READY' });
+
+      if (this.gateWaiting) {
+        this.openGateWaiting();
+        this.phase = GamePhase.WAITING_FOR_QUESTION;
+      }
     }
   }
 
@@ -173,36 +169,63 @@ export class GameWorldScene extends Phaser.Scene {
 
     if (this.isUiBlocking()) {
       this.player.stop();
+
       if (this.phase === GamePhase.DOOR_CONTEXT && Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
         this.cancelDoorSelection();
       } else if (this.gateOpen && !this.gateWaiting && Phaser.Input.Keyboard.JustDown(this.escapeKey)) {
         this.closeGate();
       }
+
       return;
     }
 
     this.player.handleMovement(this.cursors);
     this.store.setPlayerPosition(this.player.sprite.x, this.player.sprite.y);
 
-    if (this.zone === 'common') this.checkGateProximity();
-    if (this.zone === 'decision') this.checkDoorProximity();
-
-    this.checkZoneTransitions();
+    this.checkInteractions();
+    this.checkZoneTransition();
   }
 
-  private isUiBlocking(): boolean {
-    return (
-      this.gateOpen ||
-      this.phase === GamePhase.DOOR_CONTEXT ||
-      this.phase === GamePhase.WAITING_FOR_CHALLENGE ||
-      this.phase === GamePhase.RESPONDING_TO_CHALLENGE ||
-      this.phase === GamePhase.WAITING_FOR_EVALUATION ||
-      this.phase === GamePhase.SHOWING_EVALUATION
-    );
-  }
+  private buildWorld(): void {
+    this.buildCommonRoom();
+    this.buildDecisionRoom();
+    this.buildRepeatedMapZones('corridor', 'corridor', 4, true);
+    this.buildRepeatedMapZones('room', 'random', 4, false);
 
-  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
-    emitUIEvent(this.game, event);
+    const firstCorridor = this.zones.find((zone) => zone.id === 'corridor-1');
+    const lastRoom = this.zones.find((zone) => zone.id === 'room-4');
+
+    const worldMinX = 0;
+    const worldMaxX = (lastRoom?.maxX ?? 0) + SIDE_ACCESS;
+    const worldHeight = Math.max(COMMON_WIDTH, 624) + 2 * SIDE_ACCESS;
+    const worldMinY = -SIDE_ACCESS;
+
+    this.physics.world.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
+    this.cameras.main.setBounds(worldMinX, worldMinY, worldMaxX - worldMinX, worldHeight);
+
+    if (firstCorridor) {
+      this.store.registerRoom({
+        id: 'corridor-1',
+        mapKey: 'corridor',
+        kind: 'corridor',
+        order: 2,
+        generatedAt: Date.now(),
+        metadata: { minX: firstCorridor.minX, maxX: firstCorridor.maxX },
+      });
+    }
+
+    for (let index = 1; index <= 4; index += 1) {
+      const room = this.zones.find((zone) => zone.id === `room-${index}`);
+      this.store.registerRoom({
+        id: `room-${index}`,
+        mapKey: `room-${index}`,
+        kind: 'random',
+        variant: String(index),
+        order: 2 + index,
+        generatedAt: Date.now(),
+        metadata: room ? { minX: room.minX, maxX: room.maxX } : undefined,
+      });
+    }
   }
 
   private buildCommonRoom(): void {
@@ -213,9 +236,10 @@ export class GameWorldScene extends Phaser.Scene {
       map.addTilesetImage(tileset.name, tileset.key),
     ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-    this.commonGround = map.createLayer('Ground', tilesets, this.commonOffsetX, this.commonOffsetY) ?? undefined;
-    this.commonGround?.setDepth(0);
-    this.commonGround?.setCollisionByProperty({ collides: true });
+    const ground = map.createLayer('Ground', tilesets, 0, 0);
+    this.commonGround = ground ?? undefined;
+    ground?.setDepth(0);
+    ground?.setCollisionByProperty({ collides: true });
 
     for (const layerName of COLLIDABLE_OBJECT_LAYERS) {
       const objects = map.createFromObjects(layerName, {
@@ -223,8 +247,6 @@ export class GameWorldScene extends Phaser.Scene {
       }) as Phaser.GameObjects.Image[];
 
       for (const object of objects) {
-        object.x += this.commonOffsetX;
-        object.y += this.commonOffsetY;
         this.physics.add.existing(object, true);
         object.setDepth(5);
         this.commonWalls.add(object);
@@ -235,16 +257,11 @@ export class GameWorldScene extends Phaser.Scene {
       const objects = map.createFromObjects(layerName, {
         classType: Phaser.GameObjects.Image,
       }) as Phaser.GameObjects.Image[];
-
-      objects.forEach((object) => {
-        object.x += this.commonOffsetX;
-        object.y += this.commonOffsetY;
-        object.setDepth(4);
-      });
+      objects.forEach((object) => object.setDepth(4));
     }
 
-    this.gateX = this.commonOffsetX + GATE_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
-    this.gateY = this.commonOffsetY + GATE_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    this.gateX = GATE_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    this.gateY = GATE_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
 
     this.elevator = this.add
       .sprite(this.gateX, this.gateY + MAP_TILE_SIZE / 2, 'elevator', 0)
@@ -262,11 +279,29 @@ export class GameWorldScene extends Phaser.Scene {
     );
     this.physics.add.existing(elevatorCollider, true);
     this.commonWalls.add(elevatorCollider);
+
+    this.store.registerRoom({
+      id: 'common-room',
+      mapKey: TILEMAP_KEY,
+      kind: 'common',
+      order: 0,
+      generatedAt: Date.now(),
+    });
+
+    this.zones.push({
+      id: 'common-room',
+      kind: 'common',
+      minX: 0,
+      maxX: COMMON_WIDTH,
+      centerY: COMMON_WIDTH / 2,
+    });
   }
 
   private buildDecisionRoom(): void {
     const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
-    if (cached?.data) patchDecisionRoomTilesets(cached.data);
+    if (cached?.data) {
+      patchDecisionRoomTilesets(cached.data);
+    }
 
     const map = this.make.tilemap({ key: DECISION_TILEMAP_KEY });
     this.decisionMap = map;
@@ -275,8 +310,10 @@ export class GameWorldScene extends Phaser.Scene {
       map.addTilesetImage(tileset.name, tileset.key),
     ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
+    const decisionOffsetX = this.zones[this.zones.length - 1].maxX + ZONE_GAP - DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
+
     DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = map.createLayer(layerName, tilesets, this.decisionOffsetX, this.decisionOffsetY);
+      const layer = map.createLayer(layerName, tilesets, decisionOffsetX, 0);
       layer?.setDepth(depth + 2);
 
       if (layerName === DECISION_COLLIDABLE_LAYER) {
@@ -285,65 +322,114 @@ export class GameWorldScene extends Phaser.Scene {
       }
     });
 
-    this.decisionOffsetX = -DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE + this.commonMap!.widthInPixels + ROOM_GAP;
-    this.decisionOffsetY = 0;
+    const minX = decisionOffsetX + DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
+    const maxX = minX + DECISION_WIDTH;
 
-    // Rebuild the layer positions using the calculated offset.
-    map.layers.forEach((layerData) => {
-      const layer = map.getLayer(layerData.name)?.tilemapLayer;
-      layer?.setPosition(this.decisionOffsetX, this.decisionOffsetY);
-    });
-  }
-
-  private buildPersistentCorridor(): void {
-    this.corridorOffsetX = this.decisionOffsetX + 1_280 + ROOM_GAP;
     this.store.registerRoom({
-      id: 'corridor-1',
-      mapKey: 'corridor',
-      kind: 'corridor',
-      order: 2,
+      id: 'decision-room',
+      mapKey: DECISION_TILEMAP_KEY,
+      kind: 'decision',
+      order: 1,
       generatedAt: Date.now(),
-      metadata: { offsetX: this.corridorOffsetX },
+      metadata: { minX, maxX },
+    });
+
+    this.zones.push({
+      id: 'decision-room',
+      kind: 'decision',
+      minX,
+      maxX,
+      centerY: DECISION_MAP_BOUNDS.maxTileY * DECISION_MAP_TILE_SIZE / 2,
     });
   }
 
-  private buildPersistentRandomRooms(): void {
-    const startX = this.corridorOffsetX + 1_024 + ROOM_GAP;
-    for (let index = 1; index <= 4; index += 1) {
-      const id = 'room-' + index;
-      this.randomRoomOffsets[id] = { x: startX + (index - 1) * (768 + ROOM_GAP), y: 0 };
-      this.store.registerRoom({
-        id,
-        mapKey: id,
-        kind: 'random',
-        variant: String(index),
-        order: 2 + index,
-        generatedAt: Date.now(),
-        metadata: { offsetX: this.randomRoomOffsets[id].x },
+  private buildRepeatedMapZones(prefix: string, kind: 'corridor' | 'random', count: number, isCorridor: boolean): void {
+    const mapKeys = isCorridor
+      ? Array.from({ length: count }, () => 'corridor')
+      : ['room-1', 'room-2', 'room-3', 'room-4'];
+
+    const tileWidth = 16;
+    const mapWidth = 70 * tileWidth;
+    const mapHeight = 30 * tileWidth;
+
+    for (let index = 0; index < count; index += 1) {
+      const previous = this.zones[this.zones.length - 1];
+      const minX = previous.maxX + ZONE_GAP;
+      const maxX = minX + mapWidth;
+
+      const key = mapKeys[index];
+
+      const map = this.make.tilemap({ key });
+
+      const tilesets = DECISION_TILESETS.map((tileset) =>
+        map.addTilesetImage(tileset.name, tileset.key),
+      ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
+
+      DECISION_TILE_LAYERS.forEach((layerName, depth) => {
+        const layer = map.createLayer(layerName, tilesets, minX - (-16 * tileWidth), 0);
+        layer?.setDepth(depth + 1);
       });
+
+      this.zones.push({
+        id: `${prefix}-${index + 1}`,
+        kind,
+        minX,
+        maxX,
+        centerY: mapHeight / 2,
+      });
+
+      this.store.registerRoom({
+        id: `${prefix}-${index + 1}`,
+        mapKey: key,
+        kind,
+        variant: kind === 'random' ? String(index + 1) : undefined,
+        order: this.zones.length - 1,
+        generatedAt: Date.now(),
+        metadata: { minX, maxX },
+      });
+
+      if (isCorridor) {
+        const walls = map.getLayer(DECISION_COLLIDABLE_LAYER)?.tilemapLayer;
+        if (walls) {
+          walls.setCollisionByExclusion([-1]);
+          this.physics.add.collider(this.player?.sprite ?? this.add.rectangle(0, 0, 1, 1, 0, 0), walls);
+        }
+      }
     }
   }
 
   private createPlayer(): void {
     const current = this.store.getCurrentDecision();
-    if (current) {
-      const spawnX = this.decisionOffsetX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-      const spawnY = 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-      this.player = new Player(this, spawnX, spawnY);
-      this.zone = 'decision';
-      return;
-    }
 
-    const spawnX = this.commonOffsetX + SPAWN_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
-    const spawnY = this.commonOffsetY + SPAWN_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
-    this.player = new Player(this, spawnX, spawnY);
-    this.zone = 'common';
+    const x = current
+      ? this.zones.find((zone) => zone.id === 'decision-room')!.minX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2
+      : SPAWN_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+    const y = current
+      ? 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2
+      : SPAWN_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+
+    this.player = new Player(this, x, y);
+
+    this.store.setPlayerPosition(x, y);
+    this.store.setPlayerRoom(current ? 'decision-room' : 'common-room');
+    this.setZone(current ? 'decision-room' : 'common-room');
+    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
   }
 
   private setupInput(): void {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.escapeKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+  }
+
+  private checkInteractions(): void {
+    if (this.zoneId === 'common-room') {
+      this.checkGateProximity();
+    }
+
+    if (this.zoneId === 'decision-room') {
+      this.checkDoorProximity();
+    }
   }
 
   private checkGateProximity(): void {
@@ -360,7 +446,9 @@ export class GameWorldScene extends Phaser.Scene {
         this.emitUI({ type: 'ELEVATOR_PROXIMITY', visible: true });
       }
 
-      if (Phaser.Input.Keyboard.JustDown(this.interactKey)) this.openGate();
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+        this.openGate();
+      }
     } else if (this.nearGate) {
       this.nearGate = false;
       this.emitUI({ type: 'ELEVATOR_PROXIMITY', visible: false });
@@ -425,34 +513,36 @@ export class GameWorldScene extends Phaser.Scene {
     this.gateSubmitted = false;
     this.elevator?.setFrame(0);
     this.elevatorAnimating = false;
-
     this.emitUI({ type: 'ELEVATOR_CLOSED' });
   }
 
-  private activateDecision(
-    decision: DecisionCreatedMsg | { nodeId: string; question: string; options: DecisionOption[]; recommendation?: DecisionCreatedMsg['recommendation']; round: number },
-    restored = false,
-  ): void {
-    this.zone = 'decision';
+  private activateDecision(decision: DecisionLike, restored = false): void {
+    this.setZone('decision-room');
     this.phase = GamePhase.EXPLORING_DOORS;
     this.currentNodeId = decision.nodeId;
     this.store.setPlayerRoom('decision-room');
 
-    const spawnX = this.decisionOffsetX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-    const spawnY = 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+    const room = this.zones.find((zone) => zone.id === 'decision-room');
+    if (room) {
+      const spawnX = room.minX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+      const spawnY = 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+      this.player.setPosition(spawnX, spawnY);
+      this.store.setPlayerPosition(spawnX, spawnY);
+      this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    }
 
-    this.player.setPosition(spawnX, spawnY);
-    this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
     this.renderDecision(decision);
     this.emitUI({ type: 'DECISION_ROOM_READY' });
 
-    if (restored) this.restoreCurrentPhase();
+    if (restored) {
+      this.restoreCurrentPhase();
+    }
   }
 
-  private renderDecision(decision: DecisionCreatedMsg | { nodeId: string; question: string; options: DecisionOption[]; recommendation?: DecisionCreatedMsg['recommendation']; round: number }): void {
+  private renderDecision(decision: DecisionLike): void {
     this.clearDecision();
-
     this.currentNodeId = decision.nodeId;
+
     this.emitUI({
       type: 'DECISION',
       nodeId: decision.nodeId,
@@ -462,7 +552,8 @@ export class GameWorldScene extends Phaser.Scene {
       round: decision.round,
     });
 
-    const rangeStartPx = this.decisionOffsetX + DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
+    const room = this.zones.find((zone) => zone.id === 'decision-room')!;
+    const rangeStartPx = room.minX + DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
     const rangeWidthPx =
       (DECISION_DOOR_ROW_X_RANGE.maxTileX - DECISION_DOOR_ROW_X_RANGE.minTileX + 1) *
       DECISION_MAP_TILE_SIZE;
@@ -471,10 +562,7 @@ export class GameWorldScene extends Phaser.Scene {
       ? Math.min(120, rangeWidthPx / (decision.options.length + 1))
       : 120;
 
-    const doorY =
-      this.decisionOffsetY +
-      DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE +
-      DECISION_MAP_TILE_SIZE / 2;
+    const doorY = DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
 
     decision.options.forEach((option, index) => {
       const doorX = rangeStartPx + spacing * (index + 1);
@@ -513,6 +601,7 @@ export class GameWorldScene extends Phaser.Scene {
         door.x,
         door.y,
       );
+
       if (distance < 50 && distance < minDistance) {
         minDistance = distance;
         nearest = door;
@@ -544,10 +633,13 @@ export class GameWorldScene extends Phaser.Scene {
 
   public confirmDoorSelection(context?: string): void {
     if (!this.currentDoor) return;
+
     const optionId = this.currentDoor.option.id;
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
     this.player.stop();
+
     this.store.updateCurrent({ selectedOptionId: optionId, context });
+
     this.emitUI({ type: 'WAITING', message: 'Entering door...' });
 
     this.ws.send({
@@ -560,10 +652,15 @@ export class GameWorldScene extends Phaser.Scene {
 
   public cancelDoorSelection(): void {
     if (this.phase !== GamePhase.DOOR_CONTEXT) return;
+
     if (this.currentDoor) {
       this.currentDoor.isOpen = false;
-      this.currentDoor.sprite.setTexture('door-closed').setOrigin(0.5, 1.42).setScale(DOOR_SCALE);
+      this.currentDoor.sprite
+        .setTexture('door-closed')
+        .setOrigin(0.5, 1.42)
+        .setScale(DOOR_SCALE);
     }
+
     this.phase = GamePhase.EXPLORING_DOORS;
     this.currentDoor = undefined;
     this.emitUI({ type: 'DOOR_CONTEXT', visible: false });
@@ -624,25 +721,50 @@ export class GameWorldScene extends Phaser.Scene {
     this.emitUI({ type: 'EXPLORING_DOORS' });
   }
 
-  private checkZoneTransitions(): void {
-    const x = this.player.sprite.x;
-    const y = this.player.sprite.y;
+  private checkZoneTransition(): void {
+    const playerX = this.player.sprite.x;
+    const currentIndex = this.zones.findIndex((zone) => zone.id === this.zoneId);
+    if (currentIndex < 0) return;
 
-    if (this.zone === 'common' && x > this.gateX + MAP_TILE_SIZE * 4) {
-      const decision = this.store.getCurrentDecision();
-      if (decision) this.activateDecision(decision);
+    let nextZone = this.zones[currentIndex];
+    for (const zone of this.zones) {
+      if (playerX >= zone.minX && playerX <= zone.maxX) {
+        nextZone = zone;
+        break;
+      }
     }
 
-    if (this.zone === 'decision' && x < this.decisionOffsetX - ROOM_GAP) {
-      this.zone = 'common';
-      this.store.setPlayerRoom('common-room');
-      this.player.setPosition(
-        this.gateX + MAP_TILE_SIZE * 5,
-        this.gateY + MAP_TILE_SIZE * 2,
-      );
-      this.phase = GamePhase.EXPLORING_DOORS;
+    if (nextZone.id !== this.zoneId) {
+      this.setZone(nextZone.id);
+    }
+  }
+
+  private setZone(zoneId: string): void {
+    const zone = this.zones.find((item) => item.id === zoneId);
+    if (!zone) return;
+
+    this.zoneId = zoneId;
+    this.store.setPlayerRoom(zoneId);
+
+    if (zone.kind === 'decision' && this.store.getCurrentDecision()) {
+      this.phase = this.phase === GamePhase.MENU
+        ? GamePhase.EXPLORING_DOORS
+        : this.phase;
+      this.emitUI({ type: 'DECISION_ROOM_READY' });
+    } else if (zone.kind === 'common') {
       this.emitUI({ type: 'COMMON_ROOM_READY' });
     }
+  }
+
+  private isUiBlocking(): boolean {
+    return (
+      this.gateOpen ||
+      this.phase === GamePhase.DOOR_CONTEXT ||
+      this.phase === GamePhase.WAITING_FOR_CHALLENGE ||
+      this.phase === GamePhase.RESPONDING_TO_CHALLENGE ||
+      this.phase === GamePhase.WAITING_FOR_EVALUATION ||
+      this.phase === GamePhase.SHOWING_EVALUATION
+    );
   }
 
   private handleMessage(msg: ServerMessage): void {
@@ -660,7 +782,7 @@ export class GameWorldScene extends Phaser.Scene {
         this.applyResumedState(msg);
         break;
 
-      case 'DECISION_CREATED': {
+      case 'DECISION_CREATED':
         this.store.addDecision({
           nodeId: msg.nodeId,
           question: msg.question,
@@ -668,7 +790,6 @@ export class GameWorldScene extends Phaser.Scene {
           recommendation: msg.recommendation,
           round: msg.round,
         });
-
         this.gateOpen = false;
         this.gateWaiting = false;
         this.gateSubmitted = false;
@@ -676,19 +797,18 @@ export class GameWorldScene extends Phaser.Scene {
         this.elevatorAnimating = false;
         this.emitUI({ type: 'ELEVATOR_CLOSED' });
 
+        // The player stays in this scene and the decision doors are replaced.
         this.activateDecision(msg);
         break;
-      }
 
-      case 'CHALLENGE': {
+      case 'CHALLENGE':
         this.store.updateCurrent({ challenge: msg.question });
         this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
         this.player.stop();
         this.emitUI({ type: 'CHALLENGE', question: msg.question });
         break;
-      }
 
-      case 'EVALUATION': {
+      case 'EVALUATION':
         this.store.updateCurrent({ feedback: msg.feedback, consequence: msg.consequence });
         this.phase = GamePhase.SHOWING_EVALUATION;
         this.player.stop();
@@ -698,7 +818,6 @@ export class GameWorldScene extends Phaser.Scene {
           consequence: msg.consequence,
         });
         break;
-      }
 
       case 'SESSION_COMPLETE':
         this.store.complete(msg.summary, msg.docContent);
@@ -723,7 +842,6 @@ export class GameWorldScene extends Phaser.Scene {
     const current = this.store.getCurrentDecision();
     if (current) {
       this.activateDecision({
-        type: 'DECISION_CREATED',
         nodeId: current.nodeId,
         question: current.question,
         options: current.options,
@@ -733,16 +851,14 @@ export class GameWorldScene extends Phaser.Scene {
       return;
     }
 
+    this.setZone('common-room');
+
     if (msg.snapshot.phase === 'awaiting_question') {
-      this.zone = 'common';
-      this.store.setPlayerRoom('common-room');
       this.openGateWaiting();
       this.phase = GamePhase.WAITING_FOR_QUESTION;
       return;
     }
 
-    this.zone = 'common';
-    this.store.setPlayerRoom('common-room');
     this.phase = GamePhase.MENU;
   }
 
