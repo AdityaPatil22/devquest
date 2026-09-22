@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "devquest",
+  "version": "1.0.0",
+  "description": "DevQuest — an interactive engineering decision grilling game for Claude Code.",
+  "owner": {
+    "name": "Aditya Patil"
+  },
+  "plugins": [
+    {
+      "name": "devquest",
+      "description": "Interactive engineering decision grilling inside a 2D Phaser game.",
+      "version": "1.0.0",
+      "source": "./plugin",
+      "category": "development"
+    }
+  ]
+}
