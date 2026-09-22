@@ -1,8 +1,8 @@
-import { RoomInstance, type RoomDefinition, type Rect } from './Room';
+import { RoomInstance, type RoomDefinition, type Rect, type RoomKind } from './Room';
 
 export interface TilemapRoomSpec {
   id: string;
-  kind: string;
+  kind: RoomKind;
   mapKey: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
