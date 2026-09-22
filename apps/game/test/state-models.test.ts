@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DecisionState } from '../src/state/DecisionState';
 import { PlayerState } from '../src/state/PlayerState';
-import { WorldState } from '../src/state/WorldState';
 import { SessionStore } from '../src/state/SessionStore';
+import { WorldState } from '../src/state/WorldState';
 import type { SessionSnapshot } from '../src/net/protocol';
 
 describe('game state models', () => {
@@ -80,8 +80,6 @@ describe('game state models', () => {
     expect(decision.selectedOptionId).toBe('b');
     expect(decision.context).toBe('Prefer the lower-risk path.');
   });
-});
-
 
   it('hydrates world and player state after multiple generated rooms', () => {
     const store = new SessionStore();
@@ -134,3 +132,4 @@ describe('game state models', () => {
     expect(store.playerState.completedRooms).toEqual(['room-1']);
     expect(store.getCurrentDecision()?.selectedOptionId).toBe('opt-b');
   });
+});
