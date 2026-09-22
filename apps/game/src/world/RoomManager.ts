@@ -1,5 +1,5 @@
 import { TiledRoomFactory } from './RoomFactory';
-import type { ConnectionPoint, Direction, RoomInstance, Size } from './Room';
+import type { ConnectionPoint, Direction, Point, RoomInstance, Size } from './Room';
 
 export type ManagedRoomKind = 'common' | 'decision' | 'corridor' | 'random';
 
@@ -9,6 +9,10 @@ export interface RoomPlacementSpec {
   mapKey: string;
   size: Size;
   connections?: ConnectionPoint[];
+  attachTo?: {
+    roomId: string;
+    connectionId?: string;
+  };
 }
 
 export interface ManagedRoom {
@@ -54,7 +58,10 @@ export class RoomManager {
       throw new Error(`Room "${spec.id}" already exists`);
     }
 
-    const position = { x: this.cursorX, y: this.cursorY };
+    const position = spec.attachTo
+      ? this.positionFromConnection(spec.attachTo.roomId, spec.attachTo.connectionId, spec.connections?.find((connection) => connection.kind === 'entrance'))
+      : { x: this.cursorX, y: this.cursorY };
+
     const room = this.factory.createFromBounds({
       id: spec.id,
       kind: spec.kind,
@@ -66,7 +73,7 @@ export class RoomManager {
 
     const managed: ManagedRoom = { room, index: this.nextIndex++ };
     this.rooms.set(room.id, managed);
-    this.cursorX = room.bounds.x + room.bounds.width + this.gap;
+    this.cursorX = Math.max(this.cursorX, room.bounds.x + room.bounds.width + this.gap);
 
     return room;
   }
@@ -181,6 +188,51 @@ export class RoomManager {
 
   get nextX(): number {
     return this.cursorX;
+  }
+
+  private positionFromConnection(
+    roomId: string,
+    connectionId: string | undefined,
+    entrance: ConnectionPoint | undefined,
+  ): Point {
+    if (!entrance) {
+      throw new Error(`An entrance connection is required when attaching room "${roomId}"`);
+    }
+
+    const previous = this.getRoom(roomId);
+    const previousConnection = previous.getExit(connectionId);
+
+    if (!previousConnection) {
+      throw new Error(`Exit "${connectionId ?? ''}" was not found on room "${roomId}"`);
+    }
+
+    if (!this.areCompatible(previousConnection.direction, entrance.direction)) {
+      throw new Error(
+        `Connections "${previousConnection.id}" and "${entrance.id}" are not compatible`,
+      );
+    }
+
+    const targetX = previous.bounds.x + previousConnection.position.x;
+    const targetY = previous.bounds.y + previousConnection.position.y;
+
+    switch (previousConnection.direction) {
+      case 'east':
+        return {
+          x: targetX - entrance.position.x,
+          y: targetY - entrance.position.y,
+        };
+      case 'west':
+        return {
+          x: targetX - entrance.position.x,
+          y: targetY - entrance.position.y,
+        };
+      case 'north':
+      case 'south':
+        return {
+          x: targetX - entrance.position.x,
+          y: targetY - entrance.position.y,
+        };
+    }
   }
 
   private areCompatible(from: Direction, to: Direction): boolean {
