@@ -364,7 +364,7 @@ export class BootScene extends Phaser.Scene {
     if (phase === 'idle' || phase === 'awaiting_problem') {
       this.leaveBoot();
 
-      this.scene.start('CommonRoomScene', {
+      this.scene.start('GameWorldScene', {
         ws: this.ws,
         store: this.store,
       });
@@ -379,15 +379,9 @@ export class BootScene extends Phaser.Scene {
     if (phase === 'awaiting_question') {
       this.leaveBoot();
 
-      this.scene.start('CommonRoomScene', {
+      this.scene.start('GameWorldScene', {
         ws: this.ws,
         store: this.store,
-
-        /**
-         * CommonRoomScene will tell
-         * React to display the waiting
-         * elevator UI.
-         */
         gateWaiting: true,
       });
 
@@ -422,7 +416,7 @@ export class BootScene extends Phaser.Scene {
     if (!currentDecision) {
       this.leaveBoot();
 
-      this.scene.start('CommonRoomScene', {
+      this.scene.start('GameWorldScene', {
         ws: this.ws,
         store: this.store,
       });
@@ -480,10 +474,9 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GameWorldScene', {
       ws: this.ws,
       store: this.store,
-      decision,
     });
   }
 
