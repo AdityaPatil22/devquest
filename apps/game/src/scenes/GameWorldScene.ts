@@ -29,6 +29,7 @@ import {
 
 import { emitUIEvent } from '../game/GameBridge';
 import { RoomManager } from '../world/RoomManager';
+import type { RoomKind } from '../world/Room';
 import { RoomGenerationState } from '../state/RoomGenerationState';
 
 import type {
@@ -63,7 +64,7 @@ interface DoorObject {
 
 interface WorldZone {
   id: string;
-  kind: 'common' | 'decision' | 'corridor' | 'random';
+  kind: RoomKind;
   minX: number;
   maxX: number;
   centerY: number;
@@ -111,6 +112,7 @@ export class GameWorldScene extends Phaser.Scene {
   private gateSubmitted = false;
   private nearGate = false;
   private generatedDecisionCount = 0;
+  private lastStateSyncAt = -Infinity;
   private readonly roomGeneration = new RoomGenerationState();
   private readonly roomMapWidth = 70 * 16;
   private readonly roomMapHeight = 30 * 16;
@@ -138,6 +140,7 @@ export class GameWorldScene extends Phaser.Scene {
     this.commonWalls = this.physics.add.staticGroup();
 
     this.buildWorld();
+    this.restoreGeneratedRooms();
 
     this.createPlayer();
     this.setupInput();
@@ -195,6 +198,7 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.player.handleMovement(this.cursors);
     this.store.setPlayerPosition(this.player.sprite.x, this.player.sprite.y);
+    this.syncSessionState();
 
     this.checkInteractions();
     this.checkZoneTransition();
@@ -302,7 +306,7 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.zones.push({
       id: room.id,
-      kind: room.kind as WorldZone['kind'],
+      kind: room.kind,
       minX: room.bounds.x,
       maxX: room.bounds.x + room.bounds.width,
       centerY: room.bounds.y + room.bounds.height / 2,
@@ -370,7 +374,7 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.zones.push({
       id: room.id,
-      kind: room.kind as WorldZone['kind'],
+      kind: room.kind,
       minX: room.bounds.x,
       maxX: room.bounds.x + room.bounds.width,
       centerY: room.bounds.y + room.bounds.height / 2,
@@ -614,13 +618,25 @@ export class GameWorldScene extends Phaser.Scene {
     this.currentNodeId = decision.nodeId;
     this.store.setPlayerRoom('decision-room');
 
-    const room = this.zones.find((zone) => zone.id === 'decision-room');
-    if (room) {
-      const spawnX = room.minX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-      const spawnY = 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-      this.player.setPosition(spawnX, spawnY);
-      this.store.setPlayerPosition(spawnX, spawnY);
+    const saved = restored ? this.store.playerState : undefined;
+    const savedRoom = saved?.currentRoomId
+      ? this.zones.find((zone) => zone.id === saved.currentRoomId)
+      : undefined;
+
+    if (saved && savedRoom) {
+      this.player.setPosition(saved.position.x, saved.position.y);
+      this.store.setPlayerPosition(saved.position.x, saved.position.y);
+      this.setZone(savedRoom.id);
       this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+    } else {
+      const room = this.zones.find((zone) => zone.id === 'decision-room');
+      if (room) {
+        const spawnX = room.minX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+        const spawnY = 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
+        this.player.setPosition(spawnX, spawnY);
+        this.store.setPlayerPosition(spawnX, spawnY);
+        this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
+      }
     }
 
     this.renderDecision(decision);
@@ -778,6 +794,7 @@ export class GameWorldScene extends Phaser.Scene {
       this.extendWorldBounds();
       this.positionPlayerAtRoomEntrance(nextRoom.id);
       this.roomGeneration.ready();
+      this.syncSessionState(true);
       this.emitGenerationFeedback('ready', 'The next room is ready.');
     } catch (error) {
       this.roomGeneration.fail(error);
@@ -1025,12 +1042,14 @@ export class GameWorldScene extends Phaser.Scene {
       case 'SESSION_STARTED':
         this.ws.setSessionId(msg.sessionId);
         this.store.setSession(msg.sessionId);
+        this.syncSessionState(true);
         this.emitUI({ type: 'SESSION_STARTED', sessionId: msg.sessionId });
         break;
 
       case 'SESSION_RESUMED':
         this.ws.setSessionId(msg.sessionId);
         this.store.hydrate(msg.snapshot);
+        this.restoreGeneratedRooms();
         this.emitUI({ type: 'SESSION_RESUMED', sessionId: msg.sessionId });
         this.applyResumedState(msg);
         break;
@@ -1084,6 +1103,39 @@ export class GameWorldScene extends Phaser.Scene {
         this.emitUI({ type: 'ERROR', message: msg.message });
         break;
     }
+  }
+
+  private restoreGeneratedRooms(): void {
+    const savedRooms = this.store.worldState.rooms
+      .filter((room) => room.kind === 'corridor' || room.kind === 'random')
+      .sort((a, b) => a.order - b.order);
+
+    for (const savedRoom of savedRooms) {
+      if (this.zones.some((zone) => zone.id === savedRoom.id)) continue;
+
+      const match = savedRoom.id.match(/-(\d+)$/);
+      const index = match ? Number(match[1]) : savedRoom.order;
+
+      if (savedRoom.kind === 'corridor') {
+        this.appendRoomMap('corridor', index, savedRoom.mapKey, 'corridor', this.roomMapWidth, this.roomMapHeight);
+      } else {
+        this.appendRoomMap('room', index, savedRoom.mapKey, 'random', this.roomMapWidth, this.roomMapHeight);
+      }
+    }
+
+    this.generatedDecisionCount = this.roomManager.getRooms('random').length;
+    this.extendWorldBounds();
+  }
+
+  private syncSessionState(force = false): void {
+    const now = this.time.now;
+    if (!force && now - this.lastStateSyncAt < 250) return;
+    this.lastStateSyncAt = now;
+    this.ws.send({
+      type: 'STATE_SYNC',
+      world: this.store.worldState,
+      player: this.store.playerState,
+    });
   }
 
   private applyResumedState(msg: SessionResumedMsg): void {
