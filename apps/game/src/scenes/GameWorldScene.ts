@@ -483,20 +483,28 @@ export class GameWorldScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
+    const saved = this.store.playerState;
     const current = this.store.getCurrentDecision();
 
-    const x = current
+    const fallbackX = current
       ? this.zones.find((zone) => zone.id === 'decision-room')!.minX + 30 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2
       : SPAWN_TILE.x * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
-    const y = current
+    const fallbackY = current
       ? 16 * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2
       : SPAWN_TILE.y * MAP_TILE_SIZE + MAP_TILE_SIZE / 2;
+
+    const hasSavedRoom = Boolean(
+      saved.currentRoomId && this.zones.some((zone) => zone.id === saved.currentRoomId),
+    );
+    const roomId = hasSavedRoom ? saved.currentRoomId : current ? 'decision-room' : 'common-room';
+    const x = hasSavedRoom ? saved.position.x : fallbackX;
+    const y = hasSavedRoom ? saved.position.y : fallbackY;
 
     this.player = new Player(this, x, y);
 
     this.store.setPlayerPosition(x, y);
-    this.store.setPlayerRoom(current ? 'decision-room' : 'common-room');
-    this.setZone(current ? 'decision-room' : 'common-room');
+    this.store.setPlayerRoom(roomId);
+    this.setZone(roomId ?? 'common-room');
     this.cameras.main.startFollow(this.player.sprite, true, 0.15, 0.15);
   }
 
@@ -721,8 +729,6 @@ export class GameWorldScene extends Phaser.Scene {
 
     const optionId = this.currentDoor.option.id;
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
-    this.player.stop();
-
     this.store.updateCurrent({ selectedOptionId: optionId, context });
     this.generateNextRoomForSelection();
 
@@ -1007,7 +1013,6 @@ export class GameWorldScene extends Phaser.Scene {
     return (
       this.gateOpen ||
       this.phase === GamePhase.DOOR_CONTEXT ||
-      this.phase === GamePhase.WAITING_FOR_CHALLENGE ||
       this.phase === GamePhase.RESPONDING_TO_CHALLENGE ||
       this.phase === GamePhase.WAITING_FOR_EVALUATION ||
       this.phase === GamePhase.SHOWING_EVALUATION
