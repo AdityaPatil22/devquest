@@ -119,7 +119,9 @@ describe('Tiled map assets', () => {
         expect(typeof tileset.image).toBe('string');
         const image = tileset.image as string;
         const imagePath = image === 'FloorAndGround.png' ? 'map/FloorAndGround.png' : `items/${image}`;
+
         expect(EXPECTED_IMAGE_PATHS.has(imagePath)).toBe(true);
+        expect(() => readFileSync(resolve(ASSET_ROOT, imagePath))).not.toThrow();
       }
     }
   });
