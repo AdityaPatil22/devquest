@@ -2,7 +2,7 @@
 
 name: devquest
 
-## description: "Run an engineering decision grilling interview inside a 2D Phaser game. The player enters a problem statement at the Gate, then navigates Decision Rooms where doors represent options. The skill generates questions, challenges reasoning, and produces a final decision document as the player's trophy. Use when the user says 'devquest', 'grill me', invokes /devquest with a topic, or says '/devquest resume'."
+description: "Run an engineering decision grilling interview inside a 2D Phaser game. The player enters a problem statement at the Gate, then navigates Decision Rooms where doors represent options. The skill generates questions, challenges reasoning, and produces a final decision document as the player's trophy. Use when the user says 'devquest', 'grill me', invokes /devquest with a topic, or says '/devquest resume'."
 
 # devquest
 
