@@ -385,75 +385,86 @@ export class GameWorldScene extends Phaser.Scene {
     const mapHeight = 30 * tileWidth;
 
     for (let index = 0; index < count; index += 1) {
-      const key = mapKeys[index];
-      const roomId = `${prefix}-${index + 1}`;
-      const previousRoom = this.roomManager.getLastRoom();
-      const room = this.roomManager.addRoom({
-        id: roomId,
-        kind,
-        mapKey: key,
-        attachTo: previousRoom
-          ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
-          : undefined,
-        size: { width: mapWidth, height: mapHeight },
-        connections: [
-          {
-            id: `${roomId}-west`,
-            kind: 'entrance',
-            direction: 'west',
-            position: { x: 0, y: mapHeight / 2 },
-          },
-          {
-            id: `${roomId}-east`,
-            kind: 'exit',
-            direction: 'east',
-            position: { x: mapWidth, y: mapHeight / 2 },
-          },
-        ],
-      });
+      this.appendRoomMap(prefix, index + 1, mapKeys[index]!, kind, mapWidth, mapHeight);
+    }
+  }
 
-      const map = this.make.tilemap({ key });
-      const tilesets = DECISION_TILESETS.map((tileset) =>
-        map.addTilesetImage(tileset.name, tileset.key),
-      ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
+  private appendRoomMap(
+    prefix: string,
+    index: number,
+    mapKey: string,
+    kind: 'corridor' | 'random',
+    mapWidth: number,
+    mapHeight: number,
+  ): void {
+    const roomId = `${prefix}-${index}`;
+    const previousRoom = this.roomManager.getLastRoom();
+    const room = this.roomManager.addRoom({
+      id: roomId,
+      kind,
+      mapKey,
+      attachTo: previousRoom
+        ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
+        : undefined,
+      size: { width: mapWidth, height: mapHeight },
+      connections: [
+        {
+          id: `${roomId}-west`,
+          kind: 'entrance',
+          direction: 'west',
+          position: { x: 0, y: mapHeight / 2 },
+        },
+        {
+          id: `${roomId}-east`,
+          kind: 'exit',
+          direction: 'east',
+          position: { x: mapWidth, y: mapHeight / 2 },
+        },
+      ],
+    });
 
-      DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-        const layer = map.createLayer(
-          layerName,
-          tilesets,
-          room.bounds.x - (-16 * tileWidth),
-          room.bounds.y,
-        );
-        layer?.setDepth(depth + 1);
+    const map = this.make.tilemap({ key: mapKey });
+    const tilesets = DECISION_TILESETS.map((tileset) =>
+      map.addTilesetImage(tileset.name, tileset.key),
+    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-        if (layerName === DECISION_COLLIDABLE_LAYER) {
-          layer?.setCollisionByExclusion([-1]);
-          if (layer) this.persistentWallLayers.push(layer);
-        }
-      });
+    DECISION_TILE_LAYERS.forEach((layerName, depth) => {
+      const layer = map.createLayer(
+        layerName,
+        tilesets,
+        room.bounds.x - (-16 * tileWidth),
+        room.bounds.y,
+      );
+      layer?.setDepth(depth + 1);
 
-      this.zones.push({
-        id: room.id,
-        kind: room.kind as WorldZone['kind'],
-        minX: room.bounds.x,
-        maxX: room.bounds.x + room.bounds.width,
-        centerY: room.bounds.y + room.bounds.height / 2,
-      });
+      if (layerName === DECISION_COLLIDABLE_LAYER) {
+        layer?.setCollisionByExclusion([-1]);
+        if (layer) this.persistentWallLayers.push(layer);
+      }
+    });
 
-      this.store.registerRoom({
-        id: room.id,
-        mapKey: room.mapKey,
-        kind,
-        variant: kind === 'random' ? String(index + 1) : undefined,
-        order: this.zones.length - 1,
-        generatedAt: Date.now(),
-        metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
-      });
+    this.zones.push({
+      id: room.id,
+      kind,
+      minX: room.bounds.x,
+      maxX: room.bounds.x + room.bounds.width,
+      centerY: room.bounds.y + room.bounds.height / 2,
+    });
 
-      const previousExit = previousRoom?.getExit();
+    this.store.registerRoom({
+      id: room.id,
+      mapKey: room.mapKey,
+      kind,
+      variant: kind === 'random' ? String(index) : undefined,
+      order: this.zones.length - 1,
+      generatedAt: Date.now(),
+      metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
+    });
+
+    if (previousRoom) {
+      const previousExit = previousRoom.getExit();
       const entrance = room.getEntrance();
-
-      if (previousRoom && previousExit && entrance) {
+      if (previousExit && entrance) {
         this.roomManager.connectSequentially(
           previousRoom.id,
           previousExit.id,
