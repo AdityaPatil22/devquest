@@ -28,6 +28,8 @@ import {
 } from '../tilemaps/decisionRoomTilemap';
 
 import { emitUIEvent } from '../game/GameBridge';
+import { TiledRoomFactory } from '../world/RoomFactory';
+import type { RoomInstance } from '../world/Room';
 
 import type {
   ServerMessage,
@@ -109,6 +111,8 @@ export class GameWorldScene extends Phaser.Scene {
   private nearGate = false;
 
   private zones: WorldZone[] = [];
+  private roomFactory = new TiledRoomFactory();
+  private roomInstances = new Map<string, RoomInstance>();
 
   constructor() {
     super({ key: 'GameWorldScene' });
