@@ -89,6 +89,19 @@ export class GameWorldScene extends Phaser.Scene {
   };
   private interactKey!: Phaser.Input.Keyboard.Key;
   private escapeKey!: Phaser.Input.Keyboard.Key;
+  private heldKeys = new Set<string>();
+  private readonly handleWindowKeyDown = (event: KeyboardEvent): void => {
+    const key = event.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+      this.heldKeys.add(key);
+      event.preventDefault();
+      this.applyDirectMovement();
+    }
+  };
+  private readonly handleWindowKeyUp = (event: KeyboardEvent): void => {
+    this.heldKeys.delete(event.key.toLowerCase());
+    this.applyDirectMovement();
+  };
 
   private ws!: WebSocketClient;
   private store!: SessionStore;
@@ -150,6 +163,13 @@ export class GameWorldScene extends Phaser.Scene {
 
     this.createPlayer();
     this.setupInput();
+    window.addEventListener('keydown', this.handleWindowKeyDown);
+    window.addEventListener('keyup', this.handleWindowKeyUp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('keydown', this.handleWindowKeyDown);
+      window.removeEventListener('keyup', this.handleWindowKeyUp);
+      this.heldKeys.clear();
+    });
 
     this.physics.add.collider(this.player.sprite, this.commonWalls);
 
@@ -539,6 +559,27 @@ export class GameWorldScene extends Phaser.Scene {
     this.movementKeys = keyboard.addKeys('W,A,S,D') as typeof this.movementKeys;
     this.interactKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.escapeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+  }
+
+  private applyDirectMovement(): void {
+    if (!this.player || this.isUiBlocking()) return;
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    const left = this.heldKeys.has('arrowleft') || this.heldKeys.has('a');
+    const right = this.heldKeys.has('arrowright') || this.heldKeys.has('d');
+    const up = this.heldKeys.has('arrowup') || this.heldKeys.has('w');
+    const down = this.heldKeys.has('arrowdown') || this.heldKeys.has('s');
+    let vx = 0;
+    let vy = 0;
+    if (left) vx -= 1;
+    if (right) vx += 1;
+    if (up) vy -= 1;
+    if (down) vy += 1;
+    if (vx !== 0 || vy !== 0) {
+      const length = Math.hypot(vx, vy);
+      body.setVelocity((vx / length) * 300, (vy / length) * 300);
+    } else {
+      body.setVelocity(0, 0);
+    }
   }
 
   private checkInteractions(): void {
