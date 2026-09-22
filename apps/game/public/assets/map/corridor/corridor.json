@@ -306,27 +306,7 @@
  "renderorder":"right-down",
  "tiledversion":"1.12.2",
  "tileheight":16,
- "tilesets":[
-        {
-         "firstgid":1,
-         "source":"..\/Downloads\/devquest-assest\/map\/FloorAndGround.tsx"
-        }, 
-        {
-         "firstgid":10241,
-         "source":"..\/Downloads\/devquest-assest\/map\/Modern_Office_Black_Shadow.tsx"
-        }, 
-        {
-         "firstgid":13633,
-         "source":"..\/Downloads\/devquest-assest\/decisionroom\/FloorAndGround.tsx"
-        }, 
-        {
-         "firstgid":23873,
-         "source":"..\/Downloads\/devquest-assest\/decisionroom\/Generic.tsx"
-        }, 
-        {
-         "firstgid":28865,
-         "source":"..\/Downloads\/devquest-assest\/decisionroom\/Basement.tsx"
-        }],
+ "tilesets":[{"firstgid":1,"columns":128,"image":"FloorAndGround.png","imageheight":1280,"imagewidth":2048,"margin":0,"name":"FloorAndGround16","spacing":0,"tilecount":10240,"tileheight":16,"tilewidth":16},{"firstgid":10241,"columns":32,"image":"Modern_Office_Black_Shadow.png","imageheight":1696,"imagewidth":512,"margin":0,"name":"ModernOfficeBlackShadow16","spacing":0,"tilecount":3392,"tileheight":16,"tilewidth":16},{"firstgid":13633,"columns":128,"image":"FloorAndGround.png","imageheight":1280,"imagewidth":2048,"margin":0,"name":"FloorAndGround16B","spacing":0,"tilecount":10240,"tileheight":16,"tilewidth":16},{"firstgid":23873,"columns":32,"image":"Generic.png","imageheight":2496,"imagewidth":512,"margin":0,"name":"Generic16","spacing":0,"tilecount":4992,"tileheight":16,"tilewidth":16},{"firstgid":28865,"columns":32,"image":"Basement.png","imageheight":1600,"imagewidth":512,"margin":0,"name":"Basement16","spacing":0,"tilecount":3200,"tileheight":16,"tilewidth":16}],
  "tilewidth":16,
  "type":"map",
  "version":"1.10",
