@@ -413,19 +413,19 @@ export class GameWorldScene extends Phaser.Scene {
       attachTo: previousRoom
         ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
         : undefined,
-      size: { width: this.roomMapWidth, height: this.roomMapHeight },
+      size: { width: mapWidth, height: mapHeight },
       connections: [
         {
           id: `${roomId}-west`,
           kind: 'entrance',
           direction: 'west',
-          position: { x: 0, y: this.roomMapHeight / 2 },
+          position: { x: 0, y: mapHeight / 2 },
         },
         {
           id: `${roomId}-east`,
           kind: 'exit',
           direction: 'east',
-          position: { x: this.roomMapWidth, y: this.roomMapHeight / 2 },
+          position: { x: mapWidth, y: mapHeight / 2 },
         },
       ],
     });
@@ -439,7 +439,7 @@ export class GameWorldScene extends Phaser.Scene {
       const layer = map.createLayer(
         layerName,
         tilesets,
-        room.bounds.x - (-16 * 16),
+        room.bounds.x - (-16 * MAP_TILE_SIZE),
         room.bounds.y,
       );
       layer?.setDepth(depth + 1);
@@ -730,7 +730,7 @@ export class GameWorldScene extends Phaser.Scene {
     const optionId = this.currentDoor.option.id;
     this.phase = GamePhase.WAITING_FOR_CHALLENGE;
     this.store.updateCurrent({ selectedOptionId: optionId, context });
-    this.generateNextRoomForSelection();
+    void this.generateNextRoomForSelection();
 
     this.ws.send({
       type: 'OPTION_SELECTED',
@@ -744,10 +744,11 @@ export class GameWorldScene extends Phaser.Scene {
     return this.roomGeneration.snapshot;
   }
 
-  private generateNextRoomForSelection(): void {
+  private async generateNextRoomForSelection(): Promise<void> {
     if (!this.roomGeneration.begin()) return;
 
     this.emitGenerationFeedback('generating', 'Preparing the next room...');
+    await Promise.resolve();
 
     try {
       const corridorNumber = this.roomManager.getRooms('corridor').length + 1;
@@ -837,19 +838,19 @@ export class GameWorldScene extends Phaser.Scene {
       attachTo: previousRoom
         ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
         : undefined,
-      size: { width: this.roomMapWidth, height: this.roomMapHeight },
+      size: { width: mapWidth, height: mapHeight },
       connections: [
         {
           id: `${roomId}-west`,
           kind: 'entrance',
           direction: 'west',
-          position: { x: 0, y: this.roomMapHeight / 2 },
+          position: { x: 0, y: mapHeight / 2 },
         },
         {
           id: `${roomId}-east`,
           kind: 'exit',
           direction: 'east',
-          position: { x: this.roomMapWidth, y: this.roomMapHeight / 2 },
+          position: { x: mapWidth, y: mapHeight / 2 },
         },
       ],
     });
