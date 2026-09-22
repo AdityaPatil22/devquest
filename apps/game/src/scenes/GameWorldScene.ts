@@ -75,6 +75,8 @@ const ZONE_GAP = 64;
 const COMMON_WIDTH = 31 * MAP_TILE_SIZE;
 const DECISION_WIDTH = (DECISION_MAP_BOUNDS.maxTileX - DECISION_MAP_BOUNDS.minTileX + 1) * DECISION_MAP_TILE_SIZE;
 const SIDE_ACCESS = 96;
+const PLAYER_JOIN_OFFSET_X = 48;
+const ROOM_WALL_CLEARANCE = 24;
 
 export class GameWorldScene extends Phaser.Scene {
   private player!: Player;
@@ -760,13 +762,15 @@ export class GameWorldScene extends Phaser.Scene {
       const entrance = nextRoom.getEntrance();
 
       if (entrance) {
-        const targetX = nextRoom.bounds.x + entrance.position.x + 48;
+        const targetX = nextRoom.bounds.x + entrance.position.x + PLAYER_JOIN_OFFSET_X;
         const targetY = nextRoom.bounds.y + entrance.position.y;
         this.player.setPosition(targetX, targetY);
         this.store.setPlayerPosition(targetX, targetY);
         this.setZone(nextRoom.id);
       }
 
+      this.extendWorldBounds();
+      this.positionPlayerAtRoomEntrance(nextRoom.id);
       this.roomGeneration.ready();
       this.emitGenerationFeedback('ready', 'The next room is ready.');
     } catch (error) {
@@ -779,6 +783,33 @@ export class GameWorldScene extends Phaser.Scene {
       this.currentDoor = undefined;
       this.emitUI({ type: 'DOOR_CONTEXT', visible: false });
     }
+  }
+
+  private positionPlayerAtRoomEntrance(roomId: string): void {
+    const room = this.roomManager.getRoom(roomId);
+    const entrance = room.getEntrance();
+    if (!entrance) return;
+
+    const targetX = room.bounds.x + entrance.position.x + PLAYER_JOIN_OFFSET_X;
+    const targetY = room.bounds.y + entrance.position.y;
+
+    this.player.setPosition(targetX, targetY);
+    this.store.setPlayerPosition(targetX, targetY);
+    this.setZone(room.id);
+
+    this.cameras.main.centerOn(targetX, targetY);
+  }
+
+  private extendWorldBounds(): void {
+    const lastRoom = this.roomManager.getLastRoom();
+    if (!lastRoom) return;
+
+    const worldMinX = 0;
+    const worldMaxX = lastRoom.bounds.x + lastRoom.bounds.width + SIDE_ACCESS;
+    const worldHeight = Math.max(COMMON_WIDTH, 624) + 2 * SIDE_ACCESS;
+
+    this.physics.world.setBounds(worldMinX, -SIDE_ACCESS, worldMaxX - worldMinX, worldHeight);
+    this.cameras.main.setBounds(worldMinX, -SIDE_ACCESS, worldMaxX - worldMinX, worldHeight);
   }
 
   private emitGenerationFeedback(
