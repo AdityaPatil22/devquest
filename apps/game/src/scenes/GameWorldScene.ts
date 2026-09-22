@@ -111,6 +111,8 @@ export class GameWorldScene extends Phaser.Scene {
   private nearGate = false;
   private generatedDecisionCount = 0;
   private readonly roomGeneration = new RoomGenerationState();
+  private readonly roomMapWidth = 70 * 16;
+  private readonly roomMapHeight = 30 * 16;
 
   private zones: WorldZone[] = [];
   private roomManager = new RoomManager(undefined, { gap: ZONE_GAP });
@@ -206,8 +208,8 @@ export class GameWorldScene extends Phaser.Scene {
     this.buildDecisionRoom();
 
     // Keep only the first corridor/room pair ready; later pairs are generated on demand.
-    this.appendRoomMap('corridor', 1, 'corridor', 'corridor', 70 * 16, 30 * 16);
-    this.appendRoomMap('room', 1, 'room-1', 'random', 70 * 16, 30 * 16);
+    this.appendRoomMap('corridor', 1, 'corridor', 'corridor', this.roomMapWidth, this.roomMapHeight);
+    this.appendRoomMap('room', 1, 'room-1', 'random', this.roomMapWidth, this.roomMapHeight);
 
     const lastRoom = this.roomManager.getLastRoom();
     if (!lastRoom) return;
@@ -790,9 +792,6 @@ export class GameWorldScene extends Phaser.Scene {
     const roomId = `${prefix}-${index}`;
     const kind = prefix === 'corridor' ? 'corridor' : 'random';
     const map = this.make.tilemap({ key: mapKey });
-    const tileWidth = 16;
-    const mapWidth = 70 * tileWidth;
-    const mapHeight = 30 * tileWidth;
     const previousRoom = this.roomManager.getLastRoom();
 
     const room = this.roomManager.addRoom({
