@@ -108,6 +108,7 @@ export class GameWorldScene extends Phaser.Scene {
   private nearGate = false;
 
   private zones: WorldZone[] = [];
+  private currentZoneIndex = 0;
 
   constructor() {
     super({ key: 'GameWorldScene' });
@@ -187,6 +188,7 @@ export class GameWorldScene extends Phaser.Scene {
   }
 
   private buildWorld(): void {
+    this.zones = [];
     this.buildCommonRoom();
     this.buildDecisionRoom();
     this.buildRepeatedMapZones('corridor', 'corridor', 4, true);
@@ -361,6 +363,13 @@ export class GameWorldScene extends Phaser.Scene {
 
       const map = this.make.tilemap({ key });
 
+      if (kind === 'corridor' || kind === 'random') {
+        const cached = this.cache.tilemap.get(key);
+        if (cached?.data && Array.isArray(cached.data.tilesets) && cached.data.tilesets.length === 0) {
+          cached.data.tilesets = [];
+        }
+      }
+
       const tilesets = DECISION_TILESETS.map((tileset) =>
         map.addTilesetImage(tileset.name, tileset.key),
       ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
@@ -368,6 +377,11 @@ export class GameWorldScene extends Phaser.Scene {
       DECISION_TILE_LAYERS.forEach((layerName, depth) => {
         const layer = map.createLayer(layerName, tilesets, minX - (-16 * tileWidth), 0);
         layer?.setDepth(depth + 1);
+        if (layerName === DECISION_COLLIDABLE_LAYER) {
+          layer?.setCollisionByExclusion([-1]);
+          this.decisionWalls = this.decisionWalls ?? layer ?? undefined;
+          if (layer) this.physics.add.collider(this.player?.sprite ?? this.add.rectangle(-9999, -9999, 1, 1, 0, 0), layer);
+        }
       });
 
       this.zones.push({
