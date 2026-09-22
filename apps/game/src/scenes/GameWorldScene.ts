@@ -200,7 +200,7 @@ export class GameWorldScene extends Phaser.Scene {
       return;
     }
 
-    this.player.handleMovement(this.cursors);
+    this.player.handleMovement(this.cursors, this.movementKeys);
     this.store.setPlayerPosition(this.player.sprite.x, this.player.sprite.y);
     this.syncSessionState();
 
