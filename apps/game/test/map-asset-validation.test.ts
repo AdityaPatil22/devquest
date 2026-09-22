@@ -5,6 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSET_ROOT = resolve(__dirname, '../public/assets');
+const EXPECTED_IMAGE_PATHS = new Set([
+  'map/FloorAndGround.png',
+  'items/Modern_Office_Black_Shadow.png',
+  'items/Generic.png',
+  'items/Basement.png',
+]);
 
 const MAPS = [
   'map/corridor/corridor.json',
@@ -111,6 +117,9 @@ describe('Tiled map assets', () => {
       for (const tileset of tilesets as Array<Record<string, unknown>>) {
         expect(tileset.source).toBeUndefined();
         expect(typeof tileset.image).toBe('string');
+        const image = tileset.image as string;
+        const imagePath = image === 'FloorAndGround.png' ? 'map/FloorAndGround.png' : `items/${image}`;
+        expect(EXPECTED_IMAGE_PATHS.has(imagePath)).toBe(true);
       }
     }
   });
