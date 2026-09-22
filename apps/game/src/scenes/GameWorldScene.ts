@@ -298,20 +298,38 @@ export class GameWorldScene extends Phaser.Scene {
     this.physics.add.existing(elevatorCollider, true);
     this.commonWalls.add(elevatorCollider);
 
-    this.store.registerRoom({
+    const room = this.roomFactory.createFromBounds({
       id: 'common-room',
-      mapKey: TILEMAP_KEY,
       kind: 'common',
+      mapKey: TILEMAP_KEY,
+      position: { x: 0, y: 0 },
+      size: { width: COMMON_WIDTH, height: this.commonMap?.heightInPixels ?? 0 },
+      connections: [
+        {
+          id: 'common-to-decision',
+          kind: 'exit',
+          direction: 'east',
+          position: { x: COMMON_WIDTH, y: this.gateY },
+        },
+      ],
+    });
+    this.roomInstances.set(room.id, room);
+
+    this.store.registerRoom({
+      id: room.id,
+      mapKey: room.mapKey,
+      kind: room.kind,
       order: 0,
       generatedAt: Date.now(),
+      metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
     });
 
     this.zones.push({
-      id: 'common-room',
-      kind: 'common',
-      minX: 0,
-      maxX: COMMON_WIDTH,
-      centerY: COMMON_WIDTH / 2,
+      id: room.id,
+      kind: room.kind as WorldZone['kind'],
+      minX: room.bounds.x,
+      maxX: room.bounds.x + room.bounds.width,
+      centerY: room.bounds.y + room.bounds.height / 2,
     });
   }
 
@@ -343,21 +361,47 @@ export class GameWorldScene extends Phaser.Scene {
     const minX = decisionOffsetX + DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
     const maxX = minX + DECISION_WIDTH;
 
-    this.store.registerRoom({
+    const room = this.roomFactory.createFromBounds({
       id: 'decision-room',
-      mapKey: DECISION_TILEMAP_KEY,
       kind: 'decision',
+      mapKey: DECISION_TILEMAP_KEY,
+      position: { x: minX, y: 0 },
+      size: {
+        width: DECISION_WIDTH,
+        height: (DECISION_MAP_BOUNDS.maxTileY - DECISION_MAP_BOUNDS.minTileY + 1) * DECISION_MAP_TILE_SIZE,
+      },
+      connections: [
+        {
+          id: 'decision-to-common',
+          kind: 'entrance',
+          direction: 'west',
+          position: { x: 0, y: 16 * DECISION_MAP_TILE_SIZE },
+        },
+        {
+          id: 'decision-to-next',
+          kind: 'exit',
+          direction: 'east',
+          position: { x: DECISION_WIDTH, y: 16 * DECISION_MAP_TILE_SIZE },
+        },
+      ],
+    });
+    this.roomInstances.set(room.id, room);
+
+    this.store.registerRoom({
+      id: room.id,
+      mapKey: room.mapKey,
+      kind: room.kind,
       order: 1,
       generatedAt: Date.now(),
-      metadata: { minX, maxX },
+      metadata: { minX: room.bounds.x, maxX: room.bounds.x + room.bounds.width },
     });
 
     this.zones.push({
-      id: 'decision-room',
-      kind: 'decision',
-      minX,
-      maxX,
-      centerY: DECISION_MAP_BOUNDS.maxTileY * DECISION_MAP_TILE_SIZE / 2,
+      id: room.id,
+      kind: room.kind as WorldZone['kind'],
+      minX: room.bounds.x,
+      maxX: room.bounds.x + room.bounds.width,
+      centerY: room.bounds.y + room.bounds.height / 2,
     });
   }
 
