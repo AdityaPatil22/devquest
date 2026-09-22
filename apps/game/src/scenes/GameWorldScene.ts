@@ -69,7 +69,6 @@ interface WorldZone {
 const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
 const ZONE_GAP = 64;
-const CORRIDOR_WIDTH = 64 * DECISION_MAP_TILE_SIZE;
 const COMMON_WIDTH = 31 * MAP_TILE_SIZE;
 const DECISION_WIDTH = (DECISION_MAP_BOUNDS.maxTileX - DECISION_MAP_BOUNDS.minTileX + 1) * DECISION_MAP_TILE_SIZE;
 const SIDE_ACCESS = 96;
@@ -108,7 +107,6 @@ export class GameWorldScene extends Phaser.Scene {
   private nearGate = false;
 
   private zones: WorldZone[] = [];
-  private currentZoneIndex = 0;
 
   constructor() {
     super({ key: 'GameWorldScene' });
@@ -363,13 +361,7 @@ export class GameWorldScene extends Phaser.Scene {
 
       const map = this.make.tilemap({ key });
 
-      if (kind === 'corridor' || kind === 'random') {
-        const cached = this.cache.tilemap.get(key);
-        if (cached?.data && Array.isArray(cached.data.tilesets) && cached.data.tilesets.length === 0) {
-          cached.data.tilesets = [];
-        }
-      }
-
+      
       const tilesets = DECISION_TILESETS.map((tileset) =>
         map.addTilesetImage(tileset.name, tileset.key),
       ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
@@ -402,13 +394,8 @@ export class GameWorldScene extends Phaser.Scene {
         metadata: { minX, maxX },
       });
 
-      if (isCorridor) {
-        const walls = map.getLayer(DECISION_COLLIDABLE_LAYER)?.tilemapLayer;
-        if (walls) {
-          walls.setCollisionByExclusion([-1]);
-          this.physics.add.collider(this.player?.sprite ?? this.add.rectangle(0, 0, 1, 1, 0, 0), walls);
-        }
-      }
+      const walls = map.getLayer(DECISION_COLLIDABLE_LAYER)?.tilemapLayer;
+      if (walls) walls.setCollisionByExclusion([-1]);
     }
   }
 
