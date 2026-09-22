@@ -723,6 +723,44 @@ Then open a pull request.
 
 ---
 
+## Continuous World Generation
+
+The active gameplay world is kept inside a single persistent Phaser GameWorldScene. The flow is:
+
+```
+Common Room
+    ↓
+Gate / problem submission
+    ↓
+AI emits DECISION_CREATED
+    ↓
+Decision Room + doors
+    ↓
+Player selects a door
+    ↓
+Record option/context in SessionStore
+    ↓
+Append corridor + next random room
+    ↓
+Connect rooms with RoomManager connection points
+    ↓
+Extend physics + camera bounds
+    ↓
+Move player to the generated room entrance
+    ↓
+AI challenge → player defense → evaluation
+    ↓
+Next DECISION_CREATED updates the same decision room
+    ↓
+Repeat without resetting the world
+```
+
+Room creation is deferred: only the initial corridor/room pair is prepared up front, and later pairs are appended after a selection. WorldState, PlayerState, and DecisionState keep persistent gameplay state separate from rendering, while RoomGenerationState exposes idle → generating → ready/error lifecycle state.
+
+Generated collision layers are attached to the player as each room is appended, and the physics/camera world bounds are extended with the latest room. Room placement and joins are owned by RoomManager, so successive rooms remain connected without recreating earlier areas.
+
+For the end-to-end gameplay path, the game sends the selected optionId to the server, records it locally, waits for the server challenge/evaluation events, and replaces the doors with the next decision in the same scene. Errors during generation return the scene to decision exploration without discarding the already-built world.
+
 ## License
 
 DevQuest is licensed under the MIT License.
