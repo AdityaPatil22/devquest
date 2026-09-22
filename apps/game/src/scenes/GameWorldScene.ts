@@ -414,19 +414,19 @@ export class GameWorldScene extends Phaser.Scene {
       attachTo: previousRoom
         ? { roomId: previousRoom.id, connectionId: previousRoom.getExit()?.id }
         : undefined,
-      size: { width: mapWidth, height: mapHeight },
+      size: { width: this.roomMapWidth, height: this.roomMapHeight },
       connections: [
         {
           id: `${roomId}-west`,
           kind: 'entrance',
           direction: 'west',
-          position: { x: 0, y: mapHeight / 2 },
+          position: { x: 0, y: this.roomMapHeight / 2 },
         },
         {
           id: `${roomId}-east`,
           kind: 'exit',
           direction: 'east',
-          position: { x: mapWidth, y: mapHeight / 2 },
+          position: { x: this.roomMapWidth, y: this.roomMapHeight / 2 },
         },
       ],
     });
