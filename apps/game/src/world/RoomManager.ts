@@ -71,6 +71,10 @@ export class RoomManager {
       connections: spec.connections ?? [],
     });
 
+    if (this.roomsOverlap(room)) {
+      throw new Error(`Room "${room.id}" overlaps an existing room`);
+    }
+
     const managed: ManagedRoom = { room, index: this.nextIndex++ };
     this.rooms.set(room.id, managed);
     this.cursorX = Math.max(this.cursorX, room.bounds.x + room.bounds.width + this.gap);
@@ -188,6 +192,15 @@ export class RoomManager {
 
   get nextX(): number {
     return this.cursorX;
+  }
+
+  private roomsOverlap(room: RoomInstance): boolean {
+    return Array.from(this.rooms.values()).some(({ room: existing }) =>
+      room.bounds.x < existing.bounds.x + existing.bounds.width &&
+      room.bounds.x + room.bounds.width > existing.bounds.x &&
+      room.bounds.y < existing.bounds.y + existing.bounds.height &&
+      room.bounds.y + room.bounds.height > existing.bounds.y,
+    );
   }
 
   private positionFromConnection(
