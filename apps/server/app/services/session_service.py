@@ -105,6 +105,10 @@ class SessionService:
                 "problem": problem,
             })
 
+        elif msg_type == "STATE_SYNC":
+            session.set_world_state(msg.get("world", {}))
+            session.set_player_state(msg.get("player", {}))
+
         elif msg_type == "OPTION_SELECTED":
             node_id = msg["nodeId"]
             option_id = msg["optionId"]
