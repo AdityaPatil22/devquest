@@ -3,6 +3,7 @@
 from app.engine.decision_graph import DecisionGraph, NodeStatus, Option, Recommendation
 from app.engine.engine import DecisionEngine
 from app.engine.events import EventType
+from app.engine.session import Session
 
 
 class TestDecisionGraph:
@@ -176,3 +177,34 @@ class TestDecisionEngine:
         finish_event = engine.finish_session(session, "Redis caching", "# Doc\n...")
         assert finish_event.type == EventType.SESSION_COMPLETE
         assert finish_event.data["decisionsCount"] == 1
+
+
+class TestSessionState:
+    def test_world_and_player_state_survive_session_resume_data(self):
+        session = Session("session-1")
+        session.set_world_state({
+            "rooms": [
+                {"id": "corridor-1", "mapKey": "corridor", "kind": "corridor", "order": 1},
+                {"id": "room-1", "mapKey": "room-1", "kind": "random", "variant": "1", "order": 2},
+                {"id": "corridor-2", "mapKey": "corridor", "kind": "corridor", "order": 3},
+                {"id": "room-2", "mapKey": "room-2", "kind": "random", "variant": "2", "order": 4},
+            ],
+            "currentRoomId": "room-2",
+            "progressionIndex": 2,
+        })
+        session.set_player_state({
+            "position": {"x": 3152, "y": 240},
+            "currentRoomId": "room-2",
+            "completedRooms": ["room-1"],
+        })
+
+        assert [room["id"] for room in session.world["rooms"]] == [
+            "corridor-1", "room-1", "corridor-2", "room-2"
+        ]
+        assert session.world["currentRoomId"] == "room-2"
+        assert session.world["progressionIndex"] == 2
+        assert session.player == {
+            "position": {"x": 3152.0, "y": 240.0},
+            "currentRoomId": "room-2",
+            "completedRooms": ["room-1"],
+        }
