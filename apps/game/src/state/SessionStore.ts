@@ -1,3 +1,7 @@
+import { DecisionState } from './DecisionState';
+import { PlayerState } from './PlayerState';
+import { WorldState } from './WorldState';
+
 import type { DecisionOption, Recommendation, SessionSnapshot } from '../net/protocol';
 
 export interface DecisionRecord {
@@ -18,6 +22,10 @@ export interface DecisionRecord {
 }
 
 export class SessionStore {
+  readonly world = new WorldState();
+  readonly player = new PlayerState();
+  readonly decision = new DecisionState();
+
   sessionId?: string;
   problem?: string;
   currentNodeId?: string;
@@ -39,6 +47,10 @@ export class SessionStore {
     this.finished = false;
     this.docContent = undefined;
     this.summary = undefined;
+
+    this.world.reset();
+    this.player.reset();
+    this.decision.reset();
   }
 
   setSession(sessionId: string): void {
@@ -53,13 +65,27 @@ export class SessionStore {
     const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
 
     if (existing) {
-      Object.assign(existing, record);
+      Object.assign(existing, {
+        ...record,
+        options: [...record.options],
+      });
     } else {
-      this.decisions.push(record);
+      this.decisions.push({
+        ...record,
+        options: [...record.options],
+      });
     }
 
     this.currentNodeId = record.nodeId;
     this.totalRounds = Math.max(this.totalRounds, record.round);
+
+    this.decision.setDecision({
+      nodeId: record.nodeId,
+      question: record.question,
+      options: record.options,
+      recommendation: record.recommendation,
+      round: record.round,
+    });
   }
 
   getCurrentDecision(): DecisionRecord | undefined {
@@ -69,8 +95,32 @@ export class SessionStore {
   updateCurrent(update: Partial<DecisionRecord>): void {
     const current = this.getCurrentDecision();
 
-    if (current) {
-      Object.assign(current, update);
+    if (!current) {
+      return;
+    }
+
+    Object.assign(current, update);
+
+    if (update.selectedOptionId !== undefined || update.context !== undefined) {
+      this.decision.selectOption(
+        current.selectedOptionId ?? '',
+        current.context,
+      );
+    }
+
+    if (update.challenge !== undefined) {
+      this.decision.setChallenge(update.challenge);
+    }
+
+    if (update.defense !== undefined) {
+      this.decision.setDefense(update.defense);
+    }
+
+    if (update.feedback !== undefined || update.consequence !== undefined) {
+      this.decision.setEvaluation(
+        current.feedback ?? '',
+        current.consequence ?? '',
+      );
     }
   }
 
@@ -80,10 +130,6 @@ export class SessionStore {
     this.docContent = docContent;
   }
 
-  /**
-   * Restore the client-side store from the authoritative
-   * server-side session snapshot.
-   */
   hydrate(snapshot: SessionSnapshot): void {
     this.sessionId = snapshot.sessionId;
     this.problem = snapshot.problem;
@@ -93,32 +139,42 @@ export class SessionStore {
     this.decisions = snapshot.decisions.map((node): DecisionRecord => ({
       nodeId: node.id,
       question: node.question,
-      options: node.options,
-      recommendation: node.recommendation,
+      options: node.options.map((option) => ({ ...option })),
+      recommendation: node.recommendation ? { ...node.recommendation } : undefined,
       round: node.round,
 
       selectedOptionId: node.decision?.optionId,
-
       context: node.decision?.context,
-
       challenge: node.challenge,
-
       defense: node.decision?.defense,
-
       feedback: node.evaluation?.feedback,
-
       consequence: node.evaluation?.consequence,
     }));
 
     this.finished = snapshot.phase === 'complete';
-
     this.summary = snapshot.summary;
     this.docContent = snapshot.docContent;
+
+    this.decision.reset();
+    const current = this.getCurrentDecision();
+    if (current) {
+      this.decision.setDecision({
+        nodeId: current.nodeId,
+        question: current.question,
+        options: current.options,
+        recommendation: current.recommendation,
+        round: current.round,
+      });
+
+      if (current.selectedOptionId) this.decision.selectOption(current.selectedOptionId, current.context);
+      if (current.challenge) this.decision.setChallenge(current.challenge);
+      if (current.defense) this.decision.setDefense(current.defense);
+      if (current.feedback || current.consequence) {
+        this.decision.setEvaluation(current.feedback ?? '', current.consequence ?? '');
+      }
+    }
   }
 
-  /**
-   * Returns the current server-side phase.
-   */
   get phase(): string | undefined {
     return undefined;
   }
