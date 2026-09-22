@@ -61,6 +61,31 @@ export class SessionStore {
     this.problem = problem;
   }
 
+  registerRoom(room: import('./WorldState').GeneratedRoomState): void {
+    this.world.registerRoom(room);
+  }
+
+  setPlayerPosition(x: number, y: number): void {
+    this.player.setPosition(x, y);
+  }
+
+  setPlayerRoom(roomId: string | undefined): void {
+    this.player.setRoom(roomId);
+    this.world.setCurrentRoom(roomId);
+  }
+
+  get worldState() {
+    return this.world.snapshot();
+  }
+
+  get playerState() {
+    return this.player.snapshot();
+  }
+
+  get decisionState() {
+    return this.decision.snapshot();
+  }
+
   addDecision(record: DecisionRecord): void {
     const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
 
@@ -176,6 +201,6 @@ export class SessionStore {
   }
 
   get phase(): string | undefined {
-    return undefined;
+    return this.finished ? 'complete' : undefined;
   }
 }
