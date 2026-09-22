@@ -65,6 +65,7 @@ export type GameUIEvent =
   | {
       type: 'WAITING';
       message: string;
+      generationStatus?: 'generating' | 'ready' | 'error';
     }
   | {
       type: 'CHALLENGE';
