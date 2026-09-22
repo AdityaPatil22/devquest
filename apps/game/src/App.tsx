@@ -6,6 +6,8 @@ import { DevToolbar } from './dev/DevToolbar';
 function AppContent() {
   const { game } = useGameUI();
 
+  const showDevToolbar = import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
+
   return (
     <main className="devquest-app">
       <PhaserGame />
@@ -14,7 +16,7 @@ function AppContent() {
         <GameUI />
       </div>
 
-      <DevToolbar game={game} />
+      {showDevToolbar && <DevToolbar game={game} />}
     </main>
   );
 }

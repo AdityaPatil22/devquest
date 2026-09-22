@@ -38,16 +38,24 @@ button {
 
 .devquest-app {
   position: relative;
-
   width: 100vw;
   height: 100vh;
-
   overflow: hidden;
-  background-image: url('/assets/background/background.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+
+  background-color: #4c515b;
+
+  background-image:
+    linear-gradient(
+      rgba(30, 34, 42, 0.18) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(30, 34, 42, 0.18) 1px,
+      transparent 1px
+    );
+
+  background-size: 28px 28px;
 }
 
 .phaser-layer {

@@ -69,9 +69,9 @@ echo "Starting Phaser game..."
 
 cd "${REPO_ROOT}/apps/game"
 
-npm run dev -- \
+VITE_SHOW_DEV_TOOLBAR=false npm run dev -- \
     --host 127.0.0.1 \
-    --port "${GAME_PORT}" \
+    --port "$GAME_PORT" \
     >"${TMPDIR:-/tmp}/devquest-game.log" 2>&1 &
 
 GAME_PID=$!

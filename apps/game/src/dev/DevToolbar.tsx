@@ -23,9 +23,6 @@ const scenes: { label: string; value: DevScene }[] = [
 
 export function DevToolbar({ game }: DevToolbarProps) {
   const [selectedScene, setSelectedScene] = useState<DevScene>('TrophyScene');
-  if (!import.meta.env.DEV) {
-    return null;
-  }
   return (
     <div className="dev-toolbar">
       <span className="dev-toolbar__title">DEV MODE</span>
