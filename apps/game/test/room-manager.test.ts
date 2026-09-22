@@ -102,6 +102,55 @@ describe('RoomManager', () => {
     ).toThrow(/not compatible/);
   });
 
+  it('attaches the next room to the previous exit and adapts to changed dimensions', () => {
+    const manager = new RoomManager(undefined, { gap: 0 });
+
+    const first = manager.addRoom({
+      id: 'first',
+      kind: 'corridor',
+      mapKey: 'corridor',
+      size: { width: 120, height: 64 },
+      connections: [
+        { id: 'east', kind: 'exit', direction: 'east', position: { x: 120, y: 32 } },
+      ],
+    });
+
+    const second = manager.addRoom({
+      id: 'second',
+      kind: 'random',
+      mapKey: 'room-1',
+      size: { width: 80, height: 48 },
+      attachTo: { roomId: 'first', connectionId: 'east' },
+      connections: [
+        { id: 'west', kind: 'entrance', direction: 'west', position: { x: 0, y: 24 } },
+      ],
+    });
+
+    expect(second.bounds.x).toBe(first.bounds.x + first.bounds.width);
+    expect(second.bounds.y + 24).toBe(first.bounds.y + 32);
+  });
+
+  it('rejects overlapping room geometry', () => {
+    const manager = new RoomManager(undefined, { gap: 0 });
+
+    manager.addRoom({
+      id: 'first',
+      kind: 'corridor',
+      mapKey: 'corridor',
+      size: { width: 100, height: 100 },
+    });
+
+    expect(() =>
+      manager.addRoom({
+        id: 'overlap',
+        kind: 'random',
+        mapKey: 'room-1',
+        size: { width: 50, height: 50 },
+        attachTo: undefined,
+      }),
+    ).toThrow(/overlaps/);
+  });
+
   it('can inspect and clear generated rooms independently of rendering', () => {
     const manager = new RoomManager();
 
