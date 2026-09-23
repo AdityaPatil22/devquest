@@ -12,8 +12,8 @@ const scenes: { label: string; value: DevScene }[] = [
     value: 'CommonRoomScene',
   },
   {
-    label: 'Decision Room',
-    value: 'DecisionRoomScene',
+    label: 'Grilling Room',
+    value: 'GrillingScene',
   },
   {
     label: 'Trophy Room',

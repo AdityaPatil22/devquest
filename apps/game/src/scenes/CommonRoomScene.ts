@@ -670,7 +670,7 @@ export class CommonRoomScene extends Phaser.Scene {
         /**
          * Start DecisionRoom.
          */
-        this.scene.start('DecisionRoomScene', {
+        this.scene.start('GrillingScene', {
           ws: this.ws,
           store: this.store,
           decision,

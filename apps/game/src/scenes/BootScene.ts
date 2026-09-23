@@ -435,7 +435,7 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GrillingScene', {
       ws: this.ws,
       store: this.store,
       decision,
@@ -462,7 +462,7 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GrillingScene', {
       ws: this.ws,
       store: this.store,
       decision,

@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 
 import { createDevGameState } from './DevGameFactory';
 
-export type DevScene = 'CommonRoomScene' | 'DecisionRoomScene' | 'TrophyScene';
+export type DevScene = 'CommonRoomScene' | 'GrillingScene' | 'TrophyScene';
 
 export function launchScene(game: Phaser.Game, scene: DevScene): void {
   const activeScenes = game.scene.getScenes(true);
@@ -49,10 +49,10 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
       break;
     }
 
-    case 'DecisionRoomScene': {
+    case 'GrillingScene': {
       const { ws, store, decision } = createDevGameState();
 
-      game.scene.start('DecisionRoomScene', {
+      game.scene.start('GrillingScene', {
         ws,
         store,
         decision,
