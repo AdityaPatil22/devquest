@@ -166,3 +166,12 @@ button {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.dev-toolbar__desc {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

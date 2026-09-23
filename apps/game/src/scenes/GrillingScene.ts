@@ -92,6 +92,29 @@ export class GrillingScene extends Phaser.Scene {
 
   private devMode = false;
 
+  // ---------------------------------------------------------------------------
+  // Continuous world tracking
+  // ---------------------------------------------------------------------------
+
+  /**
+   * World-space Y where the next segment
+   * (corridor, option room, or decision room)
+   * should be placed.
+   *
+   * Updated after each segment is created.
+   */
+  private worldBottomY = 0;
+
+  /**
+   * Y offset of the currently active decision
+   * room tilemap.
+   *
+   * Round 1 → 0.
+   * Round 2+ → cumulative height of all
+   *            preceding segments.
+   */
+  private decisionRoomOffsetY = 0;
+
   constructor() {
     super({
       key: 'GrillingScene',
@@ -279,14 +302,10 @@ export class GrillingScene extends Phaser.Scene {
     // -----------------------------------------------------------------------
 
     const corridorX =
-  door.x - corridorWidthPx / 2;
+      door.x - corridorWidthPx / 2;
 
-const decisionBottom =
-  DECISION_MAP_BOUNDS.maxTileY *
-  DECISION_MAP_TILE_SIZE;
-
-const corridorY =
-  decisionBottom;
+    const corridorY =
+      this.worldBottomY;
 
     console.log(
       '[GrillingScene] Creating corridor:',
@@ -403,6 +422,11 @@ const corridorY =
       maxX - minX,
       maxY - minY,
     );
+
+    // Advance the world cursor to
+    // the bottom of this corridor.
+    this.worldBottomY =
+      corridorBottom;
   }
 
   // ---------------------------------------------------------------------------
@@ -415,31 +439,127 @@ const corridorY =
     const tileSize =
       DECISION_MAP_TILE_SIZE;
 
-    const corridorHeight =
-      16 * tileSize;
-
     const roomWidth =
       32 * tileSize;
 
     const roomHeight =
       24 * tileSize;
 
-    const corridorTop =
-      door.y + tileSize;
-
-    const corridorBottom =
-      corridorTop +
-      corridorHeight;
-
+    // Place the option room directly
+    // below wherever the corridor ended.
     this.optionRoom =
       this.optionRoomGenerator.create({
         x: door.x,
         y:
-          corridorBottom +
+          this.worldBottomY +
           roomHeight / 2,
         width: roomWidth,
         height: roomHeight,
       });
+
+    this.worldBottomY +=
+      roomHeight;
+
+    // Expand bounds to include the
+    // new option room.
+    const bounds =
+      this.cameras.main.getBounds();
+
+    const newH = Math.max(
+      bounds.height,
+      this.worldBottomY -
+        bounds.y,
+    );
+
+    this.physics.world.setBounds(
+      bounds.x,
+      bounds.y,
+      bounds.width,
+      newH,
+    );
+
+    this.cameras.main.setBounds(
+      bounds.x,
+      bounds.y,
+      bounds.width,
+      newH,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build a decision room at an arbitrary Y offset
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Places a new decision room tilemap at
+   * `offsetY` in world space and wires up
+   * its wall collision with the player.
+   *
+   * Called for round 2, 3, … (round 1 is
+   * set up by buildRoom() in create()).
+   */
+  private buildDecisionRoomAt(
+    offsetY: number,
+  ): void {
+    const cached =
+      this.cache.tilemap.get(
+        DECISION_TILEMAP_KEY,
+      );
+
+    if (cached?.data) {
+      patchDecisionRoomTilesets(
+        cached.data,
+      );
+    }
+
+    const map = this.make.tilemap({
+      key: DECISION_TILEMAP_KEY,
+    });
+
+    const tilesets =
+      DECISION_TILESETS
+        .map((tileset) =>
+          map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
+        )
+        .filter(
+          (
+            tileset,
+          ): tileset is Phaser.Tilemaps.Tileset =>
+            tileset !== null,
+        );
+
+    DECISION_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+            0,
+            offsetY,
+          );
+
+        layer?.setDepth(depth);
+
+        if (
+          layerName ===
+          DECISION_COLLIDABLE_LAYER
+        ) {
+          layer?.setCollisionByExclusion(
+            [-1],
+          );
+
+          if (layer) {
+            this.physics.add.collider(
+              this.player.sprite,
+              layer,
+            );
+          }
+        }
+      },
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -637,33 +757,27 @@ const corridorY =
         1) *
       DECISION_MAP_TILE_SIZE;
 
-    const corridorHeight =
-      32 *
-      CORRIDOR_MAP_TILE_SIZE;
-
-    const optionRoomHeight =
-      24 *
-      DECISION_MAP_TILE_SIZE;
-
-    const totalExtraHeight =
-      corridorHeight +
-      optionRoomHeight;
-
     this.physics.world.setBounds(
       boundsX,
       boundsY,
       boundsWidthPx,
-      boundsHeightPx +
-        totalExtraHeight,
+      boundsHeightPx,
     );
 
     this.cameras.main.setBounds(
       boundsX,
       boundsY,
       boundsWidthPx,
-      boundsHeightPx +
-        totalExtraHeight,
+      boundsHeightPx,
     );
+
+    // Track where the next segment
+    // should start in world space.
+    this.decisionRoomOffsetY =
+      boundsY;
+
+    this.worldBottomY =
+      boundsY + boundsHeightPx;
   }
 
   // ---------------------------------------------------------------------------
@@ -716,7 +830,11 @@ const corridorY =
           )
         : 120;
 
+    // Door Y is relative to wherever the
+    // current decision room tilemap was
+    // placed (changes each round).
     const doorY =
+      this.decisionRoomOffsetY +
       DECISION_DOOR_ROW_TILE_Y *
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
@@ -807,6 +925,13 @@ const corridorY =
         spawnX,
         spawnY,
       );
+
+    this.cameras.main.startFollow(
+      this.player.sprite,
+      true,
+      0.1,
+      0.1,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1185,6 +1310,55 @@ const corridorY =
             decision.round,
         });
 
+        // -------------------------------------------------------
+        // Extend the world downward with a new decision room.
+        // -------------------------------------------------------
+
+        const newRoomOffsetY =
+          this.worldBottomY;
+
+        this.buildDecisionRoomAt(
+          newRoomOffsetY,
+        );
+
+        this.decisionRoomOffsetY =
+          newRoomOffsetY;
+
+        const decisionRoomHeightPx =
+          (
+            DECISION_MAP_BOUNDS.maxTileY -
+            DECISION_MAP_BOUNDS.minTileY +
+            1
+          ) *
+          DECISION_MAP_TILE_SIZE;
+
+        this.worldBottomY +=
+          decisionRoomHeightPx;
+
+        // Expand camera / physics bounds.
+        const bounds =
+          this.cameras.main.getBounds();
+
+        const newH = Math.max(
+          bounds.height,
+          this.worldBottomY -
+            bounds.y,
+        );
+
+        this.physics.world.setBounds(
+          bounds.x,
+          bounds.y,
+          bounds.width,
+          newH,
+        );
+
+        this.cameras.main.setBounds(
+          bounds.x,
+          bounds.y,
+          bounds.width,
+          newH,
+        );
+
         this.phase =
           GamePhase.EXPLORING_DOORS;
 
@@ -1193,6 +1367,9 @@ const corridorY =
             'NEXT_DECISION_LOADING',
         });
 
+        // Short delay so React can
+        // show a transition before the
+        // new doors appear.
         this.time.delayedCall(
           500,
           () => {
