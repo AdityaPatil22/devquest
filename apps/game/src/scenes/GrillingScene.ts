@@ -86,8 +86,6 @@ export class GrillingScene extends Phaser.Scene {
 
   private optionRoomGenerator!: OptionRoomGenerator;
 
-  private optionRoom?: Phaser.GameObjects.Container;
-
   private unsubscribeWs?: () => void;
 
   private devMode = false;
@@ -436,29 +434,18 @@ export class GrillingScene extends Phaser.Scene {
   private createOptionRoom(
     door: DoorObject,
   ): void {
-    const tileSize =
-      DECISION_MAP_TILE_SIZE;
-
-    const roomWidth =
-      32 * tileSize;
-
-    const roomHeight =
-      24 * tileSize;
-
-    // Place the option room directly
-    // below wherever the corridor ended.
-    this.optionRoom =
+    // Place a random option room tilemap
+    // directly below the corridor.
+    // create() returns the room height in px.
+    const roomHeightPx =
       this.optionRoomGenerator.create({
         x: door.x,
-        y:
-          this.worldBottomY +
-          roomHeight / 2,
-        width: roomWidth,
-        height: roomHeight,
+        y: this.worldBottomY,
+        player: this.player.sprite,
       });
 
     this.worldBottomY +=
-      roomHeight;
+      roomHeightPx;
 
     // Expand bounds to include the
     // new option room.
@@ -1182,11 +1169,10 @@ export class GrillingScene extends Phaser.Scene {
       context,
     });
 
-    this.emitUI({
-      type: 'WAITING',
-      message:
-        'Walk to the next room...',
-    });
+    // No WAITING overlay here —
+    // the corridor walk IS the loading
+    // experience. The challenge panel will
+    // appear when the AI responds.
   }
 
   // ---------------------------------------------------------------------------
@@ -1362,16 +1348,18 @@ export class GrillingScene extends Phaser.Scene {
         this.phase =
           GamePhase.EXPLORING_DOORS;
 
+        // Clear the evaluation panel
+        // immediately so the player can
+        // see the world and start walking.
         this.emitUI({
-          type:
-            'NEXT_DECISION_LOADING',
+          type: 'EXPLORING_DOORS',
         });
 
-        // Short delay so React can
-        // show a transition before the
-        // new doors appear.
+        // Render new doors after a short
+        // delay so the camera has time
+        // to show the new room.
         this.time.delayedCall(
-          500,
+          400,
           () => {
             this.clearDecision();
 
