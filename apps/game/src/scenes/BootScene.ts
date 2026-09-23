@@ -16,6 +16,11 @@ import {
   TROPHY_MAP_TILE_SIZE,
 } from '../tilemaps/trophyRoomTilemap';
 
+import {
+  CORRIDOR_TILEMAP_KEY,
+  CORRIDOR_TILEMAP_PATH,
+} from '../tilemaps/corridorTilemap';
+
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
@@ -137,6 +142,15 @@ export class BootScene extends Phaser.Scene {
         spacing: 0,
       });
     });
+
+    // ─────────────────────────────────────────
+    // Corridor
+    // ─────────────────────────────────────────
+
+    this.load.tilemapTiledJSON(
+      CORRIDOR_TILEMAP_KEY,
+      CORRIDOR_TILEMAP_PATH,
+    );
 
     // ─────────────────────────────────────────
     // Trophy Room

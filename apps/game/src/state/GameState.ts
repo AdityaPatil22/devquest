@@ -19,4 +19,6 @@ export enum GamePhase {
   SHOWING_EVALUATION = 'SHOWING_EVALUATION',
   /** Trophy Room — session complete */
   TROPHY = 'TROPHY',
+  /** Player has selected an option and is walking to its room */
+  TRAVERSING_OPTION = 'TRAVERSING_OPTION',
 }

@@ -50,17 +50,18 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
     }
 
     case 'GrillingScene': {
-      const { ws, store, decision } = createDevGameState();
+    const { ws, store, decision } = createDevGameState();
 
-      game.scene.start('GrillingScene', {
-        ws,
-        store,
-        decision,
-        restored: false,
-      });
+    game.scene.start('GrillingScene', {
+      ws,
+      store,
+      decision,
+      restored: false,
+      devMode: true,
+    });
 
-      break;
-    }
+    break;
+  }
   }
 }
 

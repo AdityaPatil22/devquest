@@ -266,31 +266,31 @@ export function GameUI() {
   }, [game]);
 
   const submitDoorContext = useCallback(
-    (context?: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
-        | {
-            confirmDoorSelection?: (value?: string) => void;
-          }
-        | undefined;
-
-      scene?.confirmDoorSelection?.(context);
-    },
-    [game],
-  );
-
-  const cancelDoorContext = useCallback(() => {
-    const scene = game?.scene.getScene('DecisionRoomScene') as
+  (context?: string) => {
+    const scene = game?.scene.getScene('GrillingScene') as
       | {
-          cancelDoorSelection?: () => void;
+          confirmDoorSelection?: (value?: string) => void;
         }
       | undefined;
 
-    scene?.cancelDoorSelection?.();
-  }, [game]);
+    scene?.confirmDoorSelection?.(context);
+  },
+  [game],
+);
+
+  const cancelDoorContext = useCallback(() => {
+  const scene = game?.scene.getScene('GrillingScene') as
+    | {
+        cancelDoorSelection?: () => void;
+      }
+    | undefined;
+
+  scene?.cancelDoorSelection?.();
+}, [game]);
 
   const submitDefense = useCallback(
     (defense: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
+      const scene = game?.scene.getScene('GrillingScene') as
         | {
             submitDefense?: (value: string) => void;
           }
