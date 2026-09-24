@@ -200,78 +200,6 @@ export class DecisionRoomScene extends Phaser.Scene {
     }
 
     /**
-     * Option selected.
-     *
-     * The skill has not returned the challenge yet.
-     */
-    if (decision.selectedOptionId && !decision.challenge) {
-      this.phase = GamePhase.WAITING_FOR_CHALLENGE;
-
-      this.player.stop();
-
-      this.emitUI({
-        type: 'WAITING',
-        message: 'Waiting for the challenge...',
-      });
-
-      return;
-    }
-
-    /**
-     * Challenge received.
-     *
-     * React should display the challenge
-     * and defense input.
-     */
-    if (decision.challenge && !decision.defense) {
-      this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
-
-      this.player.stop();
-
-      this.emitUI({
-        type: 'CHALLENGE',
-        question: decision.challenge,
-      });
-
-      return;
-    }
-
-    /**
-     * Defense submitted.
-     *
-     * Waiting for evaluation.
-     */
-    if (decision.defense && !decision.feedback) {
-      this.phase = GamePhase.WAITING_FOR_EVALUATION;
-
-      this.player.stop();
-
-      this.emitUI({
-        type: 'WAITING',
-        message: 'Waiting for evaluation...',
-      });
-
-      return;
-    }
-
-    /**
-     * Evaluation already exists.
-     */
-    if (decision.feedback) {
-      this.phase = GamePhase.SHOWING_EVALUATION;
-
-      this.player.stop();
-
-      this.emitUI({
-        type: 'EVALUATION',
-        feedback: decision.feedback,
-        consequence: decision.consequence ?? '',
-      });
-
-      return;
-    }
-
-    /**
      * Nothing selected.
      */
     this.phase = GamePhase.EXPLORING_DOORS;
@@ -588,7 +516,6 @@ export class DecisionRoomScene extends Phaser.Scene {
   }
 
   private selectDoor(door: DoorObject, context?: string): void {
-    this.phase = GamePhase.WAITING_FOR_CHALLENGE;
 
     this.player.stop();
 
@@ -610,51 +537,6 @@ export class DecisionRoomScene extends Phaser.Scene {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Challenge response
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Called by React when the player submits
-   * their defense to the challenge.
-   *
-   * NOTE:
-   * If your protocol uses a different message
-   * type for defense submission, change the
-   * `type` below to the exact protocol value.
-   */
-  public submitDefense(defense: string): void {
-    const trimmed = defense.trim();
-
-    if (!trimmed) {
-      return;
-    }
-
-    const decision = this.store.getCurrentDecision();
-
-    if (!decision) {
-      return;
-    }
-
-    this.phase = GamePhase.WAITING_FOR_EVALUATION;
-
-    this.player.stop();
-
-    this.store.updateCurrent({
-      defense: trimmed,
-    });
-
-    this.emitUI({
-      type: 'WAITING',
-      message: 'Waiting for evaluation...',
-    });
-
-    this.ws.send({
-      type: 'CHALLENGE_RESPONSE',
-      nodeId: this.currentNodeId,
-      response: trimmed,
-    });
-  }
 
   // ---------------------------------------------------------------------------
   // Server messages
@@ -666,49 +548,7 @@ export class DecisionRoomScene extends Phaser.Scene {
       // Challenge
       // -----------------------------------------------------------------------
 
-      case 'CHALLENGE': {
-        const challenge = msg as ChallengeMsg;
 
-        this.store.updateCurrent({
-          challenge: challenge.question,
-        });
-
-        this.phase = GamePhase.RESPONDING_TO_CHALLENGE;
-
-        this.player.stop();
-
-        this.emitUI({
-          type: 'CHALLENGE',
-          question: challenge.question,
-        });
-
-        break;
-      }
-
-      // -----------------------------------------------------------------------
-      // Evaluation
-      // -----------------------------------------------------------------------
-
-      case 'EVALUATION': {
-        const evaluation = msg as EvaluationMsg;
-
-        this.store.updateCurrent({
-          feedback: evaluation.feedback,
-          consequence: evaluation.consequence,
-        });
-
-        this.phase = GamePhase.SHOWING_EVALUATION;
-
-        this.player.stop();
-
-        this.emitUI({
-          type: 'EVALUATION',
-          feedback: evaluation.feedback,
-          consequence: evaluation.consequence,
-        });
-
-        break;
-      }
 
       // -----------------------------------------------------------------------
       // Next decision

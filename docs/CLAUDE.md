@@ -174,10 +174,6 @@ GATE_INPUT
 WAITING_FOR_QUESTION
 EXPLORING_DOORS
 DOOR_CONTEXT
-WAITING_FOR_CHALLENGE
-RESPONDING_TO_CHALLENGE
-WAITING_FOR_EVALUATION
-SHOWING_EVALUATION
 TROPHY
 ```
 
@@ -303,9 +299,6 @@ React ElevatorModal
 
 React DoorContextModal
     -> DecisionRoomScene.confirmDoorSelection()
-
-React ChallengePanel
-    -> DecisionRoomScene.submitDefense()
 ```
 
 Do not move large React overlays into Phaser unless there is a strong reason.
@@ -762,9 +755,6 @@ CHALLENGE
       |
       v
 CHALLENGE_RESPONSE
-      |
-      v
-WAITING_FOR_EVALUATION
       |
       v
 EVALUATION

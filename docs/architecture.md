@@ -443,9 +443,6 @@ React ElevatorModal
 
 React DoorContextModal
     -> DecisionRoomScene.confirmDoorSelection()
-
-React ChallengePanel
-    -> DecisionRoomScene.submitDefense()
 ```
 
 ## 10. Client Networking
@@ -778,15 +775,6 @@ EXPLORING_DOORS
   |
   v
 DOOR_CONTEXT
-  |
-  v
-WAITING_FOR_CHALLENGE
-  |
-  v
-RESPONDING_TO_CHALLENGE
-  |
-  v
-WAITING_FOR_EVALUATION
   |
   v
 SHOWING_EVALUATION
