@@ -3,7 +3,6 @@ import { Player } from '../entities/Player';
 import { GamePhase } from '../state/GameState';
 import { SessionStore } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
-import { OptionRoomGenerator } from '../world/OptionRoomGenerator';
 
 import {
   DECISION_TILEMAP_KEY,
@@ -83,8 +82,6 @@ export class GrillingScene extends Phaser.Scene {
   private currentDoor?: DoorObject;
 
   private currentNodeId = '';
-
-  private optionRoomGenerator!: OptionRoomGenerator;
 
   private unsubscribeWs?: () => void;
 
@@ -184,9 +181,6 @@ export class GrillingScene extends Phaser.Scene {
 
     const decision =
       this.data.get('decision') as DecisionCreatedMsg;
-
-    this.optionRoomGenerator =
-      new OptionRoomGenerator(this);
 
     this.renderDecision(decision);
 
@@ -425,52 +419,6 @@ export class GrillingScene extends Phaser.Scene {
     // the bottom of this corridor.
     this.worldBottomY =
       corridorBottom;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Option room
-  // ---------------------------------------------------------------------------
-
-  private createOptionRoom(
-    door: DoorObject,
-  ): void {
-    // Place a random option room tilemap
-    // directly below the corridor.
-    // create() returns the room height in px.
-    const roomHeightPx =
-      this.optionRoomGenerator.create({
-        x: door.x,
-        y: this.worldBottomY,
-        player: this.player.sprite,
-      });
-
-    this.worldBottomY +=
-      roomHeightPx;
-
-    // Expand bounds to include the
-    // new option room.
-    const bounds =
-      this.cameras.main.getBounds();
-
-    const newH = Math.max(
-      bounds.height,
-      this.worldBottomY -
-        bounds.y,
-    );
-
-    this.physics.world.setBounds(
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      newH,
-    );
-
-    this.cameras.main.setBounds(
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      newH,
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1146,10 +1094,6 @@ export class GrillingScene extends Phaser.Scene {
 
     // Generate the selected branch only.
     this.createCorridor(
-      door,
-    );
-
-    this.createOptionRoom(
       door,
     );
 
