@@ -74,33 +74,106 @@ export const CORRIDOR_TILE_LAYERS = [
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
 
 export const CORRIDOR_MAP_BOUNDS = {
-  minTileX: 0,
+  minTileX: 2,
   maxTileX: 47,
   minTileY: 0,
-  maxTileY: 31,
+  maxTileY: 15,
 };
 
+interface CorridorTileChunk {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  data: number[];
+}
+
+interface CorridorTileLayer {
+  type?: string;
+  name?: string;
+  chunks?: CorridorTileChunk[];
+}
+
 export function patchCorridorTilesets(
-  rawMapJson: { tilesets: unknown[] },
+  rawMapJson: {
+    tilesets: unknown[];
+    layers?: CorridorTileLayer[];
+  },
 ): void {
-  rawMapJson.tilesets = CORRIDOR_TILESETS.map(
-    (tileset) => ({
-      columns: tileset.columns,
-      firstgid: tileset.firstgid,
+  rawMapJson.tilesets =
+    CORRIDOR_TILESETS.map(
+      (tileset) => ({
+        columns: tileset.columns,
+        firstgid: tileset.firstgid,
+        image:
+          tileset.path
+            .split('/')
+            .pop(),
+        imageheight:
+          tileset.imageheight,
+        imagewidth:
+          tileset.imagewidth,
+        margin: 0,
+        name: tileset.name,
+        spacing: 0,
+        tilecount: tileset.tilecount,
+        tileheight:
+          CORRIDOR_MAP_TILE_SIZE,
+        tilewidth:
+          CORRIDOR_MAP_TILE_SIZE,
+      }),
+    );
 
-      image: tileset.path.split('/').pop(),
+  for (
+    const layer of
+      rawMapJson.layers ?? []
+  ) {
+    if (
+      layer.type !== 'tilelayer' ||
+      !layer.chunks
+    ) {
+      continue;
+    }
 
-      imageheight: tileset.imageheight,
-      imagewidth: tileset.imagewidth,
+    for (
+      const chunk of
+        layer.chunks
+    ) {
+      for (
+        let row = 0;
+        row < chunk.height;
+        row++
+      ) {
+        for (
+          let col = 0;
+          col < chunk.width;
+          col++
+        ) {
+          const worldX =
+            chunk.x +
+            col;
 
-      margin: 0,
-      name: tileset.name,
-      spacing: 0,
+          const worldY =
+            chunk.y +
+            row;
 
-      tilecount: tileset.tilecount,
-
-      tileheight: CORRIDOR_MAP_TILE_SIZE,
-      tilewidth: CORRIDOR_MAP_TILE_SIZE,
-    }),
-  );
+          if (
+            worldX <
+              CORRIDOR_MAP_BOUNDS.minTileX ||
+            worldX >
+              CORRIDOR_MAP_BOUNDS.maxTileX ||
+            worldY <
+              CORRIDOR_MAP_BOUNDS.minTileY ||
+            worldY >
+              CORRIDOR_MAP_BOUNDS.maxTileY
+          ) {
+            chunk.data[
+              row * chunk.width +
+              col
+            ] = 0;
+          }
+        }
+      }
+    }
+  }
 }
