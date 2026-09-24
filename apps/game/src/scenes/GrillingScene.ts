@@ -81,8 +81,8 @@ const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
 const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 
-const CORRIDOR_EXIT_TILE_Y = 14;
-const OPTION_ROOM_ENTRY_TILE_Y = 16;
+const OPTION_ROOM_SHIFT_X_PX = 160;
+const OPTION_ROOM_OVERLAP_Y_PX = 0;
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
@@ -248,36 +248,6 @@ export class GrillingScene extends Phaser.Scene {
   // Initial continuous world
   // ---------------------------------------------------------------------------
 
-  private buildInitialWorld(): void {
-    // 1. Decision Room
-    this.buildRoom();
-
-    // Center the corridor under the Decision Room.
-    const decisionCenterX =
-      (
-        DECISION_MAP_BOUNDS.minTileX +
-        DECISION_MAP_BOUNDS.maxTileX +
-        1
-      ) *
-      DECISION_MAP_TILE_SIZE /
-      2;
-
-    // 2. Corridor
-    const corridor =
-      this.createCorridorAt(
-        decisionCenterX,
-      );
-
-    // 3. Room-1
-    this.buildRoom1(
-      corridor,
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Initial continuous world
-  // ---------------------------------------------------------------------------
-
   private buildInitialWorld(
     decision: DecisionCreatedMsg,
   ): void {
@@ -309,18 +279,11 @@ export class GrillingScene extends Phaser.Scene {
   private createCorridor(
     door: DoorObject,
   ): void {
-    this.removeSegment(
-      'option-room-1',
-    );
-
-    this.removeSegment(
-      'corridor',
-    );
+    this.removeSegment('option-room-1');
+    this.removeSegment('corridor');
 
     const corridor =
-      this.createCorridorAt(
-        door.x,
-      );
+      this.createCorridorAt(door);
 
     this.buildRoom1FromCorridor(
       corridor,
@@ -328,7 +291,7 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private createCorridorAt(
-    doorX: number,
+    door: DoorObject,
   ): WorldSegment {
     const cached =
       this.cache.tilemap.get(
@@ -377,11 +340,23 @@ export class GrillingScene extends Phaser.Scene {
       ) *
       CORRIDOR_MAP_TILE_SIZE;
 
+    /*
+     * Layout rule:
+     *
+     *   Decision Door
+     *        ▲
+     *        │ corridor bottom-left corner
+     *
+     * The corridor grows upward from the
+     * selected door instead of being placed
+     * below the Decision Room.
+     */
     const segmentX =
-      doorX;
+      door.x;
 
     const segmentY =
-      this.worldBottomY;
+      door.y -
+      height;
 
     const layerX =
       segmentX -
@@ -459,31 +434,11 @@ export class GrillingScene extends Phaser.Scene {
       segment,
     );
 
-    const corridorBottom =
-      segmentY + height;
-
-    this.worldBottomY =
-      Math.max(
-        this.worldBottomY,
-        corridorBottom,
-      );
-
     this.extendWorldBounds(
       segmentX,
       segmentY,
       segmentX + width,
-      corridorBottom,
-    );
-
-    console.log(
-      '[GrillingScene] Corridor created:',
-      {
-        x: segmentX,
-        y: segmentY,
-        width,
-        height,
-        entryDoorX: doorX,
-      },
+      segmentY + height,
     );
 
     return segment;
@@ -529,16 +484,26 @@ export class GrillingScene extends Phaser.Scene {
     const height =
       OPTION_ROOM_HEIGHT_PX;
 
+    /*
+     * Layout rule:
+     *
+     *   ┌──────────── Room-1
+     *   │
+     *   └──────┐
+     *          │ corridor
+     *
+     * Room-1 is above the corridor and
+     * shifted to the right, matching the
+     * continuous-world composition.
+     */
     const roomX =
       corridor.x +
-      corridor.width;
+      OPTION_ROOM_SHIFT_X_PX;
 
     const roomY =
-      corridor.y +
-      CORRIDOR_EXIT_TILE_Y *
-        CORRIDOR_MAP_TILE_SIZE -
-      OPTION_ROOM_ENTRY_TILE_Y *
-        DECISION_MAP_TILE_SIZE;
+      corridor.y -
+      height +
+      OPTION_ROOM_OVERLAP_Y_PX;
 
     const layerX =
       roomX -
@@ -616,20 +581,11 @@ export class GrillingScene extends Phaser.Scene {
       segment,
     );
 
-    const roomBottom =
-      roomY + height;
-
-    this.worldBottomY =
-      Math.max(
-        this.worldBottomY,
-        roomBottom,
-      );
-
     this.extendWorldBounds(
       roomX,
       roomY,
       roomX + width,
-      roomBottom,
+      roomY + height,
     );
   }
 
@@ -674,6 +630,11 @@ export class GrillingScene extends Phaser.Scene {
         (door) => {
           door.x += dx;
           door.y += dy;
+
+          door.doorSprite.setPosition(
+            door.x,
+            door.y,
+          );
         },
       );
     }
@@ -1306,29 +1267,27 @@ export class GrillingScene extends Phaser.Scene {
       DECISION_SPAWN_TILE.x *
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
-  
+
     const spawnY =
       DECISION_SPAWN_TILE.y *
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
-  
+
     this.player =
       new Player(
         this,
         spawnX,
         spawnY,
       );
-  
-    // TEMPORARY DEBUG
-    this.cameras.main.stopFollow();
-  
-    this.cameras.main.setZoom(0.5);
-  
-    this.cameras.main.centerOn(
-      350,
-      800,
+
+    this.cameras.main.startFollow(
+      this.player.sprite,
+      true,
+      0.1,
+      0.1,
     );
   }
+
 
   // ---------------------------------------------------------------------------
   // Keyboard
