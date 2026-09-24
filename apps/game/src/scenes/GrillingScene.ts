@@ -83,12 +83,20 @@ const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
 const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 
-const OPTION_ROOM_SHIFT_X_PX = 200;
-const OPTION_ROOM_OVERLAP_Y_PX = 20;
+const CORRIDOR_ENTRANCE_MIN_TILE_X = 17;
+const CORRIDOR_ENTRANCE_MAX_TILE_X = 19;
+const CORRIDOR_ENTRANCE_TILE_Y = 39;
 
-const CORRIDOR_ENTRANCE_MIN_TILE_X = 5;
-const CORRIDOR_ENTRANCE_MAX_TILE_X = 8;
-const CORRIDOR_ENTRANCE_TILE_Y = 12;
+const CORRIDOR_EXIT_MIN_TILE_X = 17;
+const CORRIDOR_EXIT_MAX_TILE_X = 19;
+const CORRIDOR_EXIT_TILE_Y = -10;
+
+const OPTION_ROOM_ENTRANCE_MIN_TILE_X = 22;
+const OPTION_ROOM_ENTRANCE_MAX_TILE_X = 24;
+const OPTION_ROOM_ENTRANCE_TILE_Y = 29;
+
+const CORRIDOR_WORLD_X_PX = 5;
+const CORRIDOR_WORLD_Y_PX = -1054;
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
@@ -223,17 +231,25 @@ export class GrillingScene extends Phaser.Scene {
     const height =
       (CORRIDOR_MAP_BOUNDS.maxTileY - CORRIDOR_MAP_BOUNDS.minTileY + 1) * CORRIDOR_MAP_TILE_SIZE;
 
-    const corridorEntranceCenterTileX =
-      (CORRIDOR_ENTRANCE_MIN_TILE_X + CORRIDOR_ENTRANCE_MAX_TILE_X + 1) / 2;
+      const corridorEntranceCenterTileX =
+      (CORRIDOR_ENTRANCE_MIN_TILE_X +
+        CORRIDOR_ENTRANCE_MAX_TILE_X) /
+      2;
 
     const corridorEntranceCenterOffsetX =
-      (corridorEntranceCenterTileX - CORRIDOR_MAP_BOUNDS.minTileX) * CORRIDOR_MAP_TILE_SIZE;
+      (corridorEntranceCenterTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        0.5) *
+      CORRIDOR_MAP_TILE_SIZE;
 
     const corridorEntranceCenterOffsetY =
-      (CORRIDOR_ENTRANCE_TILE_Y - CORRIDOR_MAP_BOUNDS.minTileY + 0.5) * CORRIDOR_MAP_TILE_SIZE;
+      (CORRIDOR_ENTRANCE_TILE_Y -
+        CORRIDOR_MAP_BOUNDS.minTileY +
+        0.5) *
+      CORRIDOR_MAP_TILE_SIZE;
 
-    const segmentX = door.x - corridorEntranceCenterOffsetX;
-    const segmentY = door.y - corridorEntranceCenterOffsetY - 50;
+      const segmentX = CORRIDOR_WORLD_X_PX;
+      const segmentY = CORRIDOR_WORLD_Y_PX;
 
     const layerX = segmentX - CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
     const layerY = segmentY - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
@@ -316,8 +332,47 @@ export class GrillingScene extends Phaser.Scene {
     const width = OPTION_ROOM_WIDTH_PX;
     const height = OPTION_ROOM_HEIGHT_PX;
 
-    const roomX = corridor.x + OPTION_ROOM_SHIFT_X_PX;
-    const roomY = corridor.y - height + OPTION_ROOM_OVERLAP_Y_PX;
+    const corridorExitCenterTileX =
+      (CORRIDOR_EXIT_MIN_TILE_X +
+        CORRIDOR_EXIT_MAX_TILE_X) /
+      2;
+
+    const corridorExitCenterX =
+      corridor.x +
+      (corridorExitCenterTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        0.5) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    const corridorExitCenterY =
+      corridor.y +
+      (CORRIDOR_EXIT_TILE_Y - CORRIDOR_MAP_BOUNDS.minTileY + 0.5) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    const optionRoomEntranceCenterTileX =
+      (OPTION_ROOM_ENTRANCE_MIN_TILE_X +
+        OPTION_ROOM_ENTRANCE_MAX_TILE_X) /
+      2;
+
+    const optionRoomEntranceOffsetX =
+      (optionRoomEntranceCenterTileX -
+        OPTION_ROOM_BOUNDS.minTileX +
+        0.5) *
+      DECISION_MAP_TILE_SIZE;
+
+    const optionRoomEntranceOffsetY =
+      (OPTION_ROOM_ENTRANCE_TILE_Y -
+        OPTION_ROOM_BOUNDS.minTileY +
+        0.5) *
+      DECISION_MAP_TILE_SIZE;
+
+    const roomX =
+      corridorExitCenterX -
+      optionRoomEntranceOffsetX;
+
+    const roomY =
+      corridorExitCenterY -
+      optionRoomEntranceOffsetY;
 
     const layerX = roomX - OPTION_ROOM_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE;
     const layerY = roomY - OPTION_ROOM_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE;
@@ -865,17 +920,26 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    // Doorway tiles from corridor.json.
-    for (let x = 6; x <= 7; x += 1) {
-      const tile = wallLayer.getTileAt(x, 11, true);
-
-      tile?.setCollision(false);
+    // Bottom connection to the Decision Room.
+    for (
+      let x = CORRIDOR_ENTRANCE_MIN_TILE_X;
+      x <= CORRIDOR_ENTRANCE_MAX_TILE_X;
+      x += 1
+    ) {
+      wallLayer
+        .getTileAt(x, CORRIDOR_ENTRANCE_TILE_Y, true)
+        ?.setCollision(false);
     }
 
-    for (let x = 5; x <= 8; x += 1) {
-      const tile = wallLayer.getTileAt(x, 12, true);
-
-      tile?.setCollision(false);
+    // Top connection to the Option Room.
+    for (
+      let x = CORRIDOR_EXIT_MIN_TILE_X;
+      x <= CORRIDOR_EXIT_MAX_TILE_X;
+      x += 1
+    ) {
+      wallLayer
+        .getTileAt(x, CORRIDOR_EXIT_TILE_Y, true)
+        ?.setCollision(false);
     }
   }
 
