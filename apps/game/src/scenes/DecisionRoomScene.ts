@@ -445,28 +445,27 @@ export class DecisionRoomScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   private approachDoor(door: DoorObject): void {
-    this.phase = GamePhase.DOOR_CONTEXT;
-
     this.currentDoor = door;
-
+    this.phase = GamePhase.TRAVERSING_OPTION;
+  
     this.hideDoorPrompt();
-
-    /**
-     * Open the actual Phaser door.
-     *
-     * The modal itself is React.
-     */
+  
     if (!door.isOpen) {
       door.isOpen = true;
-
-      door.doorSprite.setTexture('door-open').setOrigin(0.5, 1.32).setScale(DOOR_OPEN_SCALE);
+  
+      door.doorSprite
+        .setTexture('door-open')
+        .setOrigin(0.5, 1.32)
+        .setScale(DOOR_OPEN_SCALE);
     }
-
-    this.emitUI({
-      type: 'DOOR_CONTEXT',
-      visible: true,
-      option: door.option,
-    });
+  
+    // The door is a real passage now.
+    this.openDoorwayCollision(door);
+  
+    // Build the corridor before the player starts walking.
+    this.createCorridor(door);
+  
+    // Do NOT show the context overlay here.
   }
 
   // ---------------------------------------------------------------------------

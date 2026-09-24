@@ -84,6 +84,10 @@ const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 const OPTION_ROOM_SHIFT_X_PX = 200;
 const OPTION_ROOM_OVERLAP_Y_PX = 20;
 
+const CORRIDOR_ENTRANCE_MIN_TILE_X = 5;
+const CORRIDOR_ENTRANCE_MAX_TILE_X = 8;
+const CORRIDOR_ENTRANCE_TILE_Y = 12;
+
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
 
@@ -141,6 +145,10 @@ export class GrillingScene extends Phaser.Scene {
   private decisionSegment?: WorldSegment;
   private corridorSegment?: WorldSegment;
   private optionRoomSegment?: WorldSegment;
+
+  private corridorEntryTrigger?: Phaser.GameObjects.Zone;
+
+  private corridorContextShown = false;
 
   constructor() {
     super({
@@ -350,12 +358,45 @@ export class GrillingScene extends Phaser.Scene {
      * selected door instead of being placed
      * below the Decision Room.
      */
-    const segmentX =
-      door.x;
+    // ---------------------------------------------------------------------------
+// Align the corridor's actual entrance with the selected Decision Room door.
+//
+// Corridor map:
+//   playable bounds: X 2..47
+//   entrance:        X 5..8
+//   entrance wall:   Y 12
+//
+// `segmentX` is the world position of the corridor's minimum tile X.
+// ---------------------------------------------------------------------------
 
-    const segmentY =
-      door.y -
-      height - 43;
+const corridorEntranceCenterTileX =
+(
+  CORRIDOR_ENTRANCE_MIN_TILE_X +
+  CORRIDOR_ENTRANCE_MAX_TILE_X +
+  1
+) / 2;
+
+// Center of tile row 12.
+const corridorEntranceCenterOffsetX =
+(
+  corridorEntranceCenterTileX -
+  CORRIDOR_MAP_BOUNDS.minTileX
+) * CORRIDOR_MAP_TILE_SIZE;
+
+const corridorEntranceCenterOffsetY =
+(
+  CORRIDOR_ENTRANCE_TILE_Y -
+  CORRIDOR_MAP_BOUNDS.minTileY +
+  0.5
+) * CORRIDOR_MAP_TILE_SIZE;
+
+const segmentX =
+door.x -
+corridorEntranceCenterOffsetX;
+
+const segmentY =
+door.y -
+corridorEntranceCenterOffsetY;
 
     const layerX =
       segmentX -
@@ -442,6 +483,7 @@ export class GrillingScene extends Phaser.Scene {
 
     return segment;
   }
+
 
   private buildRoom1FromCorridor(
     corridor: WorldSegment,
@@ -585,6 +627,54 @@ export class GrillingScene extends Phaser.Scene {
       roomY,
       roomX + width,
       roomY + height,
+    );
+  }
+
+  private createCorridorEntryTrigger(
+    door: DoorObject,
+  ): void {
+    this.corridorEntryTrigger?.destroy();
+  
+    this.corridorContextShown = false;
+  
+    const trigger = this.add.zone(
+      door.x,
+      door.y - 48,
+      32,
+      32,
+    );
+  
+    this.physics.add.existing(
+      trigger,
+      true,
+    );
+  
+    this.corridorEntryTrigger = trigger;
+  
+    this.physics.add.overlap(
+      this.player.sprite,
+      trigger,
+      () => {
+        if (
+          this.corridorContextShown ||
+          !this.currentDoor
+        ) {
+          return;
+        }
+  
+        this.corridorContextShown = true;
+  
+        this.phase =
+          GamePhase.DOOR_CONTEXT;
+  
+        this.player.stop();
+  
+        this.emitUI({
+          type: 'DOOR_CONTEXT',
+          visible: true,
+          option: this.currentDoor.option,
+        });
+      },
     );
   }
 
@@ -1035,6 +1125,79 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
+  private openDoorwayCollision(door: DoorObject): void {
+    if (!this.wallsLayer) {
+      return;
+    }
+  
+    const doorTileX = Math.floor(
+      door.x / DECISION_MAP_TILE_SIZE,
+    );
+  
+    const doorTileY = Math.floor(
+      door.y / DECISION_MAP_TILE_SIZE,
+    );
+  
+    /*
+     * The door sprite is positioned below the actual wall.
+     * Find the first solid wall tile above the door, then
+     * remove collision from the complete wall thickness.
+     */
+    let wallStartY: number | undefined;
+  
+    for (
+      let y = doorTileY - 1;
+      y >= DECISION_MAP_BOUNDS.minTileY;
+      y -= 1
+    ) {
+      const tile = this.wallsLayer.getTileAt(
+        doorTileX,
+        y,
+        true,
+      );
+  
+      if (tile && tile.index !== -1) {
+        wallStartY = y;
+        break;
+      }
+    }
+  
+    if (wallStartY === undefined) {
+      console.warn(
+        '[GrillingScene] Could not find wall above door',
+      );
+      return;
+    }
+  
+    /*
+     * Clear a 2-tile-wide passage through the entire
+     * wall thickness.
+     */
+    for (
+      let x = doorTileX - 1;
+      x <= doorTileX + 1;
+      x += 1
+    ) {
+      for (
+        let y = wallStartY;
+        y >= DECISION_MAP_BOUNDS.minTileY;
+        y -= 1
+      ) {
+        const tile = this.wallsLayer.getTileAt(
+          x,
+          y,
+          true,
+        );
+  
+        if (!tile || tile.index === -1) {
+          continue;
+        }
+  
+        tile.setCollision(false);
+      }
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   // Decision rendering
@@ -1328,41 +1491,33 @@ export class GrillingScene extends Phaser.Scene {
   // Enter door
   // ---------------------------------------------------------------------------
 
-  private approachDoor(
-    door: DoorObject,
-  ): void {
-    this.phase =
-      GamePhase.DOOR_CONTEXT;
+  private approachDoor(door: DoorObject): void {
+  this.currentDoor = door;
+  this.phase = GamePhase.TRAVERSING_OPTION;
 
-    this.currentDoor =
-      door;
+  this.hideDoorPrompt();
 
-    this.hideDoorPrompt();
+  if (!door.isOpen) {
+    door.isOpen = true;
 
-    if (!door.isOpen) {
-      door.isOpen = true;
-
-      door.doorSprite
-        .setTexture(
-          'door-open',
-        )
-        .setOrigin(
-          0.5,
-          1.32,
-        )
-        .setScale(
-          DOOR_OPEN_SCALE,
-        );
-    }
-
-    this.emitUI({
-      type:
-        'DOOR_CONTEXT',
-      visible: true,
-      option:
-        door.option,
-    });
+    door.doorSprite
+      .setTexture('door-open')
+      .setOrigin(0.5, 1.32)
+      .setScale(DOOR_OPEN_SCALE);
   }
+
+  // Open Decision Room wall.
+  this.openDoorwayCollision(door);
+
+  // Generate corridor.
+  this.createCorridor(door);
+
+  // Open corridor entrance.
+  this.openCorridorEntrance();
+
+  // Put context trigger inside the corridor.
+  this.createCorridorEntryTrigger(door);
+}
 
   // ---------------------------------------------------------------------------
   // Select door
@@ -1428,35 +1583,64 @@ export class GrillingScene extends Phaser.Scene {
   ): void {
     this.phase =
       GamePhase.TRAVERSING_OPTION;
-
-    this.currentDoor =
-      door;
-
-    // Generate the selected branch only.
-    this.createCorridor(
-      door,
-    );
-
+  
     this.store.updateCurrent({
-      selectedOptionId:
-        door.option.id,
+      selectedOptionId: door.option.id,
       context,
     });
-
+  
     this.ws.send({
-      type:
-        'OPTION_SELECTED',
-      nodeId:
-        this.currentNodeId,
-      optionId:
-        door.option.id,
+      type: 'OPTION_SELECTED',
+      nodeId: this.currentNodeId,
+      optionId: door.option.id,
       context,
     });
+  
+    this.emitUI({
+      type: 'DOOR_CONTEXT',
+      visible: false,
+    });
+  
+    this.corridorEntryTrigger?.destroy();
+    this.corridorEntryTrigger = undefined;
+  }
 
-    // No WAITING overlay here —
-    // the corridor walk IS the loading
-    // experience. The challenge panel will
-    // appear when the AI responds.
+  private openCorridorEntrance(): void {
+    if (!this.corridorSegment) {
+      return;
+    }
+  
+    const wallLayer =
+      this.corridorSegment.layers.find(
+        (layer) =>
+          layer.layer.name ===
+          CORRIDOR_COLLIDABLE_LAYER,
+      );
+  
+    if (!wallLayer) {
+      return;
+    }
+  
+    // Doorway tiles from corridor.json.
+    for (let x = 6; x <= 7; x += 1) {
+      const tile = wallLayer.getTileAt(
+        x,
+        11,
+        true,
+      );
+  
+      tile?.setCollision(false);
+    }
+  
+    for (let x = 5; x <= 8; x += 1) {
+      const tile = wallLayer.getTileAt(
+        x,
+        12,
+        true,
+      );
+  
+      tile?.setCollision(false);
+    }
   }
 
   // ---------------------------------------------------------------------------
