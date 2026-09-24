@@ -27,18 +27,31 @@ export const OPTION_ROOM_TILEMAP_KEYS = [
 export type OptionRoomKey =
   (typeof OPTION_ROOM_TILEMAP_KEYS)[number];
 
-export const OPTION_ROOM_TILEMAP_PATHS:
-  Record<OptionRoomKey, string> = {
+export const OPTION_ROOM_TILEMAP_PATHS: Record<
+  OptionRoomKey,
+  string
+> = {
   'option-room-1':
     'assets/map/randomrooms/room-1.json',
+
   'option-room-2':
     'assets/map/randomrooms/room-2.json',
+
   'option-room-3':
     'assets/map/randomrooms/room-3.json',
+
   'option-room-4':
     'assets/map/randomrooms/room-4.json',
 };
 
+/**
+ * Tile layers rendered from bottom -> top.
+ *
+ * The uploaded random-room maps currently contain
+ * Tile Layer 1 and Walls. Keep the list tolerant of
+ * future furniture/computer layers if they are added
+ * to the remaining room variants.
+ */
 export const OPTION_ROOM_TILE_LAYERS = [
   'Tile Layer 1',
   'Walls',
@@ -46,16 +59,33 @@ export const OPTION_ROOM_TILE_LAYERS = [
   'computers',
 ];
 
-export const OPTION_ROOM_COLLIDABLE_LAYER =
-  'Walls';
+/**
+ * Layer containing blocking wall tiles.
+ */
+export const OPTION_ROOM_COLLIDABLE_LAYER = 'Walls';
 
+/**
+ * Actual playable bounds of the option rooms.
+ *
+ * The floor occupies:
+ *
+ *   X: 2 -> 47
+ *   Y: 0 -> 29
+ *
+ * The Walls layer has an additional boundary tile at X=48,
+ * but that is part of the wall perimeter rather than the
+ * playable floor area.
+ */
 export const OPTION_ROOM_BOUNDS = {
-  minTileX: 1,
-  maxTileX: 48,
+  minTileX: 2,
+  maxTileX: 47,
   minTileY: 0,
   maxTileY: 29,
 };
 
+/**
+ * Width of the playable room in pixels.
+ */
 export const OPTION_ROOM_WIDTH_PX =
   (
     OPTION_ROOM_BOUNDS.maxTileX -
@@ -64,6 +94,9 @@ export const OPTION_ROOM_WIDTH_PX =
   ) *
   DECISION_MAP_TILE_SIZE;
 
+/**
+ * Height of the playable room in pixels.
+ */
 export const OPTION_ROOM_HEIGHT_PX =
   (
     OPTION_ROOM_BOUNDS.maxTileY -
@@ -86,20 +119,24 @@ interface OptionRoomTileLayer {
   chunks?: OptionRoomTileChunk[];
 }
 
+/**
+ * Replace Tiled's external tileset references with
+ * embedded tileset definitions that Phaser can consume.
+ *
+ * Also removes tile data outside the playable room bounds.
+ * This is important because the maps are infinite/chunked
+ * Tiled maps and some decorative layers extend beyond
+ * the playable floor.
+ */
 export function patchOptionRoomTilesets(
   rawMapJson: {
     tilesets: unknown[];
     layers?: OptionRoomTileLayer[];
   },
 ): void {
-  patchDecisionRoomTilesets(
-    rawMapJson,
-  );
+  patchDecisionRoomTilesets(rawMapJson);
 
-  for (
-    const layer of
-      rawMapJson.layers ?? []
-  ) {
+  for (const layer of rawMapJson.layers ?? []) {
     if (
       layer.type !== 'tilelayer' ||
       !layer.chunks
@@ -107,29 +144,13 @@ export function patchOptionRoomTilesets(
       continue;
     }
 
-    for (
-      const chunk of
-        layer.chunks
-    ) {
-      for (
-        let row = 0;
-        row < chunk.height;
-        row++
-      ) {
-        for (
-          let col = 0;
-          col < chunk.width;
-          col++
-        ) {
-          const worldX =
-            chunk.x +
-            col;
+    for (const chunk of layer.chunks) {
+      for (let row = 0; row < chunk.height; row++) {
+        for (let col = 0; col < chunk.width; col++) {
+          const worldX = chunk.x + col;
+          const worldY = chunk.y + row;
 
-          const worldY =
-            chunk.y +
-            row;
-
-          if (
+          const outsideBounds =
             worldX <
               OPTION_ROOM_BOUNDS.minTileX ||
             worldX >
@@ -137,11 +158,11 @@ export function patchOptionRoomTilesets(
             worldY <
               OPTION_ROOM_BOUNDS.minTileY ||
             worldY >
-              OPTION_ROOM_BOUNDS.maxTileY
-          ) {
+              OPTION_ROOM_BOUNDS.maxTileY;
+
+          if (outsideBounds) {
             chunk.data[
-              row * chunk.width +
-              col
+              row * chunk.width + col
             ] = 0;
           }
         }

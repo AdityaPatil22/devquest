@@ -233,7 +233,7 @@ export class GrillingScene extends Phaser.Scene {
       (CORRIDOR_ENTRANCE_TILE_Y - CORRIDOR_MAP_BOUNDS.minTileY + 0.5) * CORRIDOR_MAP_TILE_SIZE;
 
     const segmentX = door.x - corridorEntranceCenterOffsetX;
-    const segmentY = door.y - corridorEntranceCenterOffsetY;
+    const segmentY = door.y - corridorEntranceCenterOffsetY - 50;
 
     const layerX = segmentX - CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
     const layerY = segmentY - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
