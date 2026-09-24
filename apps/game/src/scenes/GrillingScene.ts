@@ -81,8 +81,8 @@ const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
 const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 
-const OPTION_ROOM_SHIFT_X_PX = 160;
-const OPTION_ROOM_OVERLAP_Y_PX = 0;
+const OPTION_ROOM_SHIFT_X_PX = 200;
+const OPTION_ROOM_OVERLAP_Y_PX = 20;
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
@@ -233,7 +233,6 @@ export class GrillingScene extends Phaser.Scene {
       this.phase === GamePhase.TRAVERSING_OPTION
     ) {
       this.player.handleMovement(this.cursors);
-
       if (
         this.phase === GamePhase.EXPLORING_DOORS
       ) {
@@ -356,7 +355,7 @@ export class GrillingScene extends Phaser.Scene {
 
     const segmentY =
       door.y -
-      height;
+      height - 43;
 
     const layerX =
       segmentX -
@@ -697,50 +696,39 @@ export class GrillingScene extends Phaser.Scene {
     bottom: number,
   ): void {
     const currentBounds =
-      this.cameras.main.getBounds();
+      this.physics.world.bounds;
+
+    const padding = 512;
 
     const minX =
       Math.min(
         currentBounds.x,
-        left,
+        left - padding,
       );
 
     const minY =
       Math.min(
         currentBounds.y,
-        top,
+        top - padding,
       );
 
     const maxX =
       Math.max(
         currentBounds.right,
-        right,
+        right + padding,
       );
 
     const maxY =
       Math.max(
         currentBounds.bottom,
-        bottom,
+        bottom + padding,
       );
-
-    const width =
-      maxX - minX;
-
-    const height =
-      maxY - minY;
 
     this.physics.world.setBounds(
       minX,
       minY,
-      width,
-      height,
-    );
-
-    this.cameras.main.setBounds(
-      minX,
-      minY,
-      width,
-      height,
+      maxX - minX,
+      maxY - minY,
     );
   }
 
@@ -1091,13 +1079,6 @@ export class GrillingScene extends Phaser.Scene {
       boundsHeightPx,
     );
 
-    this.cameras.main.setBounds(
-      boundsX,
-      boundsY,
-      boundsWidthPx,
-      boundsHeightPx,
-    );
-
     this.decisionRoomOffsetY =
       boundsY;
 
@@ -1273,12 +1254,18 @@ export class GrillingScene extends Phaser.Scene {
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
 
-    this.player =
-      new Player(
-        this,
-        spawnX,
-        spawnY,
-      );
+    this.player = new Player(
+      this,
+      spawnX,
+      spawnY,
+    );
+
+    // Keep the player visually above all tilemap layers.
+    this.player.sprite.setDepth(50);
+
+    // The continuous world is not one rectangular room.
+    // Tiled wall colliders define the actual playable boundary.
+    this.player.sprite.setCollideWorldBounds(false);
 
     this.cameras.main.startFollow(
       this.player.sprite,
@@ -1286,8 +1273,12 @@ export class GrillingScene extends Phaser.Scene {
       0.1,
       0.1,
     );
-  }
 
+    this.cameras.main.setDeadzone(
+      120,
+      80,
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Keyboard
@@ -1685,7 +1676,9 @@ export class GrillingScene extends Phaser.Scene {
         this.worldBottomY +=
           decisionRoomHeightPx;
 
-        // Expand camera / physics bounds.
+        // Expand only the physics world bounds.
+        // The camera follows the player and is intentionally not
+        // constrained to the generated world rectangle.
         const bounds =
           this.cameras.main.getBounds();
 
@@ -1696,13 +1689,6 @@ export class GrillingScene extends Phaser.Scene {
         );
 
         this.physics.world.setBounds(
-          bounds.x,
-          bounds.y,
-          bounds.width,
-          newH,
-        );
-
-        this.cameras.main.setBounds(
           bounds.x,
           bounds.y,
           bounds.width,
