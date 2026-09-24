@@ -27,6 +27,16 @@ import {
   patchCorridorTilesets,
 } from '../tilemaps/corridorTilemap';
 
+import {
+  OPTION_ROOM_TILEMAP_KEYS,
+  OPTION_ROOM_TILE_LAYERS,
+  OPTION_ROOM_COLLIDABLE_LAYER,
+  OPTION_ROOM_WIDTH_PX,
+  OPTION_ROOM_HEIGHT_PX,
+  OPTION_ROOM_TILESETS,
+  patchOptionRoomTilesets,
+} from '../tilemaps/optionRoomTilemap';
+
 import type {
   ServerMessage,
   DecisionCreatedMsg,
@@ -57,6 +67,7 @@ interface SceneData {
 
 const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
+const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
@@ -168,16 +179,11 @@ export class GrillingScene extends Phaser.Scene {
   // ---------------------------------------------------------------------------
 
   create(): void {
-    this.buildRoom();
-
     this.createPlayer();
 
     this.setupInput();
 
-    // Decision Room wall collision is temporarily disabled
-    // while the Decision Room -> Corridor connection is being built.
-    //
-    // The corridor has its own collision layer.
+    this.buildInitialWorld();
 
     const decision =
       this.data.get('decision') as DecisionCreatedMsg;
@@ -218,19 +224,69 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------------------
+  // Initial continuous world
+  // ---------------------------------------------------------------------------
+
+  private buildInitialWorld(): void {
+    // 1. Decision Room
+    this.buildRoom();
+
+    // Center the corridor under the Decision Room.
+    const decisionCenterX =
+      (
+        DECISION_MAP_BOUNDS.minTileX +
+        DECISION_MAP_BOUNDS.maxTileX +
+        1
+      ) *
+      DECISION_MAP_TILE_SIZE /
+      2;
+
+    // 2. Corridor
+    const corridor =
+      this.createCorridorAt(
+        decisionCenterX,
+      );
+
+    // 3. Room-1
+    this.buildRoom1(
+      corridor,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Corridor
   // ---------------------------------------------------------------------------
 
   private createCorridor(
     door: DoorObject,
-  ): void {
+  ): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
+    return this.createCorridorAt(
+      door.x,
+    );
+  }
+
+  private createCorridorAt(
+    centerX: number,
+  ): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } {
     const cached =
       this.cache.tilemap.get(
         CORRIDOR_TILEMAP_KEY,
       );
 
     if (cached?.data) {
-      patchCorridorTilesets(cached.data);
+      patchCorridorTilesets(
+        cached.data,
+      );
     }
 
     const map = this.make.tilemap({
@@ -251,26 +307,6 @@ export class GrillingScene extends Phaser.Scene {
           tileset !== null,
       );
 
-    console.log(
-      '[GrillingScene] Corridor tilesets:',
-      tilesets.map((tileset) => ({
-        name: tileset.name,
-        firstgid: tileset.firstgid,
-        texture: tileset.image?.key,
-      })),
-    );
-
-    console.log(
-      '[GrillingScene] Corridor map layers:',
-      map.layers.map(
-        (layer) => layer.name,
-      ),
-    );
-
-    // -----------------------------------------------------------------------
-    // Corridor dimensions
-    // -----------------------------------------------------------------------
-
     const corridorWidth =
       CORRIDOR_MAP_BOUNDS.maxTileX -
       CORRIDOR_MAP_BOUNDS.minTileX +
@@ -289,12 +325,9 @@ export class GrillingScene extends Phaser.Scene {
       corridorHeight *
       CORRIDOR_MAP_TILE_SIZE;
 
-    // -----------------------------------------------------------------------
-    // Position corridor directly underneath selected door
-    // -----------------------------------------------------------------------
-
     const corridorX =
-      door.x - corridorWidthPx / 2;
+      centerX -
+      corridorWidthPx / 2;
 
     const corridorY =
       this.worldBottomY;
@@ -306,63 +339,45 @@ export class GrillingScene extends Phaser.Scene {
         y: corridorY,
         width: corridorWidthPx,
         height: corridorHeightPx,
-        doorX: door.x,
-        doorY: door.y,
+        centerX,
       },
     );
 
-    // -----------------------------------------------------------------------
-    // Create corridor layers
-    // -----------------------------------------------------------------------
+    CORRIDOR_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+            corridorX,
+            corridorY,
+          );
 
-    for (
-      let i = 0;
-      i < CORRIDOR_TILE_LAYERS.length;
-      i++
-    ) {
-      const layerName =
-        CORRIDOR_TILE_LAYERS[i];
+        if (!layer) {
+          console.error(
+            `[GrillingScene] Failed to create corridor layer: ${layerName}`,
+          );
 
-      const layer =
-        map.createLayer(
-          layerName,
-          tilesets,
-          corridorX,
-          corridorY,
-        );
+          return;
+        }
 
-      if (!layer) {
-        console.error(
-          `[GrillingScene] Failed to create corridor layer: ${layerName}`,
-        );
+        layer.setDepth(depth);
 
-        continue;
-      }
+        if (
+          layerName ===
+          CORRIDOR_COLLIDABLE_LAYER
+        ) {
+          layer.setCollisionByExclusion(
+            [-1],
+          );
 
-      layer.setDepth(i);
-
-      // ---------------------------------------------------------------------
-      // Corridor collision
-      // ---------------------------------------------------------------------
-
-      if (
-        layerName ===
-        CORRIDOR_COLLIDABLE_LAYER
-      ) {
-        layer.setCollisionByExclusion(
-          [-1],
-        );
-
-        this.physics.add.collider(
-          this.player.sprite,
-          layer,
-        );
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // Expand camera / physics bounds
-    // -----------------------------------------------------------------------
+          this.physics.add.collider(
+            this.player.sprite,
+            layer,
+          );
+        }
+      },
+    );
 
     const corridorLeft =
       corridorX;
@@ -378,47 +393,195 @@ export class GrillingScene extends Phaser.Scene {
       corridorY +
       corridorHeightPx;
 
+    this.extendWorldBounds(
+      corridorLeft,
+      corridorTop,
+      corridorRight,
+      corridorBottom,
+    );
+
+    this.worldBottomY =
+      corridorBottom;
+
+    return {
+      x: corridorX,
+      y: corridorY,
+      width: corridorWidthPx,
+      height: corridorHeightPx,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Room-1
+  // ---------------------------------------------------------------------------
+
+  private buildRoom1(
+    corridor: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    },
+  ): void {
+    const cached =
+      this.cache.tilemap.get(
+        OPTION_ROOM_1_KEY,
+      );
+
+    if (cached?.data) {
+      patchOptionRoomTilesets(
+        cached.data,
+      );
+    }
+
+    const map =
+      this.make.tilemap({
+        key: OPTION_ROOM_1_KEY,
+      });
+
+    const tilesets =
+      OPTION_ROOM_TILESETS
+        .map((tileset) =>
+          map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
+        )
+        .filter(
+          (
+            tileset,
+          ): tileset is Phaser.Tilemaps.Tileset =>
+            tileset !== null,
+        );
+
+    const roomX =
+      corridor.x +
+      corridor.width / 2 -
+      OPTION_ROOM_WIDTH_PX / 2;
+
+    const roomY =
+      corridor.y +
+      corridor.height;
+
+    console.log(
+      '[GrillingScene] Creating Room-1:',
+      {
+        x: roomX,
+        y: roomY,
+        width: OPTION_ROOM_WIDTH_PX,
+        height: OPTION_ROOM_HEIGHT_PX,
+      },
+    );
+
+    OPTION_ROOM_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+            roomX,
+            roomY,
+          );
+
+        if (!layer) {
+          console.error(
+            `[GrillingScene] Failed to create Room-1 layer: ${layerName}`,
+          );
+
+          return;
+        }
+
+        layer.setDepth(
+          depth + 20,
+        );
+
+        if (
+          layerName ===
+          OPTION_ROOM_COLLIDABLE_LAYER
+        ) {
+          layer.setCollisionByExclusion(
+            [-1],
+          );
+
+          this.physics.add.collider(
+            this.player.sprite,
+            layer,
+          );
+        }
+      },
+    );
+
+    const roomBottom =
+      roomY +
+      OPTION_ROOM_HEIGHT_PX;
+
+    const roomRight =
+      roomX +
+      OPTION_ROOM_WIDTH_PX;
+
+    this.extendWorldBounds(
+      roomX,
+      roomY,
+      roomRight,
+      roomBottom,
+    );
+
+    this.worldBottomY =
+      roomBottom;
+  }
+
+  private extendWorldBounds(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): void {
     const currentBounds =
       this.cameras.main.getBounds();
 
-    const minX = Math.min(
-      currentBounds.x,
-      corridorLeft,
-    );
+    const minX =
+      Math.min(
+        currentBounds.x,
+        left,
+      );
 
-    const minY = Math.min(
-      currentBounds.y,
-      corridorTop,
-    );
+    const minY =
+      Math.min(
+        currentBounds.y,
+        top,
+      );
 
-    const maxX = Math.max(
-      currentBounds.right,
-      corridorRight,
-    );
+    const maxX =
+      Math.max(
+        currentBounds.right,
+        right,
+      );
 
-    const maxY = Math.max(
-      currentBounds.bottom,
-      corridorBottom,
-    );
+    const maxY =
+      Math.max(
+        currentBounds.bottom,
+        bottom,
+      );
+
+    const width =
+      maxX - minX;
+
+    const height =
+      maxY - minY;
 
     this.physics.world.setBounds(
       minX,
       minY,
-      maxX - minX,
-      maxY - minY,
+      width,
+      height,
     );
 
     this.cameras.main.setBounds(
       minX,
       minY,
-      maxX - minX,
-      maxY - minY,
+      width,
+      height,
     );
-
-    // Advance the world cursor to
-    // the bottom of this corridor.
-    this.worldBottomY =
-      corridorBottom;
   }
 
   // ---------------------------------------------------------------------------
@@ -657,6 +820,13 @@ export class GrillingScene extends Phaser.Scene {
 
           this.wallsLayer =
             layer ?? undefined;
+
+          if (layer) {
+            this.physics.add.collider(
+              this.player.sprite,
+              layer,
+            );
+          }
         }
       },
     );
@@ -848,24 +1018,27 @@ export class GrillingScene extends Phaser.Scene {
       DECISION_SPAWN_TILE.x *
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
-
+  
     const spawnY =
       DECISION_SPAWN_TILE.y *
         DECISION_MAP_TILE_SIZE +
       DECISION_MAP_TILE_SIZE / 2;
-
+  
     this.player =
       new Player(
         this,
         spawnX,
         spawnY,
       );
-
-    this.cameras.main.startFollow(
-      this.player.sprite,
-      true,
-      0.1,
-      0.1,
+  
+    // TEMPORARY DEBUG
+    this.cameras.main.stopFollow();
+  
+    this.cameras.main.setZoom(0.5);
+  
+    this.cameras.main.centerOn(
+      350,
+      800,
     );
   }
 
