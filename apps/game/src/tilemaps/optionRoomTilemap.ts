@@ -38,7 +38,7 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<
   string
 > = {
   'option-room-1':
-    'assets/map/randomrooms/room.json',
+    'assets/map/randomrooms/room-1.json',
 
   'option-room-2':
     'assets/map/randomrooms/room-2.json',

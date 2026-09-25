@@ -138,12 +138,6 @@ export class GrillingScene extends Phaser.Scene {
    */
   private optionRoomIndex = 0;
 
-  /**
-   * Prevents generating the same corridor multiple times
-   * when the user opens/cancels the context overlay.
-   */
-  private corridorGeneratedForCurrentDoor = false;
-
   constructor() {
     super({
       key: 'GrillingScene',
@@ -167,23 +161,22 @@ export class GrillingScene extends Phaser.Scene {
     this.ws = data.ws;
     this.store = data.store;
     this.devMode = data.devMode ?? false;
-
+  
     this.phase = GamePhase.EXPLORING_DOORS;
-
+  
     this.currentDoor = undefined;
     this.doors = [];
-
+  
     this.currentNodeId = data.decision.nodeId;
-
+  
     this.optionRoomIndex = 0;
-    this.corridorGeneratedForCurrentDoor = false;
-
+  
     this.activeRoomSegment = undefined;
     this.activeCorridorSegment = undefined;
-
+  
     this.data.set('decision', data.decision);
     this.data.set('restored', data.restored ?? false);
-
+  
     this.unsubscribeWs = this.ws.onMessage(
       this.handleMessage.bind(this),
     );
@@ -558,7 +551,6 @@ export class GrillingScene extends Phaser.Scene {
     );
 
     this.activeRoomSegment = segment;
-    this.activeCorridorSegment = undefined;
 
     this.renderDecisionDoors(
       decision,
@@ -581,27 +573,13 @@ export class GrillingScene extends Phaser.Scene {
 
   private createCorridor(
     door: DoorObject,
-  ): WorldSegment | undefined {
-    if (
-      this.corridorGeneratedForCurrentDoor &&
-      this.activeCorridorSegment
-    ) {
-      return this.activeCorridorSegment;
-    }
-
-    const corridor =
-      this.createCorridorAt(door);
-
-    this.activeCorridorSegment =
-      corridor;
-
-    this.corridorGeneratedForCurrentDoor =
-      true;
-
-    this.openCorridorEntrance(
-      corridor,
-    );
-
+  ): WorldSegment {
+    const corridor = this.createCorridorAt(door);
+  
+    this.activeCorridorSegment = corridor;
+  
+    this.openCorridorEntrance(corridor);
+  
     return corridor;
   }
 
@@ -922,8 +900,14 @@ export class GrillingScene extends Phaser.Scene {
     decision: DecisionCreatedMsg,
     room: WorldSegment,
   ): void {
-    this.currentNodeId =
-      decision.nodeId;
+    this.doors.forEach((door) => {
+      door.doorSprite.destroy();
+    });
+  
+    this.doors = [];
+    this.currentDoor = undefined;
+  
+    this.currentNodeId = decision.nodeId;
 
     this.emitUI({
       type: 'DECISION',
@@ -1440,9 +1424,7 @@ export class GrillingScene extends Phaser.Scene {
      * It has already been generated and belongs
      * to the continuous world.
      *
-     * Keeping corridorGeneratedForCurrentDoor=true
-     * also prevents creating duplicate corridors
-     * if the player approaches the same door again.
+     * It is not destroyed when the player cancels the context overlay.
      */
     this.phase =
       GamePhase.EXPLORING_DOORS;
@@ -1457,27 +1439,41 @@ export class GrillingScene extends Phaser.Scene {
     door: DoorObject,
     context?: string,
   ): void {
-    this.phase =
-      GamePhase.TRAVERSING_OPTION;
-
+    if (this.phase !== GamePhase.DOOR_CONTEXT) {
+      return;
+    }
+  
+    this.phase = GamePhase.TRAVERSING_OPTION;
+  
+    this.player.stop();
+  
     this.store.updateCurrent({
-      selectedOptionId:
-        door.option.id,
+      selectedOptionId: door.option.id,
       context,
     });
-
+  
+    // Create a NEW corridor for every selected door.
+    const corridor = this.createCorridor(door);
+  
+    console.log(
+      '[GrillingScene] Created corridor:',
+      corridor.id,
+      'for option:',
+      door.option.id,
+    );
+  
+    this.currentDoor = undefined;
+  
+    this.emitUI({
+      type: 'WAITING',
+      message: 'AI is generating the next decision...',
+    });
+  
     this.ws.send({
       type: 'OPTION_SELECTED',
-      nodeId:
-        this.currentNodeId,
-      optionId:
-        door.option.id,
+      nodeId: this.currentNodeId,
+      optionId: door.option.id,
       context,
-    });
-
-    this.emitUI({
-      type: 'DOOR_CONTEXT',
-      visible: false,
     });
   }
 
@@ -1633,59 +1629,76 @@ export class GrillingScene extends Phaser.Scene {
       // -----------------------------------------------------------------------
 
       case 'DECISION_CREATED': {
-        const decision =
-          msg as DecisionCreatedMsg;
-
+        const decision = msg as DecisionCreatedMsg;
+      
+        console.log(
+          '[GrillingScene] DECISION_CREATED:',
+          decision.nodeId,
+          'round:',
+          decision.round,
+        );
+      
         this.store.addDecision({
-          nodeId:
-            decision.nodeId,
-          question:
-            decision.question,
-          options:
-            decision.options,
-          recommendation:
-            decision.recommendation,
-          round:
-            decision.round,
+          nodeId: decision.nodeId,
+          question: decision.question,
+          options: decision.options,
+          recommendation: decision.recommendation,
+          round: decision.round,
         });
-
-        /*
-         * The important continuous-world transition:
-         *
-         * OLD:
-         *   DECISION_CREATED
-         *       -> create another Decision Room
-         *
-         * NEW:
-         *   DECISION_CREATED
-         *       -> use current corridor
-         *       -> create Option Room at corridor exit
-         *       -> render new decision doors inside it
-         */
-        if (
-          !this.activeCorridorSegment
-        ) {
-          console.error(
-            '[GrillingScene] DECISION_CREATED received without an active corridor.',
+      
+        this.currentNodeId = decision.nodeId;
+      
+        // -----------------------------------------------------------------------
+        // Initial decision
+        // -----------------------------------------------------------------------
+      
+        if (!this.activeCorridorSegment) {
+          console.log(
+            '[GrillingScene] No corridor - rendering initial decision.',
           );
-
-          this.emitUI({
-            type: 'ERROR',
-            message:
-              'Received a new decision before the corridor was ready.',
-          });
-
+      
+          if (!this.activeRoomSegment) {
+            this.buildInitialWorld(decision);
+          } else {
+            this.renderDecisionDoors(
+              decision,
+              this.activeRoomSegment,
+            );
+          }
+      
+          this.phase = GamePhase.EXPLORING_DOORS;
+      
           break;
         }
-
+      
+        // -----------------------------------------------------------------------
+        // Next decision
+        //
+        // A corridor exists because the player selected a door.
+        // Attach the new option room to that corridor.
+        // -----------------------------------------------------------------------
+      
+        const corridor = this.activeCorridorSegment;
+      
+        console.log(
+          '[GrillingScene] Building next option room from:',
+          corridor.id,
+        );
+      
         this.buildOptionRoomFromCorridor(
-          this.activeCorridorSegment,
+          corridor,
           decision,
         );
-
-        this.phase =
-          GamePhase.EXPLORING_DOORS;
-
+      
+        // The corridor has now been consumed.
+        this.activeCorridorSegment = undefined;
+      
+        this.phase = GamePhase.EXPLORING_DOORS;
+      
+        this.emitUI({
+          type: 'EXPLORING_DOORS',
+        });
+      
         break;
       }
 
@@ -1862,8 +1875,5 @@ export class GrillingScene extends Phaser.Scene {
 
     this.activeCorridorSegment =
       undefined;
-
-    this.corridorGeneratedForCurrentDoor =
-      false;
   }
 }

@@ -108,15 +108,33 @@ class SessionService:
         elif msg_type == "OPTION_SELECTED":
             node_id = msg["nodeId"]
             option_id = msg["optionId"]
-            context = msg.get("context")
-            self.engine.select_option(session, node_id, option_id, context)
-            await self.enqueue_player_event(session_id, {
-                "type": "OPTION_SELECTED",
-                "sessionId": session_id,
-                "nodeId": node_id,
-                "optionId": option_id,
-                "context": context,
-            })
+
+            # Context is optional.
+            # Treat missing, null, or whitespace-only values as no context.
+            raw_context = msg.get("context")
+            context = (
+                raw_context.strip()
+                if isinstance(raw_context, str) and raw_context.strip()
+                else None
+            )
+
+            self.engine.select_option(
+                session,
+                node_id,
+                option_id,
+                context,
+            )
+
+            await self.enqueue_player_event(
+                session_id,
+                {
+                    "type": "OPTION_SELECTED",
+                    "sessionId": session_id,
+                    "nodeId": node_id,
+                    "optionId": option_id,
+                    "context": context,
+                },
+            )
 
         elif msg_type == "CHALLENGE_RESPONSE":
             node_id = msg["nodeId"]

@@ -80,10 +80,31 @@ class DecisionEngine:
         )
 
     def select_option(
-        self, session: Session, node_id: str, option_id: str, context: str | None = None
+        self,
+        session: Session,
+        node_id: str,
+        option_id: str,
+        context: str | None = None,
     ) -> None:
-        """Player selected a door and optionally added context."""
-        session.graph.choose(node_id, option_id, context)
+        """
+        Record the player's option selection.
+
+        Context is optional. Selecting an option must always advance
+        the session to the challenge/evaluation flow, regardless of
+        whether additional context was provided.
+        """
+        normalized_context = (
+            context.strip()
+            if isinstance(context, str) and context.strip()
+            else None
+        )
+
+        session.graph.choose(
+            node_id,
+            option_id,
+            normalized_context,
+        )
+
         session.move_to_awaiting_challenge()
 
     def receive_challenge(
