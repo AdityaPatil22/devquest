@@ -16,15 +16,9 @@ import {
   TROPHY_MAP_TILE_SIZE,
 } from '../tilemaps/trophyRoomTilemap';
 
-import {
-  CORRIDOR_TILEMAP_KEY,
-  CORRIDOR_TILEMAP_PATH,
-} from '../tilemaps/corridorTilemap';
+import { CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH } from '../tilemaps/corridorTilemap';
 
-import {
-  OPTION_ROOM_TILEMAP_KEYS,
-  OPTION_ROOM_TILEMAP_PATHS,
-} from '../tilemaps/optionRoomTilemap';
+import { OPTION_ROOM_TILEMAP_KEYS, OPTION_ROOM_TILEMAP_PATHS } from '../tilemaps/optionRoomTilemap';
 
 import { Player } from '../entities/Player';
 
@@ -152,20 +146,14 @@ export class BootScene extends Phaser.Scene {
     // Corridor
     // ─────────────────────────────────────────
 
-    this.load.tilemapTiledJSON(
-      CORRIDOR_TILEMAP_KEY,
-      CORRIDOR_TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH);
 
     // ─────────────────────────────────────────
     // Option rooms (random room templates)
     // ─────────────────────────────────────────
 
     OPTION_ROOM_TILEMAP_KEYS.forEach((key) => {
-      this.load.tilemapTiledJSON(
-        key,
-        OPTION_ROOM_TILEMAP_PATHS[key],
-      );
+      this.load.tilemapTiledJSON(key, OPTION_ROOM_TILEMAP_PATHS[key]);
     });
 
     // ─────────────────────────────────────────

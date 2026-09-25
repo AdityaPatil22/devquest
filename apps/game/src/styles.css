@@ -45,15 +45,8 @@ button {
   background-color: #4c515b;
 
   background-image:
-    linear-gradient(
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(30, 34, 42, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 34, 42, 0.18) 1px, transparent 1px);
 
   background-size: 28px 28px;
 }

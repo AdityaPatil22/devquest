@@ -244,28 +244,27 @@ export function GameUI() {
   }, [game]);
 
   const submitDoorContext = useCallback(
-  (context?: string) => {
+    (context?: string) => {
+      const scene = game?.scene.getScene('GrillingScene') as
+        | {
+            confirmDoorSelection?: (value?: string) => void;
+          }
+        | undefined;
+
+      scene?.confirmDoorSelection?.(context);
+    },
+    [game],
+  );
+
+  const cancelDoorContext = useCallback(() => {
     const scene = game?.scene.getScene('GrillingScene') as
       | {
-          confirmDoorSelection?: (value?: string) => void;
+          cancelDoorSelection?: () => void;
         }
       | undefined;
 
-    scene?.confirmDoorSelection?.(context);
-  },
-  [game],
-);
-
-  const cancelDoorContext = useCallback(() => {
-  const scene = game?.scene.getScene('GrillingScene') as
-    | {
-        cancelDoorSelection?: () => void;
-      }
-    | undefined;
-
-  scene?.cancelDoorSelection?.();
-}, [game]);
-
+    scene?.cancelDoorSelection?.();
+  }, [game]);
 
   const closeTrophySummary = useCallback(() => {
     const scene = game?.scene.getScene('TrophyScene');

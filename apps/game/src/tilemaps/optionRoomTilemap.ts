@@ -20,8 +20,7 @@ import {
 } from './decisionRoomTilemap';
 
 export const OPTION_ROOM_TILESETS = DECISION_TILESETS;
-export const OPTION_ROOM_TILE_SIZE =
-  DECISION_MAP_TILE_SIZE;
+export const OPTION_ROOM_TILE_SIZE = DECISION_MAP_TILE_SIZE;
 
 export const OPTION_ROOM_TILEMAP_KEYS = [
   'option-room-1',
@@ -30,24 +29,16 @@ export const OPTION_ROOM_TILEMAP_KEYS = [
   'option-room-4',
 ] as const;
 
-export type OptionRoomKey =
-  (typeof OPTION_ROOM_TILEMAP_KEYS)[number];
+export type OptionRoomKey = (typeof OPTION_ROOM_TILEMAP_KEYS)[number];
 
-export const OPTION_ROOM_TILEMAP_PATHS: Record<
-  OptionRoomKey,
-  string
-> = {
-  'option-room-1':
-    'assets/map/randomrooms/room-1.json',
+export const OPTION_ROOM_TILEMAP_PATHS: Record<OptionRoomKey, string> = {
+  'option-room-1': 'assets/map/randomrooms/room-1.json',
 
-  'option-room-2':
-    'assets/map/randomrooms/room-2.json',
+  'option-room-2': 'assets/map/randomrooms/room-2.json',
 
-  'option-room-3':
-    'assets/map/randomrooms/room-3.json',
+  'option-room-3': 'assets/map/randomrooms/room-3.json',
 
-  'option-room-4':
-    'assets/map/randomrooms/room-4.json',
+  'option-room-4': 'assets/map/randomrooms/room-4.json',
 };
 
 /**
@@ -58,10 +49,7 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<
  *   floor
  *   Walls
  */
-export const OPTION_ROOM_TILE_LAYERS = [
-  'floor',
-  'Walls',
-];
+export const OPTION_ROOM_TILE_LAYERS = ['floor', 'Walls'];
 
 /**
  * Layer containing blocking wall tiles.
@@ -109,20 +97,13 @@ export const OPTION_ROOM_BOUNDS = {
  * Width of the playable room in pixels.
  */
 export const OPTION_ROOM_WIDTH_PX =
-  (OPTION_ROOM_BOUNDS.maxTileX -
-    OPTION_ROOM_BOUNDS.minTileX +
-    1) *
-  OPTION_ROOM_TILE_SIZE;
-
+  (OPTION_ROOM_BOUNDS.maxTileX - OPTION_ROOM_BOUNDS.minTileX + 1) * OPTION_ROOM_TILE_SIZE;
 
 /**
  * Height of the playable room in pixels.
  */
 export const OPTION_ROOM_HEIGHT_PX =
-  (OPTION_ROOM_BOUNDS.maxTileY -
-    OPTION_ROOM_BOUNDS.minTileY +
-    1) *
-  OPTION_ROOM_TILE_SIZE;
+  (OPTION_ROOM_BOUNDS.maxTileY - OPTION_ROOM_BOUNDS.minTileY + 1) * OPTION_ROOM_TILE_SIZE;
 
 /**
  * Corridor entrance in the option room.
@@ -157,53 +138,32 @@ interface OptionRoomTileLayer {
  * This preserves the Tiled chunk layout while preventing
  * decorative/outside tiles from affecting the rendered room.
  */
-export function patchOptionRoomTilesets(
-  rawMapJson: {
-    tilesets: unknown[];
-    layers?: OptionRoomTileLayer[];
-  },
-): void {
+export function patchOptionRoomTilesets(rawMapJson: {
+  tilesets: unknown[];
+  layers?: OptionRoomTileLayer[];
+}): void {
   patchDecisionRoomTilesets(rawMapJson);
 
   for (const layer of rawMapJson.layers ?? []) {
-    if (
-      layer.type !== 'tilelayer' ||
-      !layer.chunks
-    ) {
+    if (layer.type !== 'tilelayer' || !layer.chunks) {
       continue;
     }
 
     for (const chunk of layer.chunks) {
-      for (
-        let row = 0;
-        row < chunk.height;
-        row++
-      ) {
-        for (
-          let col = 0;
-          col < chunk.width;
-          col++
-        ) {
-          const worldX =
-            chunk.x + col;
+      for (let row = 0; row < chunk.height; row++) {
+        for (let col = 0; col < chunk.width; col++) {
+          const worldX = chunk.x + col;
 
-          const worldY =
-            chunk.y + row;
+          const worldY = chunk.y + row;
 
           const outsideBounds =
-            worldX <
-              OPTION_ROOM_BOUNDS.minTileX ||
-            worldX >
-              OPTION_ROOM_BOUNDS.maxTileX ||
-            worldY <
-              OPTION_ROOM_BOUNDS.minTileY ||
-            worldY >
-              OPTION_ROOM_BOUNDS.maxTileY;
+            worldX < OPTION_ROOM_BOUNDS.minTileX ||
+            worldX > OPTION_ROOM_BOUNDS.maxTileX ||
+            worldY < OPTION_ROOM_BOUNDS.minTileY ||
+            worldY > OPTION_ROOM_BOUNDS.maxTileY;
 
           if (outsideBounds) {
-            chunk.data[
-              row * chunk.width + col
-            ] = 0;
+            chunk.data[row * chunk.width + col] = 0;
           }
         }
       }

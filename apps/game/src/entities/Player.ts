@@ -58,7 +58,7 @@ export class Player {
     this.sprite.setDepth(50);
     this.sprite.setRotation(0);
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.setScale(1);
+    this.sprite.setScale(1.1);
 
     this.sprite.body!.setSize(16, 12);
     this.sprite.body!.setOffset(8, 32);

@@ -4,20 +4,13 @@ import { createDevGameState } from './DevGameFactory';
 import { DevWebSocketClient } from './DevWebSocketClient';
 import { SessionStore } from '../state/SessionStore';
 
-export type DevScene =
-  | 'FullFlow'
-  | 'CommonRoomScene'
-  | 'GrillingScene'
-  | 'TrophyScene';
+export type DevScene = 'FullFlow' | 'CommonRoomScene' | 'GrillingScene' | 'TrophyScene';
 
 // ---------------------------------------------------------------------------
 // Launch
 // ---------------------------------------------------------------------------
 
-export function launchScene(
-  game: Phaser.Game,
-  scene: DevScene,
-): void {
+export function launchScene(game: Phaser.Game, scene: DevScene): void {
   // Stop all active scenes before launching.
   game.scene.getScenes(true).forEach((s) => {
     game.scene.stop(s.scene.key);
@@ -92,10 +85,8 @@ export function launchScene(
         selectedOptionId: 'option-c',
         context: 'Use existing components where possible.',
         defense: 'A hybrid solution reduces implementation risk.',
-        feedback:
-          'The proposed approach balances reuse and flexibility well.',
-        consequence:
-          'The implementation will be easier to maintain long-term.',
+        feedback: 'The proposed approach balances reuse and flexibility well.',
+        consequence: 'The implementation will be easier to maintain long-term.',
       });
 
       store.complete(

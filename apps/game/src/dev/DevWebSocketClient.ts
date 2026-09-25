@@ -1,8 +1,5 @@
 import { WebSocketClient } from '../net/WebSocketClient';
-import type {
-  ClientMessage,
-  DecisionCreatedMsg,
-} from '../net/protocol';
+import type { ClientMessage, DecisionCreatedMsg } from '../net/protocol';
 
 // ---------------------------------------------------------------------------
 // Scripted mock rounds
@@ -141,9 +138,7 @@ export class DevWebSocketClient extends WebSocketClient {
       // ---------------------------------------------------------------
 
       case 'OPTION_SELECTED': {
-        console.log(
-          `[DEV WS] Option selected: ${msg.optionId} for ${msg.nodeId}`,
-        );
+        console.log(`[DEV WS] Option selected: ${msg.optionId} for ${msg.nodeId}`);
 
         this.roundIndex += 1;
 
@@ -172,10 +167,7 @@ export class DevWebSocketClient extends WebSocketClient {
   // Decision
   // ---------------------------------------------------------------------------
 
-  private fireDecision(
-    index: number,
-    delay: number,
-  ): void {
+  private fireDecision(index: number, delay: number): void {
     const decision = MOCK_ROUNDS[index];
 
     if (!decision) {
@@ -183,9 +175,7 @@ export class DevWebSocketClient extends WebSocketClient {
     }
 
     setTimeout(() => {
-      console.log(
-        `[DEV WS] ← DECISION_CREATED round ${decision.round}`,
-      );
+      console.log(`[DEV WS] ← DECISION_CREATED round ${decision.round}`);
 
       this.dispatch(decision);
     }, delay);
@@ -198,13 +188,9 @@ export class DevWebSocketClient extends WebSocketClient {
    * The actual player movement through the corridor remains
    * handled by Phaser.
    */
-  private fireDecisionAtEndOfTraversal(
-    decision: DecisionCreatedMsg,
-  ): void {
+  private fireDecisionAtEndOfTraversal(decision: DecisionCreatedMsg): void {
     setTimeout(() => {
-      console.log(
-        `[DEV WS] ← DECISION_CREATED round ${decision.round}`,
-      );
+      console.log(`[DEV WS] ← DECISION_CREATED round ${decision.round}`);
 
       this.dispatch(decision);
     }, 500);

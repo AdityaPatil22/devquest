@@ -2,8 +2,7 @@ import type { DecisionTilesetDef } from './decisionRoomTilemap';
 
 export const CORRIDOR_TILEMAP_KEY = 'corridor-map';
 
-export const CORRIDOR_TILEMAP_PATH =
-  'assets/map/corridor/corridor.json';
+export const CORRIDOR_TILEMAP_PATH = 'assets/map/corridor/corridor.json';
 
 export const CORRIDOR_MAP_TILE_SIZE = 16;
 
@@ -64,12 +63,7 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
   },
 ];
 
-export const CORRIDOR_TILE_LAYERS = [
-  'Tile Layer 1',
-  'Walls',
-  'furniture',
-  'computers',
-];
+export const CORRIDOR_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'];
 
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
 
@@ -104,33 +98,26 @@ interface CorridorTileLayer {
   chunks?: CorridorTileChunk[];
 }
 
-export function patchCorridorTilesets(
-  rawMapJson: {
-    tilesets: unknown[];
-    layers?: CorridorTileLayer[];
-  },
-): void {
-  rawMapJson.tilesets = CORRIDOR_TILESETS.map(
-    (tileset) => ({
-      columns: tileset.columns,
-      firstgid: tileset.firstgid,
-      image: tileset.path.split('/').pop(),
-      imageheight: tileset.imageheight,
-      imagewidth: tileset.imagewidth,
-      margin: 0,
-      name: tileset.name,
-      spacing: 0,
-      tilecount: tileset.tilecount,
-      tileheight: CORRIDOR_MAP_TILE_SIZE,
-      tilewidth: CORRIDOR_MAP_TILE_SIZE,
-    }),
-  );
+export function patchCorridorTilesets(rawMapJson: {
+  tilesets: unknown[];
+  layers?: CorridorTileLayer[];
+}): void {
+  rawMapJson.tilesets = CORRIDOR_TILESETS.map((tileset) => ({
+    columns: tileset.columns,
+    firstgid: tileset.firstgid,
+    image: tileset.path.split('/').pop(),
+    imageheight: tileset.imageheight,
+    imagewidth: tileset.imagewidth,
+    margin: 0,
+    name: tileset.name,
+    spacing: 0,
+    tilecount: tileset.tilecount,
+    tileheight: CORRIDOR_MAP_TILE_SIZE,
+    tilewidth: CORRIDOR_MAP_TILE_SIZE,
+  }));
 
   for (const layer of rawMapJson.layers ?? []) {
-    if (
-      layer.type !== 'tilelayer' ||
-      !layer.chunks
-    ) {
+    if (layer.type !== 'tilelayer' || !layer.chunks) {
       continue;
     }
 
@@ -146,9 +133,7 @@ export function patchCorridorTilesets(
             worldY < CORRIDOR_MAP_BOUNDS.minTileY ||
             worldY > CORRIDOR_MAP_BOUNDS.maxTileY
           ) {
-            chunk.data[
-              row * chunk.width + col
-            ] = 0;
+            chunk.data[row * chunk.width + col] = 0;
           }
         }
       }

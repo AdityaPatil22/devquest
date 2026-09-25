@@ -30,8 +30,7 @@ const scenes: { label: string; value: DevScene; description: string }[] = [
 ];
 
 export function DevToolbar({ game }: DevToolbarProps) {
-  const [selectedScene, setSelectedScene] =
-    useState<DevScene>('FullFlow');
+  const [selectedScene, setSelectedScene] = useState<DevScene>('FullFlow');
 
   const selected = scenes.find((s) => s.value === selectedScene);
 
@@ -52,11 +51,7 @@ export function DevToolbar({ game }: DevToolbarProps) {
         ))}
       </select>
 
-      {selected && (
-        <span className="dev-toolbar__desc">
-          {selected.description}
-        </span>
-      )}
+      {selected && <span className="dev-toolbar__desc">{selected.description}</span>}
 
       <button
         type="button"
