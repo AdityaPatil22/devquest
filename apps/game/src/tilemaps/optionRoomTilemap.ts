@@ -2,8 +2,15 @@
  * Config for the four random option-room maps
  * (public/assets/map/randomrooms/room-N.json).
  *
- * All rooms share the same tilesets and layer names
- * as the Decision Room, so we reuse those definitions.
+ * The option-room maps are infinite/chunked Tiled maps.
+ *
+ * Current room structure:
+ *
+ *   floor
+ *   Walls
+ *
+ * The room is kept as an infinite map so the chunk coordinates
+ * authored in Tiled remain intact.
  */
 
 import {
@@ -12,10 +19,9 @@ import {
   patchDecisionRoomTilesets,
 } from './decisionRoomTilemap';
 
-export {
-  DECISION_TILESETS as OPTION_ROOM_TILESETS,
-  DECISION_MAP_TILE_SIZE as OPTION_ROOM_TILE_SIZE,
-};
+export const OPTION_ROOM_TILESETS = DECISION_TILESETS;
+export const OPTION_ROOM_TILE_SIZE =
+  DECISION_MAP_TILE_SIZE;
 
 export const OPTION_ROOM_TILEMAP_KEYS = [
   'option-room-1',
@@ -32,7 +38,7 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<
   string
 > = {
   'option-room-1':
-    'assets/map/randomrooms/room-1.json',
+    'assets/map/randomrooms/room.json',
 
   'option-room-2':
     'assets/map/randomrooms/room-2.json',
@@ -47,16 +53,14 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<
 /**
  * Tile layers rendered from bottom -> top.
  *
- * The uploaded random-room maps currently contain
- * Tile Layer 1 and Walls. Keep the list tolerant of
- * future furniture/computer layers if they are added
- * to the remaining room variants.
+ * The new infinite maps use:
+ *
+ *   floor
+ *   Walls
  */
 export const OPTION_ROOM_TILE_LAYERS = [
-  'Tile Layer 1',
+  'floor',
   'Walls',
-  'furniture',
-  'computers',
 ];
 
 /**
@@ -65,45 +69,48 @@ export const OPTION_ROOM_TILE_LAYERS = [
 export const OPTION_ROOM_COLLIDABLE_LAYER = 'Walls';
 
 /**
- * Actual playable bounds of the option rooms.
+ * Playable room bounds in tile coordinates.
  *
- * The floor occupies:
+ * These are the bounds of the actual room geometry,
+ * not the full infinite map.
  *
- *   X: 2 -> 47
- *   Y: 0 -> 29
- *
- * The Walls layer has an additional boundary tile at X=48,
- * but that is part of the wall perimeter rather than the
- * playable floor area.
+ * Keep these values aligned with the wall perimeter
+ * authored in Tiled.
  */
 export const OPTION_ROOM_BOUNDS = {
-  minTileX: 2,
-  maxTileX: 47,
-  minTileY: 0,
-  maxTileY: 29,
+  minTileX: 10,
+  maxTileX: 49,
+  minTileY: 10,
+  maxTileY: 39,
 };
 
 /**
  * Width of the playable room in pixels.
  */
 export const OPTION_ROOM_WIDTH_PX =
-  (
-    OPTION_ROOM_BOUNDS.maxTileX -
+  (OPTION_ROOM_BOUNDS.maxTileX -
     OPTION_ROOM_BOUNDS.minTileX +
-    1
-  ) *
-  DECISION_MAP_TILE_SIZE;
+    1) *
+  OPTION_ROOM_TILE_SIZE;
+
 
 /**
  * Height of the playable room in pixels.
  */
 export const OPTION_ROOM_HEIGHT_PX =
-  (
-    OPTION_ROOM_BOUNDS.maxTileY -
+  (OPTION_ROOM_BOUNDS.maxTileY -
     OPTION_ROOM_BOUNDS.minTileY +
-    1
-  ) *
-  DECISION_MAP_TILE_SIZE;
+    1) *
+  OPTION_ROOM_TILE_SIZE;
+
+/**
+ * Corridor entrance in the option room.
+ *
+ * Three tiles wide.
+ */
+export const OPTION_ROOM_ENTRANCE_MIN_TILE_X = 41;
+export const OPTION_ROOM_ENTRANCE_MAX_TILE_X = 44;
+export const OPTION_ROOM_ENTRANCE_TILE_Y = 39;
 
 interface OptionRoomTileChunk {
   x: number;
@@ -123,10 +130,11 @@ interface OptionRoomTileLayer {
  * Replace Tiled's external tileset references with
  * embedded tileset definitions that Phaser can consume.
  *
- * Also removes tile data outside the playable room bounds.
- * This is important because the maps are infinite/chunked
- * Tiled maps and some decorative layers extend beyond
- * the playable floor.
+ * The map is infinite/chunked, so we remove only the
+ * tile data outside the actual playable room bounds.
+ *
+ * This preserves the Tiled chunk layout while preventing
+ * decorative/outside tiles from affecting the rendered room.
  */
 export function patchOptionRoomTilesets(
   rawMapJson: {
@@ -145,10 +153,21 @@ export function patchOptionRoomTilesets(
     }
 
     for (const chunk of layer.chunks) {
-      for (let row = 0; row < chunk.height; row++) {
-        for (let col = 0; col < chunk.width; col++) {
-          const worldX = chunk.x + col;
-          const worldY = chunk.y + row;
+      for (
+        let row = 0;
+        row < chunk.height;
+        row++
+      ) {
+        for (
+          let col = 0;
+          col < chunk.width;
+          col++
+        ) {
+          const worldX =
+            chunk.x + col;
+
+          const worldY =
+            chunk.y + row;
 
           const outsideBounds =
             worldX <
