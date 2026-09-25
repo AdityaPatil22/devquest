@@ -1,6 +1,6 @@
 /**
  * Config + helpers for the Decision Room's hand-authored Tiled map
- * (public/assets/map/decisionroom/decision-room.json).
+ * (public/assets/map/decisionroom/decisionroom.json).
  *
  * The map is an "infinite" (chunked) Tiled map and uses external .tsx
  * tilesets. Phaser does not resolve these external tilesets correctly,
@@ -36,9 +36,7 @@ export interface DecisionTilesetDef {
 }
 
 /**
- * Tilesets used by the new Decision Room map.
- *
- * The firstgid values are unchanged from the previous map.
+ * Tilesets used by the Decision Room map.
  */
 export const DECISION_TILESETS: DecisionTilesetDef[] = [
   {
@@ -66,8 +64,8 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
   {
     /**
      * FloorAndGround is referenced a second time by Tiled.
-     * It therefore needs a separate tileset definition even though
-     * it uses the same PNG/texture.
+     * It uses the same PNG/texture but requires a separate
+     * tileset definition because it has a different firstgid.
      */
     name: 'FloorAndGround16B',
     key: 'tileset-floor-and-ground-16',
@@ -115,11 +113,12 @@ export const DECISION_COLLIDABLE_LAYER = 'Walls';
 /**
  * Actual playable bounds of the Decision Room.
  *
- * The map itself is larger because it is an infinite/chunked Tiled map,
- * but the floor content occupies:
+ * The updated Tiled map contains floor content across:
  *
  *   X: -16 -> 59
  *   Y:   0 -> 38
+ *
+ * The Walls layer extends one additional tile downward to Y = 39.
  */
 export const DECISION_MAP_BOUNDS = {
   minTileX: -16,
@@ -131,7 +130,7 @@ export const DECISION_MAP_BOUNDS = {
 /**
  * Player spawn position.
  *
- * This remains inside the playable floor area of the new map.
+ * Keep this inside the playable floor area.
  */
 export const DECISION_SPAWN_TILE = {
   x: 30,

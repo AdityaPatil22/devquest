@@ -7,8 +7,6 @@ import { HUD } from './HUD/HUD';
 import { InteractionPrompt } from './InteractionPrompt/InteractionPrompt';
 import { ElevatorModal } from './ElevatorModal/ElevatorModal';
 import { DoorContextModal } from './DecisionPanel/DoorContextModal';
-import { ChallengePanel } from './ChallengePanel/ChallengePanel';
-import { EvaluationPanel } from './EvaluationPanel/EvaluationPanel';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
 
@@ -167,26 +165,6 @@ export function GameUI() {
           }));
           break;
 
-        case 'CHALLENGE':
-          setState((previous) => ({
-            ...previous,
-            modal: 'challenge',
-            challenge: typeof event.question === 'string' ? event.question : undefined,
-            waitingMessage: undefined,
-            error: undefined,
-          }));
-          break;
-
-        case 'EVALUATION':
-          setState((previous) => ({
-            ...previous,
-            modal: 'evaluation',
-            feedback: typeof event.feedback === 'string' ? event.feedback : undefined,
-            consequence: typeof event.consequence === 'string' ? event.consequence : undefined,
-            waitingMessage: undefined,
-          }));
-          break;
-
         case 'NEXT_DECISION_LOADING':
           setState((previous) => ({
             ...previous,
@@ -267,7 +245,7 @@ export function GameUI() {
 
   const submitDoorContext = useCallback(
     (context?: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
+      const scene = game?.scene.getScene('GrillingScene') as
         | {
             confirmDoorSelection?: (value?: string) => void;
           }
@@ -279,7 +257,7 @@ export function GameUI() {
   );
 
   const cancelDoorContext = useCallback(() => {
-    const scene = game?.scene.getScene('DecisionRoomScene') as
+    const scene = game?.scene.getScene('GrillingScene') as
       | {
           cancelDoorSelection?: () => void;
         }
@@ -287,19 +265,6 @@ export function GameUI() {
 
     scene?.cancelDoorSelection?.();
   }, [game]);
-
-  const submitDefense = useCallback(
-    (defense: string) => {
-      const scene = game?.scene.getScene('DecisionRoomScene') as
-        | {
-            submitDefense?: (value: string) => void;
-          }
-        | undefined;
-
-      scene?.submitDefense?.(defense);
-    },
-    [game],
-  );
 
   const closeTrophySummary = useCallback(() => {
     const scene = game?.scene.getScene('TrophyScene');
@@ -354,18 +319,6 @@ export function GameUI() {
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}
-      />
-
-      <ChallengePanel
-        open={state.modal === 'challenge'}
-        question={state.challenge}
-        onSubmit={submitDefense}
-      />
-
-      <EvaluationPanel
-        open={state.modal === 'evaluation'}
-        feedback={state.feedback}
-        consequence={state.consequence}
       />
 
       <WaitingOverlay open={state.modal === 'waiting'} message={state.waitingMessage} />

@@ -45,15 +45,8 @@ button {
   background-color: #4c515b;
 
   background-image:
-    linear-gradient(
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(30, 34, 42, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 34, 42, 0.18) 1px, transparent 1px);
 
   background-size: 28px 28px;
 }
@@ -61,10 +54,13 @@ button {
 .phaser-layer {
   position: absolute;
 
-  inset: 0;
+  top: 70px;
+  left: 0;
+  right: 0;
+  bottom: 0;
 
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
 
   z-index: 1;
 
@@ -162,4 +158,13 @@ button {
 .dev-toolbar button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.dev-toolbar__desc {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

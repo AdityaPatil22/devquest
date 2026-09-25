@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 
 import { BootScene } from '../scenes/BootScene';
 import { CommonRoomScene } from '../scenes/CommonRoomScene';
-import { DecisionRoomScene } from '../scenes/DecisionRoomScene';
 import { TrophyScene } from '../scenes/TrophyScene';
+import { GrillingScene } from '../scenes/GrillingScene';
 
 import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 
@@ -34,7 +34,7 @@ export function createPhaserGame(parent: HTMLElement): Phaser.Game {
       },
     },
 
-    scene: [BootScene, CommonRoomScene, DecisionRoomScene, TrophyScene],
+    scene: [BootScene, CommonRoomScene, GrillingScene, TrophyScene],
 
     scale: {
       mode: Phaser.Scale.RESIZE,

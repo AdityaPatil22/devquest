@@ -55,10 +55,10 @@ export class Player {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.sprite = scene.physics.add.sprite(x, y, IDLE_FRAME);
 
-    this.sprite.setDepth(5);
+    this.sprite.setDepth(50);
     this.sprite.setRotation(0);
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.setScale(1);
+    this.sprite.setScale(1.1);
 
     this.sprite.body!.setSize(16, 12);
     this.sprite.body!.setOffset(8, 32);

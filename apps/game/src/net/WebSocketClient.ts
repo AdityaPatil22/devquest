@@ -95,6 +95,17 @@ export class WebSocketClient {
     };
   }
 
+  /**
+   * Deliver a server message to all active
+   * handlers without a real WebSocket.
+   *
+   * Protected so subclasses (e.g. DevWebSocketClient)
+   * can use it to simulate server responses.
+   */
+  protected dispatch(msg: ServerMessage): void {
+    this.handlers.forEach((h) => h(msg));
+  }
+
   disconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

@@ -176,3 +176,61 @@ class TestDecisionEngine:
         finish_event = engine.finish_session(session, "Redis caching", "# Doc\n...")
         assert finish_event.type == EventType.SESSION_COMPLETE
         assert finish_event.data["decisionsCount"] == 1
+
+    def test_select_option_without_context(self):
+        engine = DecisionEngine()
+        session, _ = engine.create_session()
+
+        event = engine.create_decision(
+            session,
+            "Which database?",
+            [
+                {"id": "A", "label": "PostgreSQL"},
+                {"id": "B", "label": "MongoDB"},
+            ],
+        )
+
+        node_id = event.data["nodeId"]
+
+        # Select without providing context.
+        engine.select_option(
+            session,
+            node_id,
+            "A",
+        )
+
+        node = session.graph.get_node(node_id)
+
+        assert node is not None
+        assert node.decision is not None
+        assert node.decision.option_id == "A"
+        assert node.decision.context is None
+
+    def test_select_option_with_empty_context(self):
+        engine = DecisionEngine()
+        session, _ = engine.create_session()
+
+        event = engine.create_decision(
+            session,
+            "Which queue?",
+            [
+                {"id": "A", "label": "RabbitMQ"},
+                {"id": "B", "label": "Kafka"},
+            ],
+        )
+
+        node_id = event.data["nodeId"]
+
+        engine.select_option(
+            session,
+            node_id,
+            "B",
+            context="   ",
+        )
+
+        node = session.graph.get_node(node_id)
+
+        assert node is not None
+        assert node.decision is not None
+        assert node.decision.option_id == "B"
+        assert node.decision.context is None

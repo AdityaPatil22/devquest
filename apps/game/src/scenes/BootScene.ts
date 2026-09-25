@@ -16,6 +16,10 @@ import {
   TROPHY_MAP_TILE_SIZE,
 } from '../tilemaps/trophyRoomTilemap';
 
+import { CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH } from '../tilemaps/corridorTilemap';
+
+import { OPTION_ROOM_TILEMAP_KEYS, OPTION_ROOM_TILEMAP_PATHS } from '../tilemaps/optionRoomTilemap';
+
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
@@ -136,6 +140,20 @@ export class BootScene extends Phaser.Scene {
 
         spacing: 0,
       });
+    });
+
+    // ─────────────────────────────────────────
+    // Corridor
+    // ─────────────────────────────────────────
+
+    this.load.tilemapTiledJSON(CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH);
+
+    // ─────────────────────────────────────────
+    // Option rooms (random room templates)
+    // ─────────────────────────────────────────
+
+    OPTION_ROOM_TILEMAP_KEYS.forEach((key) => {
+      this.load.tilemapTiledJSON(key, OPTION_ROOM_TILEMAP_PATHS[key]);
     });
 
     // ─────────────────────────────────────────
@@ -435,7 +453,7 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GrillingScene', {
       ws: this.ws,
       store: this.store,
       decision,
@@ -462,7 +480,7 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('DecisionRoomScene', {
+    this.scene.start('GrillingScene', {
       ws: this.ws,
       store: this.store,
       decision,
