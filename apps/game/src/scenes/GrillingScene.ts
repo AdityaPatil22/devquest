@@ -60,6 +60,8 @@ interface DoorObject {
   doorSprite: Phaser.GameObjects.Image;
   isRecommended: boolean;
   isOpen: boolean;
+  roomId: string;
+  roomSegment: WorldSegment;
 }
 
 interface SceneData {
@@ -70,7 +72,9 @@ interface SceneData {
   devMode?: boolean;
 }
 
-type CreatedTilemapLayer = NonNullable<ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>>;
+type CreatedTilemapLayer = NonNullable<
+  ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>
+>;
 
 interface WorldSegment {
   id: string;
@@ -85,7 +89,6 @@ interface WorldSegment {
 
 const DOOR_SCALE = 0.191;
 const DOOR_OPEN_SCALE = 0.191;
-const OPTION_ROOM_1_KEY = OPTION_ROOM_TILEMAP_KEYS[0];
 
 const CORRIDOR_ENTRANCE_MIN_TILE_X = 17;
 const CORRIDOR_ENTRANCE_MAX_TILE_X = 19;
@@ -95,72 +98,113 @@ const CORRIDOR_EXIT_MIN_TILE_X = 17;
 const CORRIDOR_EXIT_MAX_TILE_X = 19;
 const CORRIDOR_EXIT_TILE_Y = -10;
 
-const CORRIDOR_WORLD_X_PX = 5;
-const CORRIDOR_WORLD_Y_PX = -1054;
+const INITIAL_ROOM_ID = 'decision-room';
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private interactKey!: Phaser.Input.Keyboard.Key;
+
   private ws!: WebSocketClient;
   private store!: SessionStore;
-  private map!: Phaser.Tilemaps.Tilemap;
-  private wallsLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
-  private doors: DoorObject[] = [];
+
   private phase = GamePhase.EXPLORING_DOORS;
+
+  private doors: DoorObject[] = [];
   private currentDoor?: DoorObject;
   private currentNodeId = '';
+
   private unsubscribeWs?: () => void;
   private devMode = false;
-  private worldBottomY = 0;
-  private decisionRoomOffsetY = 0;
+
+  /**
+   * Every rendered room/corridor is kept here.
+   * Nothing is removed during normal gameplay.
+   */
   private segments = new Map<string, WorldSegment>();
-  private decisionSegment?: WorldSegment;
-  private corridorSegment?: WorldSegment;
-  private optionRoomSegment?: WorldSegment;
-  private corridorEntryTrigger?: Phaser.GameObjects.Zone;
-  private corridorContextShown = false;
+
+  /**
+   * Room containing the currently active decision.
+   */
+  private activeRoomSegment?: WorldSegment;
+
+  /**
+   * Corridor created when the current door is selected.
+   */
+  private activeCorridorSegment?: WorldSegment;
+
+  /**
+   * Used to select room-1, room-2, room-3, room-4 sequentially.
+   */
+  private optionRoomIndex = 0;
+
+  /**
+   * Prevents generating the same corridor multiple times
+   * when the user opens/cancels the context overlay.
+   */
+  private corridorGeneratedForCurrentDoor = false;
+
   constructor() {
     super({
       key: 'GrillingScene',
     });
   }
 
+  // ===========================================================================
   // Phaser Assets
+  // ===========================================================================
+
   preload(): void {
     this.load.image('door-closed', 'assets/items/door-closed.png');
     this.load.image('door-open', 'assets/items/door-open.png');
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Scene Initialization
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   init(data: SceneData): void {
     this.ws = data.ws;
     this.store = data.store;
     this.devMode = data.devMode ?? false;
+
     this.phase = GamePhase.EXPLORING_DOORS;
+
     this.currentDoor = undefined;
     this.doors = [];
+
     this.currentNodeId = data.decision.nodeId;
+
+    this.optionRoomIndex = 0;
+    this.corridorGeneratedForCurrentDoor = false;
+
+    this.activeRoomSegment = undefined;
+    this.activeCorridorSegment = undefined;
+
     this.data.set('decision', data.decision);
     this.data.set('restored', data.restored ?? false);
-    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
+
+    this.unsubscribeWs = this.ws.onMessage(
+      this.handleMessage.bind(this),
+    );
   }
 
-  // ---------------------------------------------------------------------------
-  // Scene creation
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Scene Creation
+  // ===========================================================================
 
   create(): void {
     this.createPlayer();
     this.setupInput();
-    
-    const decision = this.data.get('decision') as DecisionCreatedMsg;
+
+    const decision = this.data.get(
+      'decision',
+    ) as DecisionCreatedMsg;
+
     this.buildInitialWorld(decision);
-    
+
     const restored = this.data.get('restored') as boolean;
+
     if (restored) {
       this.restoreCurrentPhase();
     }
@@ -170,13 +214,17 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Phaser game loop
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Game Loop
+  // ===========================================================================
 
   update(): void {
-    if (this.phase === GamePhase.EXPLORING_DOORS || this.phase === GamePhase.TRAVERSING_OPTION) {
+    if (
+      this.phase === GamePhase.EXPLORING_DOORS ||
+      this.phase === GamePhase.TRAVERSING_OPTION
+    ) {
       this.player.handleMovement(this.cursors);
+
       if (this.phase === GamePhase.EXPLORING_DOORS) {
         this.checkDoorProximity();
       }
@@ -185,119 +233,558 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Initial continuous world
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Initial World
+  // ===========================================================================
 
-  private buildInitialWorld(decision: DecisionCreatedMsg): void {
-    this.buildRoom();
-    this.renderDecision(decision);
-    const initialDoor = this.doors[0];
-    if (!initialDoor) {
-      console.error('[GrillingScene] Cannot build initial branch: no decision doors exist.');
-      return;
-    }
-    this.createCorridor(initialDoor);
+  private buildInitialWorld(
+    decision: DecisionCreatedMsg,
+  ): void {
+    const room = this.buildDecisionRoom();
+
+    this.activeRoomSegment = room;
+
+    this.renderDecisionDoors(decision, room);
   }
 
-  // ---------------------------------------------------------------------------
-  // Continuous branch
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Decision Room
+  // ===========================================================================
 
-  private createCorridor(door: DoorObject): void {
-    this.removeSegment('option-room-1');
-    this.removeSegment('corridor');
-    const corridor = this.createCorridorAt(door);
-    this.buildRoom1FromCorridor(corridor);
-  }
+  private buildDecisionRoom(): WorldSegment {
+    const cached = this.cache.tilemap.get(
+      DECISION_TILEMAP_KEY,
+    );
 
-  private createCorridorAt(door: DoorObject): WorldSegment {
-    const cached = this.cache.tilemap.get(CORRIDOR_TILEMAP_KEY);
     if (cached?.data) {
-      patchCorridorTilesets(cached.data);
+      patchDecisionRoomTilesets(cached.data);
+    }
+
+    const map = this.make.tilemap({
+      key: DECISION_TILEMAP_KEY,
+    });
+
+    const tilesets = DECISION_TILESETS.map((tileset) =>
+      map.addTilesetImage(
+        tileset.name,
+        tileset.key,
+      ),
+    ).filter(
+      (
+        tileset,
+      ): tileset is Phaser.Tilemaps.Tileset =>
+        tileset !== null,
+    );
+
+    const layers: CreatedTilemapLayer[] = [];
+    const colliders: Phaser.Physics.Arcade.Collider[] = [];
+
+    DECISION_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer = map.createLayer(
+          layerName,
+          tilesets,
+        );
+
+        if (!layer) {
+          console.error(
+            `[GrillingScene] Failed to create decision layer: ${layerName}`,
+          );
+          return;
+        }
+
+        layer.setDepth(depth);
+
+        layers.push(layer);
+
+        if (
+          layerName ===
+          DECISION_COLLIDABLE_LAYER
+        ) {
+          layer.setCollisionByExclusion([-1]);
+
+          const collider =
+            this.physics.add.collider(
+              this.player.sprite,
+              layer,
+            );
+
+          colliders.push(collider);
+        }
+      },
+    );
+
+    const width =
+      (DECISION_MAP_BOUNDS.maxTileX -
+        DECISION_MAP_BOUNDS.minTileX +
+        1) *
+      DECISION_MAP_TILE_SIZE;
+
+    const height =
+      (DECISION_MAP_BOUNDS.maxTileY -
+        DECISION_MAP_BOUNDS.minTileY +
+        1) *
+      DECISION_MAP_TILE_SIZE;
+
+    const x =
+      DECISION_MAP_BOUNDS.minTileX *
+      DECISION_MAP_TILE_SIZE;
+
+    const y =
+      DECISION_MAP_BOUNDS.minTileY *
+      DECISION_MAP_TILE_SIZE;
+
+    this.physics.world.setBounds(
+      x,
+      y,
+      width,
+      height,
+    );
+
+    const segment: WorldSegment = {
+      id: INITIAL_ROOM_ID,
+      x,
+      y,
+      width,
+      height,
+      layers,
+      objects: [],
+      colliders,
+    };
+
+    this.segments.set(
+      segment.id,
+      segment,
+    );
+
+    return segment;
+  }
+
+  // ===========================================================================
+  // Option Room
+  // ===========================================================================
+
+  private buildOptionRoomFromCorridor(
+    corridor: WorldSegment,
+    decision: DecisionCreatedMsg,
+  ): WorldSegment {
+    const roomKey =
+      OPTION_ROOM_TILEMAP_KEYS[
+        this.optionRoomIndex %
+          OPTION_ROOM_TILEMAP_KEYS.length
+      ];
+
+    this.optionRoomIndex += 1;
+
+    const cached =
+      this.cache.tilemap.get(roomKey);
+
+    if (cached?.data) {
+      patchOptionRoomTilesets(
+        cached.data,
+      );
+    }
+
+    const map = this.make.tilemap({
+      key: roomKey,
+    });
+
+    const tilesets =
+      OPTION_ROOM_TILESETS.map(
+        (tileset) =>
+          map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
+      ).filter(
+        (
+          tileset,
+        ): tileset is Phaser.Tilemaps.Tileset =>
+          tileset !== null,
+      );
+
+    // -------------------------------------------------------------------------
+    // Corridor exit position
+    // -------------------------------------------------------------------------
+
+    const corridorExitCenterTileX =
+      (CORRIDOR_EXIT_MIN_TILE_X +
+        CORRIDOR_EXIT_MAX_TILE_X) /
+      2;
+
+    const corridorExitCenterX =
+      corridor.x +
+      (
+        corridorExitCenterTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        0.5
+      ) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    const corridorExitCenterY =
+      corridor.y +
+      (
+        CORRIDOR_EXIT_TILE_Y -
+        CORRIDOR_MAP_BOUNDS.minTileY +
+        0.5
+      ) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    // -------------------------------------------------------------------------
+    // Option room entrance
+    // -------------------------------------------------------------------------
+
+    const optionRoomEntranceCenterTileX =
+      (
+        OPTION_ROOM_ENTRANCE_MIN_TILE_X +
+        OPTION_ROOM_ENTRANCE_MAX_TILE_X
+      ) / 2;
+
+    const entranceOffsetX =
+      (
+        optionRoomEntranceCenterTileX -
+        OPTION_ROOM_BOUNDS.minTileX +
+        0.5
+      ) *
+        OPTION_ROOM_TILE_SIZE;
+
+    const entranceOffsetY =
+      (
+        OPTION_ROOM_ENTRANCE_TILE_Y -
+        OPTION_ROOM_BOUNDS.minTileY +
+        0.5
+      ) *
+        OPTION_ROOM_TILE_SIZE;
+
+    // -------------------------------------------------------------------------
+    // Align room entrance with corridor exit
+    // -------------------------------------------------------------------------
+
+    const roomX =
+      corridorExitCenterX -
+      entranceOffsetX;
+
+    const roomY =
+      corridorExitCenterY -
+      entranceOffsetY;
+
+    // -------------------------------------------------------------------------
+    // Create layers
+    // -------------------------------------------------------------------------
+
+    const layerX =
+      roomX -
+      OPTION_ROOM_BOUNDS.minTileX *
+        OPTION_ROOM_TILE_SIZE;
+
+    const layerY =
+      roomY -
+      OPTION_ROOM_BOUNDS.minTileY *
+        OPTION_ROOM_TILE_SIZE;
+
+    const layers: CreatedTilemapLayer[] = [];
+    const colliders: Phaser.Physics.Arcade.Collider[] = [];
+
+    OPTION_ROOM_TILE_LAYERS.forEach(
+      () => {
+        // Intentionally unused.
+      },
+    );
+
+    OPTION_ROOM_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer = map.createLayer(
+          layerName,
+          tilesets,
+          layerX,
+          layerY,
+        );
+
+        if (!layer) {
+          console.error(
+            `[GrillingScene] Failed to create option room layer: ${layerName}`,
+          );
+          return;
+        }
+
+        layer.setDepth(depth + 20);
+
+        layers.push(layer);
+
+        if (
+          layerName ===
+          OPTION_ROOM_COLLIDABLE_LAYER
+        ) {
+          layer.setCollisionByExclusion([-1]);
+
+          const collider =
+            this.physics.add.collider(
+              this.player.sprite,
+              layer,
+            );
+
+          colliders.push(collider);
+        }
+      },
+    );
+
+    const roomId =
+      `option-room-${this.optionRoomIndex}`;
+
+    const segment: WorldSegment = {
+      id: roomId,
+      x: roomX,
+      y: roomY,
+      width: OPTION_ROOM_WIDTH_PX,
+      height: OPTION_ROOM_HEIGHT_PX,
+      layers,
+      objects: [],
+      colliders,
+    };
+
+    this.segments.set(
+      roomId,
+      segment,
+    );
+
+    // -------------------------------------------------------------------------
+    // Open the corridor exit and room entrance only after the room exists.
+    // -------------------------------------------------------------------------
+
+    this.openCorridorExit(corridor);
+
+    this.openOptionRoomEntrance(
+      segment,
+    );
+
+    this.activeRoomSegment = segment;
+    this.activeCorridorSegment = undefined;
+
+    this.renderDecisionDoors(
+      decision,
+      segment,
+    );
+
+    this.extendWorldBounds(
+      roomX,
+      roomY,
+      roomX + OPTION_ROOM_WIDTH_PX,
+      roomY + OPTION_ROOM_HEIGHT_PX,
+    );
+
+    return segment;
+  }
+
+  // ===========================================================================
+  // Corridor
+  // ===========================================================================
+
+  private createCorridor(
+    door: DoorObject,
+  ): WorldSegment | undefined {
+    if (
+      this.corridorGeneratedForCurrentDoor &&
+      this.activeCorridorSegment
+    ) {
+      return this.activeCorridorSegment;
+    }
+
+    const corridor =
+      this.createCorridorAt(door);
+
+    this.activeCorridorSegment =
+      corridor;
+
+    this.corridorGeneratedForCurrentDoor =
+      true;
+
+    this.openCorridorEntrance(
+      corridor,
+    );
+
+    return corridor;
+  }
+
+  private createCorridorAt(
+    door: DoorObject,
+  ): WorldSegment {
+    const cached =
+      this.cache.tilemap.get(
+        CORRIDOR_TILEMAP_KEY,
+      );
+
+    if (cached?.data) {
+      patchCorridorTilesets(
+        cached.data,
+      );
     }
 
     const map = this.make.tilemap({
       key: CORRIDOR_TILEMAP_KEY,
     });
 
-    const tilesets = CORRIDOR_TILESETS.map((tileset) =>
-      map.addTilesetImage(tileset.name, tileset.key),
-    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
+    const tilesets =
+      CORRIDOR_TILESETS.map(
+        (tileset) =>
+          map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
+      ).filter(
+        (
+          tileset,
+        ): tileset is Phaser.Tilemaps.Tileset =>
+          tileset !== null,
+      );
 
     const width =
-      (CORRIDOR_MAP_BOUNDS.maxTileX - CORRIDOR_MAP_BOUNDS.minTileX + 1) * CORRIDOR_MAP_TILE_SIZE;
+      (
+        CORRIDOR_MAP_BOUNDS.maxTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        1
+      ) *
+      CORRIDOR_MAP_TILE_SIZE;
 
     const height =
-      (CORRIDOR_MAP_BOUNDS.maxTileY - CORRIDOR_MAP_BOUNDS.minTileY + 1) * CORRIDOR_MAP_TILE_SIZE;
-
-      const corridorEntranceCenterTileX =
-      (CORRIDOR_ENTRANCE_MIN_TILE_X +
-        CORRIDOR_ENTRANCE_MAX_TILE_X) /
-      2;
-
-    const corridorEntranceCenterOffsetX =
-      (corridorEntranceCenterTileX -
-        CORRIDOR_MAP_BOUNDS.minTileX +
-        0.5) *
-      CORRIDOR_MAP_TILE_SIZE;
-
-    const corridorEntranceCenterOffsetY =
-      (CORRIDOR_ENTRANCE_TILE_Y -
+      (
+        CORRIDOR_MAP_BOUNDS.maxTileY -
         CORRIDOR_MAP_BOUNDS.minTileY +
-        0.5) *
+        1
+      ) *
       CORRIDOR_MAP_TILE_SIZE;
 
-      const segmentX = CORRIDOR_WORLD_X_PX;
-      const segmentY = CORRIDOR_WORLD_Y_PX;
+    // -------------------------------------------------------------------------
+    // Corridor entrance center inside the map
+    // -------------------------------------------------------------------------
 
-    const layerX = segmentX - CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
-    const layerY = segmentY - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
+    const corridorEntranceCenterTileX =
+      (
+        CORRIDOR_ENTRANCE_MIN_TILE_X +
+        CORRIDOR_ENTRANCE_MAX_TILE_X
+      ) / 2;
+
+    const corridorEntranceOffsetX =
+      (
+        corridorEntranceCenterTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        0.5
+      ) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    const corridorEntranceOffsetY =
+      (
+        CORRIDOR_ENTRANCE_TILE_Y -
+        CORRIDOR_MAP_BOUNDS.minTileY +
+        0.5
+      ) *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    // -------------------------------------------------------------------------
+    // Position corridor directly below the selected door.
+    // -------------------------------------------------------------------------
+
+    const segmentX =
+      door.x -
+      corridorEntranceOffsetX - 400;
+
+    const segmentY =
+      door.y -
+      corridorEntranceOffsetY - 350;
+
+    const layerX =
+      segmentX -
+      CORRIDOR_MAP_BOUNDS.minTileX *
+        CORRIDOR_MAP_TILE_SIZE;
+
+    const layerY =
+      segmentY -
+      CORRIDOR_MAP_BOUNDS.minTileY *
+        CORRIDOR_MAP_TILE_SIZE;
 
     const layers: CreatedTilemapLayer[] = [];
     const colliders: Phaser.Physics.Arcade.Collider[] = [];
 
-    CORRIDOR_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = map.createLayer(layerName, tilesets, layerX, layerY);
+    CORRIDOR_TILE_LAYERS.forEach(
+      (layerName, depth) => {
+        const layer = map.createLayer(
+          layerName,
+          tilesets,
+          layerX,
+          layerY,
+        );
 
-      if (!layer) {
-        console.error(`[GrillingScene] Failed to create corridor layer: ${layerName}`);
-        return;
-      }
-
-      layer.setDepth(depth + 10);
-
-      layers.push(layer);
-
-      if (layerName === CORRIDOR_COLLIDABLE_LAYER) {
-        layer.setCollisionByExclusion([-1]);
-
-        // The corridor interior must remain walkable.
-        // Only the outer wall tiles should block the player.
-        for (let y = CORRIDOR_MAP_BOUNDS.minTileY; y <= CORRIDOR_MAP_BOUNDS.maxTileY; y++) {
-          for (let x = CORRIDOR_MAP_BOUNDS.minTileX; x <= CORRIDOR_MAP_BOUNDS.maxTileX; x++) {
-            const tile = layer.getTileAt(x, y, true);
-
-            if (!tile) {
-              continue;
-            }
-
-            const isOuterWall =
-              x === CORRIDOR_MAP_BOUNDS.minTileX ||
-              x === CORRIDOR_MAP_BOUNDS.maxTileX ||
-              y === CORRIDOR_MAP_BOUNDS.minTileY ||
-              y === CORRIDOR_MAP_BOUNDS.maxTileY;
-
-            tile.setCollision(isOuterWall);
-          }
+        if (!layer) {
+          console.error(
+            `[GrillingScene] Failed to create corridor layer: ${layerName}`,
+          );
+          return;
         }
 
-        colliders.push(this.physics.add.collider(this.player.sprite, layer));
-      }
-    });
+        layer.setDepth(depth + 10);
+
+        layers.push(layer);
+
+        if (
+          layerName ===
+          CORRIDOR_COLLIDABLE_LAYER
+        ) {
+          layer.setCollisionByExclusion([-1]);
+
+          // Only the outside wall tiles collide.
+          for (
+            let y =
+              CORRIDOR_MAP_BOUNDS.minTileY;
+            y <=
+            CORRIDOR_MAP_BOUNDS.maxTileY;
+            y += 1
+          ) {
+            for (
+              let x =
+                CORRIDOR_MAP_BOUNDS.minTileX;
+              x <=
+              CORRIDOR_MAP_BOUNDS.maxTileX;
+              x += 1
+            ) {
+              const tile =
+                layer.getTileAt(
+                  x,
+                  y,
+                  true,
+                );
+
+              if (!tile) {
+                continue;
+              }
+
+              const isOuterWall =
+                x ===
+                  CORRIDOR_MAP_BOUNDS.minTileX ||
+                x ===
+                  CORRIDOR_MAP_BOUNDS.maxTileX ||
+                y ===
+                  CORRIDOR_MAP_BOUNDS.minTileY ||
+                y ===
+                  CORRIDOR_MAP_BOUNDS.maxTileY;
+
+              tile.setCollision(
+                isOuterWall,
+              );
+            }
+          }
+
+          const collider =
+            this.physics.add.collider(
+              this.player.sprite,
+              layer,
+            );
+
+          colliders.push(collider);
+        }
+      },
+    );
 
     const segment: WorldSegment = {
-      id: 'corridor',
+      id: `corridor-${this.segments.size}`,
       x: segmentX,
       y: segmentY,
       width,
@@ -307,424 +794,431 @@ export class GrillingScene extends Phaser.Scene {
       colliders,
     };
 
-    this.corridorSegment = segment;
+    this.segments.set(
+      segment.id,
+      segment,
+    );
 
-    this.segments.set(segment.id, segment);
-
-    this.extendWorldBounds(segmentX, segmentY, segmentX + width, segmentY + height);
+    this.extendWorldBounds(
+      segmentX,
+      segmentY,
+      segmentX + width,
+      segmentY + height,
+    );
 
     return segment;
   }
 
-  private buildRoom1FromCorridor(corridor: WorldSegment): void {
-    const cached = this.cache.tilemap.get(OPTION_ROOM_1_KEY);
-  
-    if (cached?.data) {
-      patchOptionRoomTilesets(cached.data);
-    }
-  
-    const map = this.make.tilemap({
-      key: OPTION_ROOM_1_KEY,
-    });
-  
-    const tilesets = OPTION_ROOM_TILESETS.map((tileset) =>
-      map.addTilesetImage(tileset.name, tileset.key),
-    ).filter(
-      (tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null,
-    );
-  
-    const width = OPTION_ROOM_WIDTH_PX;
-    const height = OPTION_ROOM_HEIGHT_PX;
-  
-    // ---------------------------------------------------------
-    // CORRIDOR EXIT
-    // ---------------------------------------------------------
-  
-    const corridorExitCenterTileX =
-      (CORRIDOR_EXIT_MIN_TILE_X +
-        CORRIDOR_EXIT_MAX_TILE_X) /
-      2;
-  
-    const corridorExitCenterX =
-      corridor.x +
-      (corridorExitCenterTileX -
-        CORRIDOR_MAP_BOUNDS.minTileX +
-        0.5) *
-        CORRIDOR_MAP_TILE_SIZE;
-  
-    const corridorExitCenterY =
-      corridor.y +
-      (CORRIDOR_EXIT_TILE_Y -
-        CORRIDOR_MAP_BOUNDS.minTileY +
-        0.5) *
-        CORRIDOR_MAP_TILE_SIZE;
-  
-    // ---------------------------------------------------------
-    // OPTION ROOM ENTRANCE
-    //
-    // The entrance is on the BOTTOM wall of the option room.
-    // ---------------------------------------------------------
-  
-    const optionRoomEntranceCenterTileX =
-      (OPTION_ROOM_ENTRANCE_MIN_TILE_X +
-        OPTION_ROOM_ENTRANCE_MAX_TILE_X) /
-      2;
-  
-    const optionRoomEntranceOffsetX =
-      (optionRoomEntranceCenterTileX -
-        OPTION_ROOM_BOUNDS.minTileX +
-        0.5) *
-        OPTION_ROOM_TILE_SIZE;
-  
-    const optionRoomEntranceOffsetY =
-      (OPTION_ROOM_ENTRANCE_TILE_Y -
-        OPTION_ROOM_BOUNDS.minTileY +
-        0.5) *
-        OPTION_ROOM_TILE_SIZE;
-  
-    // ---------------------------------------------------------
-    // ALIGN THE TWO DOORWAYS
-    //
-    // The center of the option-room entrance must be exactly
-    // on the center of the corridor exit.
-    // ---------------------------------------------------------
-  
-    const roomX =
-      corridorExitCenterX -
-      optionRoomEntranceOffsetX;
-  
-    const roomY =
-      corridorExitCenterY -
-      optionRoomEntranceOffsetY;
-  
-    // ---------------------------------------------------------
-    // INFINITE TILED MAP OFFSET
-    //
-    // roomX / roomY represent the world position of the
-    // option room's minimum tile coordinates.
-    // ---------------------------------------------------------
-  
-    const layerX =
-      roomX -
-      OPTION_ROOM_BOUNDS.minTileX *
-        OPTION_ROOM_TILE_SIZE;
-  
-    const layerY =
-      roomY -
-      OPTION_ROOM_BOUNDS.minTileY *
-        OPTION_ROOM_TILE_SIZE;
-  
-    const layers: CreatedTilemapLayer[] = [];
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
-  
-    // ---------------------------------------------------------
-    // CREATE ROOM LAYERS
-    // ---------------------------------------------------------
-  
-    OPTION_ROOM_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = map.createLayer(
-        layerName,
-        tilesets,
-        layerX,
-        layerY,
+  // ===========================================================================
+  // Corridor Entrance / Exit
+  // ===========================================================================
+
+  private openCorridorEntrance(
+    corridor: WorldSegment,
+  ): void {
+    const wallLayer =
+      corridor.layers.find(
+        (layer) =>
+          layer.layer.name ===
+          CORRIDOR_COLLIDABLE_LAYER,
       );
-  
-      if (!layer) {
-        console.error(
-          `[GrillingScene] Failed to create Room-1 layer: ${layerName}`,
-        );
-        return;
-      }
-  
-      layer.setDepth(depth + 20);
-      layers.push(layer);
-  
-      if (layerName === OPTION_ROOM_COLLIDABLE_LAYER) {
-        layer.setCollisionByExclusion([-1]);
-  
-        colliders.push(
-          this.physics.add.collider(
-            this.player.sprite,
-            layer,
-          ),
-        );
-      }
+
+    if (!wallLayer) {
+      return;
+    }
+
+    // Open the bottom entrance.
+    for (
+      let x =
+        CORRIDOR_ENTRANCE_MIN_TILE_X;
+      x <=
+      CORRIDOR_ENTRANCE_MAX_TILE_X;
+      x += 1
+    ) {
+      wallLayer
+        .getTileAt(
+          x,
+          CORRIDOR_ENTRANCE_TILE_Y,
+          true,
+        )
+        ?.setCollision(false);
+    }
+
+    // IMPORTANT:
+    // Do NOT open the corridor exit here.
+    //
+    // The player should be able to walk through the corridor
+    // while the next decision is being generated, but should
+    // not walk into empty space before the Option Room exists.
+  }
+
+  private openCorridorExit(
+    corridor: WorldSegment,
+  ): void {
+    const wallLayer =
+      corridor.layers.find(
+        (layer) =>
+          layer.layer.name ===
+          CORRIDOR_COLLIDABLE_LAYER,
+      );
+
+    if (!wallLayer) {
+      return;
+    }
+
+    for (
+      let x =
+        CORRIDOR_EXIT_MIN_TILE_X;
+      x <=
+      CORRIDOR_EXIT_MAX_TILE_X;
+      x += 1
+    ) {
+      wallLayer
+        .getTileAt(
+          x,
+          CORRIDOR_EXIT_TILE_Y,
+          true,
+        )
+        ?.setCollision(false);
+    }
+  }
+
+  private openOptionRoomEntrance(
+    room: WorldSegment,
+  ): void {
+    const wallLayer =
+      room.layers.find(
+        (layer) =>
+          layer.layer.name ===
+          OPTION_ROOM_COLLIDABLE_LAYER,
+      );
+
+    if (!wallLayer) {
+      return;
+    }
+
+    for (
+      let x =
+        OPTION_ROOM_ENTRANCE_MIN_TILE_X;
+      x <=
+      OPTION_ROOM_ENTRANCE_MAX_TILE_X;
+      x += 1
+    ) {
+      wallLayer
+        .getTileAt(
+          x,
+          OPTION_ROOM_ENTRANCE_TILE_Y,
+          true,
+        )
+        ?.setCollision(false);
+    }
+  }
+
+  // ===========================================================================
+  // Decision Doors
+  // ===========================================================================
+
+  private renderDecisionDoors(
+    decision: DecisionCreatedMsg,
+    room: WorldSegment,
+  ): void {
+    this.currentNodeId =
+      decision.nodeId;
+
+    this.emitUI({
+      type: 'DECISION',
+      nodeId: decision.nodeId,
+      question: decision.question,
+      options: decision.options,
+      recommendation:
+        decision.recommendation,
+      round: decision.round,
     });
-  
-    // ---------------------------------------------------------
-    // REGISTER WORLD SEGMENT
-    // ---------------------------------------------------------
-  
-    const segment: WorldSegment = {
-      id: 'option-room-1',
-      x: roomX,
-      y: roomY,
-      width,
-      height,
-      layers,
-      objects: [],
-      colliders,
-    };
-  
-    this.optionRoomSegment = segment;
-    this.segments.set(segment.id, segment);
-  
-    this.extendWorldBounds(
-      roomX,
-      roomY,
-      roomX + width,
-      roomY + height,
+
+    // The old room's doors must remain in the world.
+    // Only reset the active-door collection.
+    this.doors = [];
+    this.currentDoor = undefined;
+
+    const rangeStartTile =
+      DECISION_DOOR_ROW_X_RANGE.minTileX;
+
+    const rangeWidthTiles =
+      DECISION_DOOR_ROW_X_RANGE.maxTileX -
+      DECISION_DOOR_ROW_X_RANGE.minTileX +
+      1;
+
+    const rangeWidthPx =
+      rangeWidthTiles *
+      DECISION_MAP_TILE_SIZE;
+
+    const spacing =
+      decision.options.length > 0
+        ? Math.min(
+            120,
+            rangeWidthPx /
+              (decision.options.length + 1),
+          )
+        : 120;
+
+    // Convert the room's local tile coordinate
+    // into world coordinates.
+    const doorRowLocalY =
+      (
+        DECISION_DOOR_ROW_TILE_Y -
+        this.getRoomMinTileY(room)
+      ) *
+        DECISION_MAP_TILE_SIZE +
+      DECISION_MAP_TILE_SIZE / 2;
+
+    const doorY =
+      room.y +
+      doorRowLocalY;
+
+    decision.options.forEach(
+      (option, index) => {
+        const localDoorX =
+          (
+            rangeStartTile -
+            this.getRoomMinTileX(room)
+          ) *
+            DECISION_MAP_TILE_SIZE +
+          spacing *
+            (index + 1);
+
+        const doorX =
+          room.x +
+          localDoorX;
+
+        const isRecommended =
+          decision.recommendation?.option ===
+          option.id;
+
+        const doorSprite =
+          this.add
+            .image(
+              doorX,
+              doorY,
+              'door-closed',
+            )
+            .setOrigin(0.5, 1.42)
+            .setDepth(50)
+            .setScale(DOOR_SCALE);
+
+        const door: DoorObject = {
+          option,
+          x: doorX,
+          y: doorY,
+          doorSprite,
+          isRecommended,
+          isOpen: false,
+          roomId: room.id,
+          roomSegment: room,
+        };
+
+        this.doors.push(door);
+
+        room.objects.push(
+          doorSprite,
+        );
+      },
     );
-  }
 
-  private createCorridorEntryTrigger(door: DoorObject): void {
-    this.corridorEntryTrigger?.destroy();
-    this.corridorContextShown = false;
-    const trigger = this.add.zone(door.x, door.y - 48, 32, 32);
-    this.physics.add.existing(trigger, true);
-    this.corridorEntryTrigger = trigger;
-    this.physics.add.overlap(this.player.sprite, trigger, () => {
-      if (this.corridorContextShown || !this.currentDoor) {
-        return;
-      }
-      this.corridorContextShown = true;
-      this.phase = GamePhase.DOOR_CONTEXT;
-      this.player.stop();
-      this.emitUI({
-        type: 'DOOR_CONTEXT',
-        visible: true,
-        option: this.currentDoor.option,
-      });
-    });
-  }
+    this.phase =
+      GamePhase.EXPLORING_DOORS;
 
-  private removeSegment(id: string): void {
-    const segment = this.segments.get(id);
-    if (!segment) {
-      return;
-    }
-
-    segment.colliders.forEach((collider) => {
-      collider.destroy();
-    });
-
-    segment.objects.forEach((object) => {
-      object.destroy();
-    });
-
-    segment.layers.forEach((layer) => {
-      layer.destroy();
-    });
-
-    this.segments.delete(id);
-
-    if (segment === this.corridorSegment) {
-      this.corridorSegment = undefined;
-    }
-
-    if (segment === this.optionRoomSegment) {
-      this.optionRoomSegment = undefined;
-    }
-  }
-
-  private extendWorldBounds(left: number, top: number, right: number, bottom: number): void {
-    const currentBounds = this.physics.world.bounds;
-    const padding = 512;
-    const minX = Math.min(currentBounds.x, left - padding);
-    const minY = Math.min(currentBounds.y, top - padding);
-    const maxX = Math.max(currentBounds.right, right + padding);
-    const maxY = Math.max(currentBounds.bottom, bottom + padding);
-    this.physics.world.setBounds(minX, minY, maxX - minX, maxY - minY);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Build a decision room at an arbitrary Y offset
-  // ---------------------------------------------------------------------------
-
-  private buildDecisionRoomAt(offsetY: number): void {
-    const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
-
-    if (cached?.data) {
-      patchDecisionRoomTilesets(cached.data);
-    }
-
-    const map = this.make.tilemap({
-      key: DECISION_TILEMAP_KEY,
-    });
-
-    const tilesets = DECISION_TILESETS.map((tileset) =>
-      map.addTilesetImage(tileset.name, tileset.key),
-    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
-
-    const layers: CreatedTilemapLayer[] = [];
-
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
-
-    DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = map.createLayer(layerName, tilesets, 0, offsetY);
-
-      if (!layer) {
-        return;
-      }
-
-      layer.setDepth(depth);
-
-      layers.push(layer);
-
-      if (layerName === DECISION_COLLIDABLE_LAYER) {
-        layer.setCollisionByExclusion([-1]);
-
-        colliders.push(this.physics.add.collider(this.player.sprite, layer));
-      }
-    });
-
-    const width =
-      (DECISION_MAP_BOUNDS.maxTileX - DECISION_MAP_BOUNDS.minTileX + 1) * DECISION_MAP_TILE_SIZE;
-
-    const height =
-      (DECISION_MAP_BOUNDS.maxTileY - DECISION_MAP_BOUNDS.minTileY + 1) * DECISION_MAP_TILE_SIZE;
-
-    const segment: WorldSegment = {
-      id: `decision-${offsetY}`,
-      x: 0,
-      y: offsetY,
-      width,
-      height,
-      layers,
-      objects: [],
-      colliders,
-    };
-
-    this.segments.set(segment.id, segment);
-  }
-
-  // ---------------------------------------------------------------------------
-  // React communication
-  // ---------------------------------------------------------------------------
-
-  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
-    emitUIEvent(this.game, event);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Restore state after reload
-  // ---------------------------------------------------------------------------
-
-  private restoreCurrentPhase(): void {
-    const decision = this.store.getCurrentDecision();
-    if (!decision) {
-      return;
-    }
-    this.phase = GamePhase.EXPLORING_DOORS;
     this.emitUI({
       type: 'EXPLORING_DOORS',
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Room building
-  // ---------------------------------------------------------------------------
-
-  private buildRoom(): void {
-    const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
-
-    if (cached?.data) {
-      patchDecisionRoomTilesets(cached.data);
+  private getRoomMinTileX(
+    room: WorldSegment,
+  ): number {
+    if (
+      room.id === INITIAL_ROOM_ID
+    ) {
+      return DECISION_MAP_BOUNDS.minTileX;
     }
 
-    this.map = this.make.tilemap({
-      key: DECISION_TILEMAP_KEY,
-    });
-
-    const tilesets = DECISION_TILESETS.map((tileset) =>
-      this.map.addTilesetImage(tileset.name, tileset.key),
-    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
-
-    const layers: CreatedTilemapLayer[] = [];
-
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
-
-    DECISION_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = this.map.createLayer(layerName, tilesets);
-
-      if (!layer) {
-        return;
-      }
-
-      layer.setDepth(depth);
-
-      layers.push(layer);
-
-      if (layerName === DECISION_COLLIDABLE_LAYER) {
-        layer.setCollisionByExclusion([-1]);
-
-        colliders.push(this.physics.add.collider(this.player.sprite, layer));
-
-        this.wallsLayer = layer;
-      }
-    });
-
-    const { minTileX, maxTileX, minTileY, maxTileY } = DECISION_MAP_BOUNDS;
-
-    const boundsX = minTileX * DECISION_MAP_TILE_SIZE;
-
-    const boundsY = minTileY * DECISION_MAP_TILE_SIZE;
-
-    const boundsWidthPx = (maxTileX - minTileX + 1) * DECISION_MAP_TILE_SIZE;
-
-    const boundsHeightPx = (maxTileY - minTileY + 1) * DECISION_MAP_TILE_SIZE;
-
-    this.physics.world.setBounds(boundsX, boundsY, boundsWidthPx, boundsHeightPx);
-
-    this.decisionRoomOffsetY = boundsY;
-
-    this.worldBottomY = boundsY + boundsHeightPx;
-
-    const segment: WorldSegment = {
-      id: 'decision-room',
-      x: 0,
-      y: boundsY,
-      width: boundsWidthPx,
-      height: boundsHeightPx,
-      layers,
-      objects: [],
-      colliders,
-    };
-
-    this.decisionSegment = segment;
-
-    this.segments.set(segment.id, segment);
+    return OPTION_ROOM_BOUNDS.minTileX;
   }
 
-  private openDoorwayCollision(door: DoorObject): void {
-    if (!this.wallsLayer) {
+  private getRoomMinTileY(
+    room: WorldSegment,
+  ): number {
+    if (
+      room.id === INITIAL_ROOM_ID
+    ) {
+      return DECISION_MAP_BOUNDS.minTileY;
+    }
+
+    return OPTION_ROOM_BOUNDS.minTileY;
+  }
+
+  // ===========================================================================
+  // Door Collision
+  // ===========================================================================
+
+  private openDoorwayCollision(
+    door: DoorObject,
+  ): void {
+    if (
+      door.roomId ===
+      INITIAL_ROOM_ID
+    ) {
+      this.openDecisionRoomDoorway(
+        door,
+      );
       return;
     }
 
-    const doorTileX = Math.floor(door.x / DECISION_MAP_TILE_SIZE);
-    const doorTileY = Math.floor(door.y / DECISION_MAP_TILE_SIZE);
+    this.openOptionRoomDoorway(
+      door,
+    );
+  }
 
-    let wallStartY: number | undefined;
+  private openDecisionRoomDoorway(
+    door: DoorObject,
+  ): void {
+    const wallLayer =
+      this.getCollisionLayer(
+        door.roomSegment,
+        DECISION_COLLIDABLE_LAYER,
+      );
 
-    for (let y = doorTileY - 1; y >= DECISION_MAP_BOUNDS.minTileY; y -= 1) {
-      const tile = this.wallsLayer.getTileAt(doorTileX, y, true);
+    if (!wallLayer) {
+      return;
+    }
 
-      if (tile && tile.index !== -1) {
+    const tileX =
+      Math.floor(
+        door.x /
+          DECISION_MAP_TILE_SIZE,
+      );
+
+    const tileY =
+      Math.floor(
+        door.y /
+          DECISION_MAP_TILE_SIZE,
+      );
+
+    this.clearVerticalWall(
+      wallLayer,
+      tileX,
+      tileY,
+      DECISION_MAP_BOUNDS.minTileY,
+    );
+  }
+
+  private openOptionRoomDoorway(
+    door: DoorObject,
+  ): void {
+    const wallLayer =
+      this.getCollisionLayer(
+        door.roomSegment,
+        OPTION_ROOM_COLLIDABLE_LAYER,
+      );
+
+    if (!wallLayer) {
+      return;
+    }
+
+    const room =
+      door.roomSegment;
+
+    const localX =
+      door.x -
+      room.x;
+
+    const localY =
+      door.y -
+      room.y;
+
+    const tileX =
+      Math.floor(
+        localX /
+          OPTION_ROOM_TILE_SIZE,
+      ) +
+      OPTION_ROOM_BOUNDS.minTileX;
+
+    const tileY =
+      Math.floor(
+        localY /
+          OPTION_ROOM_TILE_SIZE,
+      ) +
+      OPTION_ROOM_BOUNDS.minTileY;
+
+    this.clearVerticalWall(
+      wallLayer,
+      tileX,
+      tileY,
+      OPTION_ROOM_BOUNDS.minTileY,
+    );
+  }
+
+  private clearVerticalWall(
+    layer: CreatedTilemapLayer,
+    centerTileX: number,
+    startTileY: number,
+    minTileY: number,
+  ): void {
+    let wallStartY:
+      | number
+      | undefined;
+
+    for (
+      let y =
+        startTileY - 1;
+      y >= minTileY;
+      y -= 1
+    ) {
+      const tile =
+        layer.getTileAt(
+          centerTileX,
+          y,
+          true,
+        );
+
+      if (
+        tile &&
+        tile.index !== -1
+      ) {
         wallStartY = y;
         break;
       }
     }
 
-    if (wallStartY === undefined) {
-      console.warn('[GrillingScene] Could not find wall above door');
+    if (
+      wallStartY === undefined
+    ) {
       return;
     }
 
-    for (let x = doorTileX - 1; x <= doorTileX + 1; x += 1) {
-      for (let y = wallStartY; y >= DECISION_MAP_BOUNDS.minTileY; y -= 1) {
-        const tile = this.wallsLayer.getTileAt(x, y, true);
+    for (
+      let x =
+        centerTileX - 1;
+      x <=
+      centerTileX + 1;
+      x += 1
+    ) {
+      for (
+        let y =
+          wallStartY;
+        y >= minTileY;
+        y -= 1
+      ) {
+        const tile =
+          layer.getTileAt(
+            x,
+            y,
+            true,
+          );
 
-        if (!tile || tile.index === -1) {
+        if (
+          !tile ||
+          tile.index === -1
+        ) {
           continue;
         }
 
@@ -733,144 +1227,94 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Decision rendering
-  // ---------------------------------------------------------------------------
-
-  private renderDecision(decision: DecisionCreatedMsg): void {
-    this.clearDecision();
-    this.currentNodeId = decision.nodeId;
-    this.emitUI({
-      type: 'DECISION',
-      nodeId: decision.nodeId,
-      question: decision.question,
-      options: decision.options,
-      recommendation: decision.recommendation,
-      round: decision.round,
-    });
-
-    const options = decision.options;
-    const rangeStartPx = DECISION_DOOR_ROW_X_RANGE.minTileX * DECISION_MAP_TILE_SIZE;
-    const rangeWidthPx =
-      (DECISION_DOOR_ROW_X_RANGE.maxTileX - DECISION_DOOR_ROW_X_RANGE.minTileX + 1) *
-      DECISION_MAP_TILE_SIZE;
-    const spacing = options.length > 0 ? Math.min(120, rangeWidthPx / (options.length + 1)) : 120;
-    const doorY =
-      this.decisionRoomOffsetY +
-      DECISION_DOOR_ROW_TILE_Y * DECISION_MAP_TILE_SIZE +
-      DECISION_MAP_TILE_SIZE / 2;
-
-    options.forEach((option, index) => {
-      const doorX = rangeStartPx + spacing * (index + 1);
-      const isRecommended = decision.recommendation?.option === option.id;
-      const doorSprite = this.add
-        .image(doorX, doorY, 'door-closed')
-        .setOrigin(0.5, 1.42)
-        .setDepth(5)
-        .setScale(DOOR_SCALE);
-
-      this.doors.push({
-        option,
-        x: doorX,
-        y: doorY,
-        doorSprite,
-        isRecommended,
-        isOpen: false,
-      });
-      this.decisionSegment?.objects.push(doorSprite);
-    });
-
-    this.phase = GamePhase.EXPLORING_DOORS;
-    this.emitUI({
-      type: 'EXPLORING_DOORS',
-    });
+  private getCollisionLayer(
+    segment: WorldSegment,
+    layerName: string,
+  ): CreatedTilemapLayer | undefined {
+    return segment.layers.find(
+      (layer) =>
+        layer.layer.name ===
+        layerName,
+    );
   }
 
-  // ---------------------------------------------------------------------------
-  // Clear previous decision
-  // ---------------------------------------------------------------------------
-
-  private clearDecision(): void {
-    this.doors.forEach((door) => {
-      door.doorSprite.destroy();
-    });
-
-    if (this.decisionSegment) {
-      this.decisionSegment.objects = [];
-    }
-
-    this.doors = [];
-    this.currentDoor = undefined;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Player
-  // ---------------------------------------------------------------------------
-
-  private createPlayer(): void {
-    const spawnX = DECISION_SPAWN_TILE.x * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-    const spawnY = DECISION_SPAWN_TILE.y * DECISION_MAP_TILE_SIZE + DECISION_MAP_TILE_SIZE / 2;
-    this.player = new Player(this, spawnX, spawnY);
-    this.player.sprite.setDepth(50);
-    this.player.sprite.setCollideWorldBounds(false);
-    this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-    this.cameras.main.setDeadzone(120, 80);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Keyboard
-  // ---------------------------------------------------------------------------
-
-  private setupInput(): void {
-    this.cursors = this.input.keyboard!.createCursorKeys();
-    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Door proximity
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Door Proximity
+  // ===========================================================================
 
   private checkDoorProximity(): void {
-    let nearest: DoorObject | null = null;
+    let nearest:
+      | DoorObject
+      | null = null;
 
     let minDist = Infinity;
 
-    for (const door of this.doors) {
-      const distance = Phaser.Math.Distance.Between(
-        this.player.sprite.x,
-        this.player.sprite.y,
-        door.x,
-        door.y,
-      );
+    for (
+      const door of this.doors
+    ) {
+      const distance =
+        Phaser.Math.Distance.Between(
+          this.player.sprite.x,
+          this.player.sprite.y,
+          door.x,
+          door.y,
+        );
 
-      if (distance < 50 && distance < minDist) {
+      if (
+        distance < 50 &&
+        distance < minDist
+      ) {
         minDist = distance;
-
         nearest = door;
       }
     }
 
-    if (nearest && nearest !== this.currentDoor) {
-      this.currentDoor = nearest;
+    if (
+      nearest &&
+      nearest !== this.currentDoor
+    ) {
+      if (this.currentDoor) {
+        this.currentDoor.doorSprite.clearTint();
+      }
 
-      this.showDoorPrompt(nearest);
-    } else if (!nearest && this.currentDoor) {
-      this.currentDoor = undefined;
+      this.currentDoor =
+        nearest;
+
+      this.showDoorPrompt(
+        nearest,
+      );
+    } else if (
+      !nearest &&
+      this.currentDoor
+    ) {
+      this.currentDoor =
+        undefined;
 
       this.hideDoorPrompt();
     }
 
-    if (nearest && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
-      this.approachDoor(nearest);
+    if (
+      nearest &&
+      Phaser.Input.Keyboard.JustDown(
+        this.interactKey,
+      )
+    ) {
+      this.approachDoor(
+        nearest,
+      );
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Door prompt
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Door Prompt
+  // ===========================================================================
 
-  private showDoorPrompt(door: DoorObject): void {
-    door.doorSprite.setTint(0xffaa44);
+  private showDoorPrompt(
+    door: DoorObject,
+  ): void {
+    door.doorSprite.setTint(
+      0xffaa44,
+    );
 
     this.emitUI({
       type: 'DOOR_PROXIMITY',
@@ -880,9 +1324,11 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private hideDoorPrompt(): void {
-    this.doors.forEach((door) => {
-      door.doorSprite.clearTint();
-    });
+    this.doors.forEach(
+      (door) => {
+        door.doorSprite.clearTint();
+      },
+    );
 
     this.emitUI({
       type: 'DOOR_PROXIMITY',
@@ -890,59 +1336,116 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Enter door
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Door Interaction
+  // ===========================================================================
 
-  private approachDoor(door: DoorObject): void {
+  private approachDoor(
+    door: DoorObject,
+  ): void {
     this.currentDoor = door;
-    this.phase = GamePhase.TRAVERSING_OPTION;
+
+    this.phase =
+      GamePhase.DOOR_CONTEXT;
+
+    this.player.stop();
 
     this.hideDoorPrompt();
 
     if (!door.isOpen) {
       door.isOpen = true;
 
-      door.doorSprite.setTexture('door-open').setOrigin(0.5, 1.32).setScale(DOOR_OPEN_SCALE);
+      door.doorSprite
+        .setTexture(
+          'door-open',
+        )
+        .setOrigin(
+          0.5,
+          1.32,
+        )
+        .setScale(
+          DOOR_OPEN_SCALE,
+        );
     }
 
-    this.openDoorwayCollision(door);
-    this.createCorridor(door);
-    this.openCorridorEntrance();
-    this.createCorridorEntryTrigger(door);
+    this.openDoorwayCollision(
+      door,
+    );
+
+    // Generate the corridor immediately.
+    // It stays in the world even if the user
+    // cancels the context overlay.
+    this.createCorridor(
+      door,
+    );
+
+    this.emitUI({
+      type: 'DOOR_CONTEXT',
+      visible: true,
+      option: door.option,
+    });
   }
 
-  // ---------------------------------------------------------------------------
-  // Select door
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Context Confirmation
+  // ===========================================================================
 
-  public confirmDoorSelection(context?: string): void {
-    if (!this.currentDoor) {
+  public confirmDoorSelection(
+    context?: string,
+  ): void {
+    if (
+      !this.currentDoor
+    ) {
       return;
     }
 
-    const door = this.currentDoor;
+    const door =
+      this.currentDoor;
 
-    this.selectDoor(door, context);
+    this.selectDoor(
+      door,
+      context,
+    );
   }
 
   public cancelDoorSelection(): void {
-    if (this.phase !== GamePhase.DOOR_CONTEXT) {
+    if (
+      this.phase !==
+      GamePhase.DOOR_CONTEXT
+    ) {
       return;
     }
 
     if (this.currentDoor) {
-      this.currentDoor.isOpen = false;
+      this.currentDoor.isOpen =
+        false;
 
       this.currentDoor.doorSprite
-        .setTexture('door-closed')
-        .setOrigin(0.5, 1.42)
-        .setScale(DOOR_SCALE);
+        .setTexture(
+          'door-closed',
+        )
+        .setOrigin(
+          0.5,
+          1.42,
+        )
+        .setScale(
+          DOOR_SCALE,
+        );
     }
 
-    this.phase = GamePhase.EXPLORING_DOORS;
-
-    this.currentDoor = undefined;
+    /*
+     * IMPORTANT:
+     * Do not destroy the corridor.
+     *
+     * It has already been generated and belongs
+     * to the continuous world.
+     *
+     * Keeping corridorGeneratedForCurrentDoor=true
+     * also prevents creating duplicate corridors
+     * if the player approaches the same door again.
+     */
+    this.phase =
+      GamePhase.EXPLORING_DOORS;
 
     this.emitUI({
       type: 'DOOR_CONTEXT',
@@ -950,18 +1453,25 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  private selectDoor(door: DoorObject, context?: string): void {
-    this.phase = GamePhase.TRAVERSING_OPTION;
+  private selectDoor(
+    door: DoorObject,
+    context?: string,
+  ): void {
+    this.phase =
+      GamePhase.TRAVERSING_OPTION;
 
     this.store.updateCurrent({
-      selectedOptionId: door.option.id,
+      selectedOptionId:
+        door.option.id,
       context,
     });
 
     this.ws.send({
       type: 'OPTION_SELECTED',
-      nodeId: this.currentNodeId,
-      optionId: door.option.id,
+      nodeId:
+        this.currentNodeId,
+      optionId:
+        door.option.id,
       context,
     });
 
@@ -969,110 +1479,244 @@ export class GrillingScene extends Phaser.Scene {
       type: 'DOOR_CONTEXT',
       visible: false,
     });
-
-    this.corridorEntryTrigger?.destroy();
-    this.corridorEntryTrigger = undefined;
   }
 
-  private openCorridorEntrance(): void {
-    if (!this.corridorSegment) {
-      return;
-    }
+  // ===========================================================================
+  // World Bounds
+  // ===========================================================================
 
-    const wallLayer = this.corridorSegment.layers.find(
-      (layer) => layer.layer.name === CORRIDOR_COLLIDABLE_LAYER,
+  private extendWorldBounds(
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): void {
+    const bounds =
+      this.physics.world.bounds;
+
+    const padding = 512;
+
+    const minX =
+      Math.min(
+        bounds.x,
+        left - padding,
+      );
+
+    const minY =
+      Math.min(
+        bounds.y,
+        top - padding,
+      );
+
+    const maxX =
+      Math.max(
+        bounds.right,
+        right + padding,
+      );
+
+    const maxY =
+      Math.max(
+        bounds.bottom,
+        bottom + padding,
+      );
+
+    this.physics.world.setBounds(
+      minX,
+      minY,
+      maxX - minX,
+      maxY - minY,
+    );
+  }
+
+  // ===========================================================================
+  // Player
+  // ===========================================================================
+
+  private createPlayer(): void {
+    const spawnX =
+      DECISION_SPAWN_TILE.x *
+        DECISION_MAP_TILE_SIZE +
+      DECISION_MAP_TILE_SIZE / 2;
+
+    const spawnY =
+      DECISION_SPAWN_TILE.y *
+        DECISION_MAP_TILE_SIZE +
+      DECISION_MAP_TILE_SIZE / 2;
+
+    this.player =
+      new Player(
+        this,
+        spawnX,
+        spawnY,
+      );
+
+    this.player.sprite.setDepth(
+      50,
     );
 
-    if (!wallLayer) {
+    this.player.sprite.setCollideWorldBounds(
+      false,
+    );
+
+    this.cameras.main.startFollow(
+      this.player.sprite,
+      true,
+      0.1,
+      0.1,
+    );
+
+    this.cameras.main.setDeadzone(
+      120,
+      80,
+    );
+  }
+
+  // ===========================================================================
+  // Keyboard
+  // ===========================================================================
+
+  private setupInput(): void {
+    this.cursors =
+      this.input.keyboard!.createCursorKeys();
+
+    this.interactKey =
+      this.input.keyboard!.addKey(
+        Phaser.Input.Keyboard.KeyCodes.E,
+      );
+  }
+
+  // ===========================================================================
+  // UI
+  // ===========================================================================
+
+  private emitUI(
+    event: Parameters<
+      typeof emitUIEvent
+    >[1],
+  ): void {
+    emitUIEvent(
+      this.game,
+      event,
+    );
+  }
+
+  // ===========================================================================
+  // Restore
+  // ===========================================================================
+
+  private restoreCurrentPhase(): void {
+    const decision =
+      this.store.getCurrentDecision();
+
+    if (!decision) {
       return;
     }
 
-    // Bottom connection to the Decision Room.
-    for (
-      let x = CORRIDOR_ENTRANCE_MIN_TILE_X;
-      x <= CORRIDOR_ENTRANCE_MAX_TILE_X;
-      x += 1
-    ) {
-      wallLayer
-        .getTileAt(x, CORRIDOR_ENTRANCE_TILE_Y, true)
-        ?.setCollision(false);
-    }
+    this.phase =
+      GamePhase.EXPLORING_DOORS;
 
-    // Top connection to the Option Room.
-    for (
-      let x = CORRIDOR_EXIT_MIN_TILE_X;
-      x <= CORRIDOR_EXIT_MAX_TILE_X;
-      x += 1
-    ) {
-      wallLayer
-        .getTileAt(x, CORRIDOR_EXIT_TILE_Y, true)
-        ?.setCollision(false);
-    }
+    this.emitUI({
+      type: 'EXPLORING_DOORS',
+    });
   }
 
-  // ---------------------------------------------------------------------------
-  // Server messages
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // Server Messages
+  // ===========================================================================
 
-  private handleMessage(msg: ServerMessage): void {
+  private handleMessage(
+    msg: ServerMessage,
+  ): void {
     switch (msg.type) {
+      // -----------------------------------------------------------------------
+      // New decision generated by the server
+      // -----------------------------------------------------------------------
+
       case 'DECISION_CREATED': {
-        const decision = msg as DecisionCreatedMsg;
+        const decision =
+          msg as DecisionCreatedMsg;
 
         this.store.addDecision({
-          nodeId: decision.nodeId,
-          question: decision.question,
-          options: decision.options,
-          recommendation: decision.recommendation,
-          round: decision.round,
+          nodeId:
+            decision.nodeId,
+          question:
+            decision.question,
+          options:
+            decision.options,
+          recommendation:
+            decision.recommendation,
+          round:
+            decision.round,
         });
 
-        const newRoomOffsetY = this.worldBottomY;
+        /*
+         * The important continuous-world transition:
+         *
+         * OLD:
+         *   DECISION_CREATED
+         *       -> create another Decision Room
+         *
+         * NEW:
+         *   DECISION_CREATED
+         *       -> use current corridor
+         *       -> create Option Room at corridor exit
+         *       -> render new decision doors inside it
+         */
+        if (
+          !this.activeCorridorSegment
+        ) {
+          console.error(
+            '[GrillingScene] DECISION_CREATED received without an active corridor.',
+          );
 
-        this.buildDecisionRoomAt(newRoomOffsetY);
+          this.emitUI({
+            type: 'ERROR',
+            message:
+              'Received a new decision before the corridor was ready.',
+          });
 
-        this.decisionRoomOffsetY = newRoomOffsetY;
+          break;
+        }
 
-        const decisionRoomHeightPx =
-          (DECISION_MAP_BOUNDS.maxTileY - DECISION_MAP_BOUNDS.minTileY + 1) *
-          DECISION_MAP_TILE_SIZE;
+        this.buildOptionRoomFromCorridor(
+          this.activeCorridorSegment,
+          decision,
+        );
 
-        this.worldBottomY += decisionRoomHeightPx;
-
-        const bounds = this.cameras.main.getBounds();
-
-        const newH = Math.max(bounds.height, this.worldBottomY - bounds.y);
-
-        this.physics.world.setBounds(bounds.x, bounds.y, bounds.width, newH);
-
-        this.phase = GamePhase.EXPLORING_DOORS;
-
-        this.emitUI({
-          type: 'EXPLORING_DOORS',
-        });
-
-        this.time.delayedCall(400, () => {
-          this.clearDecision();
-
-          this.renderDecision(decision);
-        });
+        this.phase =
+          GamePhase.EXPLORING_DOORS;
 
         break;
       }
 
-      case 'SESSION_COMPLETE': {
-        const complete = msg as SessionCompleteMsg;
+      // -----------------------------------------------------------------------
+      // Session complete
+      // -----------------------------------------------------------------------
 
-        this.store.complete(complete.summary, complete.docContent);
+      case 'SESSION_COMPLETE': {
+        const complete =
+          msg as SessionCompleteMsg;
+
+        this.store.complete(
+          complete.summary,
+          complete.docContent,
+        );
 
         this.player.stop();
 
-        this.scene.start('TrophyScene', {
-          store: this.store,
-        });
+        this.scene.start(
+          'TrophyScene',
+          {
+            store: this.store,
+          },
+        );
 
         break;
       }
+
+      // -----------------------------------------------------------------------
+      // Session resumed
+      // -----------------------------------------------------------------------
 
       case 'SESSION_RESUMED': {
         this.emitUI({
@@ -1082,12 +1726,37 @@ export class GrillingScene extends Phaser.Scene {
         break;
       }
 
+      // -----------------------------------------------------------------------
+      // Evaluation
+      // -----------------------------------------------------------------------
+
+      case 'EVALUATION': {
+        const evaluation =
+          msg as EvaluationMsg;
+      
+        this.emitUI({
+          type: 'EVALUATION',
+          feedback: evaluation.feedback,
+          consequence: evaluation.consequence,
+        });
+      
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Error
+      // -----------------------------------------------------------------------
+
       case 'ERROR': {
-        console.error('Server error:', msg.message);
+        console.error(
+          'Server error:',
+          msg.message,
+        );
 
         this.emitUI({
           type: 'ERROR',
-          message: msg.message,
+          message:
+            msg.message,
         });
 
         break;
@@ -1095,45 +1764,106 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Cleanup
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+
+  private removeSegment(
+    id: string,
+  ): void {
+    const segment =
+      this.segments.get(id);
+
+    if (!segment) {
+      return;
+    }
+
+    segment.colliders.forEach(
+      (collider) => {
+        collider.destroy();
+      },
+    );
+
+    segment.objects.forEach(
+      (object) => {
+        object.destroy();
+      },
+    );
+
+    segment.layers.forEach(
+      (layer) => {
+        layer.destroy();
+      },
+    );
+
+    this.segments.delete(id);
+
+    if (
+      segment ===
+      this.activeRoomSegment
+    ) {
+      this.activeRoomSegment =
+        undefined;
+    }
+
+    if (
+      segment ===
+      this.activeCorridorSegment
+    ) {
+      this.activeCorridorSegment =
+        undefined;
+    }
+  }
 
   private leaveBoot(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs = undefined;
+    this.unsubscribeWs =
+      undefined;
   }
 
   shutdown(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs = undefined;
+    this.unsubscribeWs =
+      undefined;
 
-    this.segments.forEach((segment) => {
-      segment.colliders.forEach((collider) => {
-        collider.destroy();
-      });
+    this.segments.forEach(
+      (segment) => {
+        segment.colliders.forEach(
+          (collider) => {
+            collider.destroy();
+          },
+        );
 
-      segment.objects.forEach((object) => {
-        object.destroy();
-      });
+        segment.objects.forEach(
+          (object) => {
+            object.destroy();
+          },
+        );
 
-      segment.layers.forEach((layer) => {
-        layer.destroy();
-      });
-    });
+        segment.layers.forEach(
+          (layer) => {
+            layer.destroy();
+          },
+        );
+      },
+    );
 
     this.segments.clear();
 
     this.doors = [];
 
-    this.currentDoor = undefined;
+    this.currentDoor =
+      undefined;
 
-    this.decisionSegment = undefined;
+    this.activeRoomSegment =
+      undefined;
 
-    this.corridorSegment = undefined;
+    this.activeCorridorSegment =
+      undefined;
 
-    this.optionRoomSegment = undefined;
+    this.corridorGeneratedForCurrentDoor =
+      false;
   }
 }

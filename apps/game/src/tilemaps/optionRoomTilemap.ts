@@ -77,6 +77,27 @@ export const OPTION_ROOM_COLLIDABLE_LAYER = 'Walls';
  * Keep these values aligned with the wall perimeter
  * authored in Tiled.
  */
+
+/**
+ * Row where decision doors are placed inside an option room.
+ *
+ * IMPORTANT:
+ * This must match the actual door/wall layout in the
+ * Tiled option-room maps.
+ */
+export const OPTION_ROOM_DOOR_ROW_TILE_Y = 15;
+
+/**
+ * Horizontal tile range available for decision doors
+ * inside an option room.
+ *
+ * These are LOCAL TILED coordinates.
+ */
+export const OPTION_ROOM_DOOR_ROW_X_RANGE = {
+  minTileX: 14,
+  maxTileX: 45,
+};
+
 export const OPTION_ROOM_BOUNDS = {
   minTileX: 10,
   maxTileX: 49,
