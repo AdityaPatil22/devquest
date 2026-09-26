@@ -445,25 +445,50 @@ export class GrillingScene extends Phaser.Scene {
     const height =
       (CORRIDOR_MAP_BOUNDS.maxTileY - CORRIDOR_MAP_BOUNDS.minTileY + 1) * CORRIDOR_MAP_TILE_SIZE;
 
-    // Align the corridor entrance marker with the selected door.
+    // Connect the actual doorway edges, not the centers of the markers.
+    // The Decision Room door opens upward into the corridor, so its top edge
+    // is the connection point. The corridor entrance opens downward into the
+    // Decision Room, so its bottom edge must meet that same point.
     const corridorEntrance = CORRIDOR_MARKERS.entrance;
+
+    const doorIndex = this.doors.indexOf(door);
+    const doorKey = (['A', 'B', 'C', 'D'] as const)[doorIndex];
+
+    if (!doorKey) {
+      throw new Error(`[GrillingScene] No decision door marker for door index ${doorIndex}`);
+    }
+
+    const decisionExit = DECISION_DOOR_EXITS[doorKey];
+
+    // Use the actual selected door position as the horizontal anchor.
+    // This guarantees the corridor follows whichever option the player chose.
+    const decisionExitWorldX = door.x;
+
+    const decisionExitWorldY =
+      decisionExit.y -
+      DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE;
 
     const corridorEntranceLocalX =
       corridorEntrance.x +
       corridorEntrance.width / 2 -
       CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
 
-    const corridorEntranceLocalY =
-      corridorEntrance.y +
-      corridorEntrance.height / 2 -
+    // The corridor's physical boundary is the top edge of the
+    // entrance marker (the wall row is immediately below it).
+    // Align that edge with the top edge of the Decision Room door exit.
+    const corridorEntranceTopLocalY =
+      corridorEntrance.y -
       CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
 
-    const segmentX = door.x - corridorEntranceLocalX;
-    const segmentY = door.y - corridorEntranceLocalY;
+    const segmentX = decisionExitWorldX - corridorEntranceLocalX;
+    const segmentY = decisionExitWorldY - corridorEntranceTopLocalY;
 
-    const layerX = segmentX - CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
-
-    const layerY = segmentY - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
+    // `segmentX` / `segmentY` are already the world position of the
+    // tilemap layer's top-left origin. For an infinite Tiled layer, the
+    // negative `starty` is part of the layer data, so subtracting
+    // `minTileY` again would shift the corridor down by 16 * 16 = 256px.
+    const layerX = segmentX;
+    const layerY = segmentY;
 
     const layers: CreatedTilemapLayer[] = [];
     const colliders: Phaser.Physics.Arcade.Collider[] = [];

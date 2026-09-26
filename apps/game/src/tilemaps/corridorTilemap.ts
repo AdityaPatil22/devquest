@@ -60,28 +60,20 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
   },
 ];
 
-/**
- * Layers present in the updated corridor map.
- */
 export const CORRIDOR_TILE_LAYERS = [
   'Floor',
   'Walls',
   'furniture',
   'computers',
-];
+] as const;
 
-/**
- * Layer containing blocking tiles.
- */
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
 
 /**
- * Actual corridor map bounds.
+ * Bounds of the authored infinite corridor map.
  *
- * The map is infinite/chunked. The authored tile data starts
- * at Y = -16 and continues through Y = 47.
- *
- * The corridor itself is approximately centered around X = 10..25.
+ * The Tiled map uses chunks starting at y = -16 and extending
+ * through y = 47.
  */
 export const CORRIDOR_MAP_BOUNDS = {
   minTileX: 0,
@@ -91,21 +83,33 @@ export const CORRIDOR_MAP_BOUNDS = {
 };
 
 /**
- * Marker positions are authored in Tiled and should be used
- * by CorridorScene instead of hardcoded coordinates.
+ * Connection markers from the Tiled corridor map.
  *
- * Tiled uses pixel coordinates for object layers.
+ * These coordinates are in Tiled/world pixels and should be treated
+ * as the source of truth for connecting the corridor to adjacent rooms.
  */
 export const CORRIDOR_MARKERS = {
+  /**
+   * Bottom entrance coming from the Decision Room.
+   *
+   * Tiled marker:
+   * x = 271.814278436795
+   * y = 625.136452951022
+   * width = 32.03143876
+   * height = 30.21206608
+   */
   entrance: {
     name: 'corridor-enterance',
     type: 'RoomEntrance',
     x: 271.814278436795,
     y: 625.136452951022,
-    width: 48.0314387599156,
-    height: 46.2120660796157,
+    width: 32.03143876,
+    height: 30.21206608,
   },
 
+  /**
+   * Top exit leading toward the next Option Room.
+   */
   exit: {
     name: 'corridor-exit',
     type: '',
@@ -115,7 +119,11 @@ export const CORRIDOR_MARKERS = {
     height: 61.822925528898,
   },
 
+  /**
+   * Explicit RoomExit marker from Tiled.
+   */
   roomExit: {
+    name: '',
     type: 'RoomExit',
     x: 272.083642051535,
     y: -159.298592244999,
@@ -123,25 +131,58 @@ export const CORRIDOR_MARKERS = {
     height: 62.5668889437721,
   },
 
+  /**
+   * Player spawn point inside the corridor.
+   */
   spawn: {
     name: 'corridor-starting-point',
     type: 'SpawnPoint',
     x: 256.36662696387,
     y: 592.138846350179,
-    width: 75.4353128013158,
-    height: 30.0606885599228,
+    width: 63.435312801,
+    height: 30.06068856,
   },
+} as const;
+
+/**
+ * Center point of the corridor spawn marker.
+ */
+export const CORRIDOR_SPAWN = {
+  x:
+    CORRIDOR_MARKERS.spawn.x +
+    CORRIDOR_MARKERS.spawn.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.spawn.y +
+    CORRIDOR_MARKERS.spawn.height / 2,
 };
 
 /**
- * Spawn point for convenience.
+ * Center point of the Decision Room connection.
  *
- * Prefer reading the marker directly from the Tiled object layer
- * in CorridorScene.
+ * Use this rather than hardcoding a separate entrance coordinate.
  */
-export const CORRIDOR_SPAWN = {
-  x: 256.36662696387,
-  y: 592.138846350179,
+export const CORRIDOR_ENTRANCE = {
+  x:
+    CORRIDOR_MARKERS.entrance.x +
+    CORRIDOR_MARKERS.entrance.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.entrance.y +
+    CORRIDOR_MARKERS.entrance.height / 2,
+};
+
+/**
+ * Center point of the corridor exit.
+ */
+export const CORRIDOR_EXIT = {
+  x:
+    CORRIDOR_MARKERS.roomExit.x +
+    CORRIDOR_MARKERS.roomExit.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.roomExit.y +
+    CORRIDOR_MARKERS.roomExit.height / 2,
 };
 
 interface CorridorTileChunk {
@@ -165,17 +206,13 @@ export function patchCorridorTilesets(rawMapJson: {
   rawMapJson.tilesets = CORRIDOR_TILESETS.map((tileset) => ({
     firstgid: tileset.firstgid,
     name: tileset.name,
-
     image: tileset.path.split('/').pop(),
     imagewidth: tileset.imagewidth,
     imageheight: tileset.imageheight,
-
     columns: tileset.columns,
     tilecount: tileset.tilecount,
-
     tilewidth: CORRIDOR_MAP_TILE_SIZE,
     tileheight: CORRIDOR_MAP_TILE_SIZE,
-
     margin: 0,
     spacing: 0,
   }));
