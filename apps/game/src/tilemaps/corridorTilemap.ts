@@ -2,7 +2,8 @@ import type { DecisionTilesetDef } from './decisionRoomTilemap';
 
 export const CORRIDOR_TILEMAP_KEY = 'corridor-map';
 
-export const CORRIDOR_TILEMAP_PATH = 'assets/map/corridor/corridor.json';
+export const CORRIDOR_TILEMAP_PATH =
+  'assets/map/corridor/corridor.json';
 
 export const CORRIDOR_MAP_TILE_SIZE = 16;
 
@@ -17,7 +18,6 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1280,
     tilecount: 10240,
   },
-
   {
     name: 'ModernOfficeBlackShadow16',
     key: 'tileset-modern-office-16',
@@ -28,7 +28,6 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1696,
     tilecount: 3392,
   },
-
   {
     name: 'FloorAndGround16B',
     key: 'tileset-floor-and-ground-16',
@@ -39,7 +38,6 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
     imageheight: 1280,
     tilecount: 10240,
   },
-
   {
     name: 'Generic16',
     key: 'tileset-generic-16',
@@ -50,7 +48,6 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
     imageheight: 2496,
     tilecount: 4992,
   },
-
   {
     name: 'Basement16',
     key: 'tileset-basement-16',
@@ -63,25 +60,129 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
   },
 ];
 
-export const CORRIDOR_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'];
+export const CORRIDOR_TILE_LAYERS = [
+  'Floor',
+  'Walls',
+  'furniture',
+  'computers',
+] as const;
 
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
 
 /**
- * Bounds of the updated corridor map.
+ * Bounds of the authored infinite corridor map.
  *
- * The updated Tiled map extends vertically from y = -10
- * through y = 39, with the wall structure spanning roughly
- * x = 10 through x = 26.
- *
- * Keep the bounds slightly wider than the wall geometry so
- * the player can move through the complete corridor.
+ * The Tiled map uses chunks starting at y = -16 and extending
+ * through y = 47.
  */
 export const CORRIDOR_MAP_BOUNDS = {
-  minTileX: 10,
-  maxTileX: 26,
-  minTileY: -10,
-  maxTileY: 39,
+  minTileX: 0,
+  maxTileX: 31,
+  minTileY: -16,
+  maxTileY: 47,
+};
+
+/**
+ * Connection markers from the Tiled corridor map.
+ *
+ * These coordinates are in Tiled/world pixels and should be treated
+ * as the source of truth for connecting the corridor to adjacent rooms.
+ */
+export const CORRIDOR_MARKERS = {
+  /**
+   * Bottom entrance coming from the Decision Room.
+   *
+   * Tiled marker:
+   * x = 271.814278436795
+   * y = 625.136452951022
+   * width = 32.03143876
+   * height = 30.21206608
+   */
+  entrance: {
+    name: 'corridor-enterance',
+    type: 'RoomEntrance',
+    x: 271.814278436795,
+    y: 625.136452951022,
+    width: 32.03143876,
+    height: 30.21206608,
+  },
+
+  /**
+   * Top exit leading toward the next Option Room.
+   */
+  exit: {
+    name: 'corridor-exit',
+    type: '',
+    x: 273.382111054393,
+    y: -159.378367647893,
+    width: 45.374624241393,
+    height: 61.822925528898,
+  },
+
+  /**
+   * Explicit RoomExit marker from Tiled.
+   */
+  roomExit: {
+    name: '',
+    type: 'RoomExit',
+    x: 272.083642051535,
+    y: -159.298592244999,
+    width: 47.748415246563,
+    height: 62.5668889437721,
+  },
+
+  /**
+   * Player spawn point inside the corridor.
+   */
+  spawn: {
+    name: 'corridor-starting-point',
+    type: 'SpawnPoint',
+    x: 256.36662696387,
+    y: 592.138846350179,
+    width: 63.435312801,
+    height: 30.06068856,
+  },
+} as const;
+
+/**
+ * Center point of the corridor spawn marker.
+ */
+export const CORRIDOR_SPAWN = {
+  x:
+    CORRIDOR_MARKERS.spawn.x +
+    CORRIDOR_MARKERS.spawn.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.spawn.y +
+    CORRIDOR_MARKERS.spawn.height / 2,
+};
+
+/**
+ * Center point of the Decision Room connection.
+ *
+ * Use this rather than hardcoding a separate entrance coordinate.
+ */
+export const CORRIDOR_ENTRANCE = {
+  x:
+    CORRIDOR_MARKERS.entrance.x +
+    CORRIDOR_MARKERS.entrance.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.entrance.y +
+    CORRIDOR_MARKERS.entrance.height / 2,
+};
+
+/**
+ * Center point of the corridor exit.
+ */
+export const CORRIDOR_EXIT = {
+  x:
+    CORRIDOR_MARKERS.roomExit.x +
+    CORRIDOR_MARKERS.roomExit.width / 2,
+
+  y:
+    CORRIDOR_MARKERS.roomExit.y +
+    CORRIDOR_MARKERS.roomExit.height / 2,
 };
 
 interface CorridorTileChunk {
@@ -103,40 +204,16 @@ export function patchCorridorTilesets(rawMapJson: {
   layers?: CorridorTileLayer[];
 }): void {
   rawMapJson.tilesets = CORRIDOR_TILESETS.map((tileset) => ({
-    columns: tileset.columns,
     firstgid: tileset.firstgid,
-    image: tileset.path.split('/').pop(),
-    imageheight: tileset.imageheight,
-    imagewidth: tileset.imagewidth,
-    margin: 0,
     name: tileset.name,
-    spacing: 0,
+    image: tileset.path.split('/').pop(),
+    imagewidth: tileset.imagewidth,
+    imageheight: tileset.imageheight,
+    columns: tileset.columns,
     tilecount: tileset.tilecount,
-    tileheight: CORRIDOR_MAP_TILE_SIZE,
     tilewidth: CORRIDOR_MAP_TILE_SIZE,
+    tileheight: CORRIDOR_MAP_TILE_SIZE,
+    margin: 0,
+    spacing: 0,
   }));
-
-  for (const layer of rawMapJson.layers ?? []) {
-    if (layer.type !== 'tilelayer' || !layer.chunks) {
-      continue;
-    }
-
-    for (const chunk of layer.chunks) {
-      for (let row = 0; row < chunk.height; row++) {
-        for (let col = 0; col < chunk.width; col++) {
-          const worldX = chunk.x + col;
-          const worldY = chunk.y + row;
-
-          if (
-            worldX < CORRIDOR_MAP_BOUNDS.minTileX ||
-            worldX > CORRIDOR_MAP_BOUNDS.maxTileX ||
-            worldY < CORRIDOR_MAP_BOUNDS.minTileY ||
-            worldY > CORRIDOR_MAP_BOUNDS.maxTileY
-          ) {
-            chunk.data[row * chunk.width + col] = 0;
-          }
-        }
-      }
-    }
-  }
 }
