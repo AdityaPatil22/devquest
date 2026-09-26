@@ -38,6 +38,12 @@ export interface UIState {
 
   decisionHistory: DecisionHistoryEntry[];
 
+  aiThinking: boolean;
+  aiThinkingMessage?: string;
+
+  objective: string;
+  playerMoving: boolean;
+
   challenge?: string;
 
   feedback?: string;
@@ -80,6 +86,12 @@ const initialState: UIState = {
   options: [],
 
   decisionHistory: [],
+
+  aiThinking: false,
+  aiThinkingMessage: undefined,
+
+  objective: '',
+  playerMoving: false,
 };
 
 const GameUIContext = createContext<GameUIContextValue | undefined>(undefined);

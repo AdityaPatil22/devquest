@@ -80,6 +80,19 @@ export type GameUIEvent =
       message: string;
     }
   | {
+      type: 'AI_THINKING';
+      visible: boolean;
+      message?: string;
+    }
+  | {
+      type: 'PLAYER_MOVING';
+      visible: boolean;
+    }
+  | {
+      type: 'OBJECTIVE';
+      objective: string;
+    }
+  | {
       type: 'CHALLENGE';
       question: string;
     }

@@ -116,6 +116,8 @@ export class GrillingScene extends Phaser.Scene {
 
   private worldBounds?: Phaser.Geom.Rectangle;
 
+  private playerMoving = false;
+
   constructor() {
     super({
       key: 'GrillingScene',
@@ -169,14 +171,38 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.phase === GamePhase.EXPLORING_DOORS || this.phase === GamePhase.TRAVERSING_OPTION) {
+    if (
+      this.phase === GamePhase.EXPLORING_DOORS ||
+      this.phase === GamePhase.TRAVERSING_OPTION
+    ) {
       this.player.handleMovement(this.cursors);
+
+      const body = this.player.sprite.body as Phaser.Physics.Arcade.Body | null;
+      const moving = Boolean(body && body.velocity.lengthSq() > 0);
+
+      if (moving !== this.playerMoving) {
+        this.playerMoving = moving;
+
+        this.emitUI({
+          type: 'PLAYER_MOVING',
+          visible: moving,
+        });
+      }
 
       if (this.phase === GamePhase.EXPLORING_DOORS) {
         this.checkDoorProximity();
       }
     } else {
       this.player.stop();
+
+      if (this.playerMoving) {
+        this.playerMoving = false;
+
+        this.emitUI({
+          type: 'PLAYER_MOVING',
+          visible: false,
+        });
+      }
     }
   }
 
@@ -586,7 +612,8 @@ export class GrillingScene extends Phaser.Scene {
       const roomMinTileY =
         room.id === INITIAL_ROOM_ID ? DECISION_MAP_BOUNDS.minTileY : OPTION_ROOM_BOUNDS.minTileY;
 
-      const tileSize = room.id === INITIAL_ROOM_ID ? DECISION_MAP_TILE_SIZE : OPTION_ROOM_TILE_SIZE;
+      const tileSize =
+        room.id === INITIAL_ROOM_ID ? DECISION_MAP_TILE_SIZE : OPTION_ROOM_TILE_SIZE;
 
       const doorX = room.x + marker.x - roomMinTileX * tileSize + marker.width / 2;
 
@@ -600,9 +627,6 @@ export class GrillingScene extends Phaser.Scene {
         .setOrigin(0.5, 1.42)
         .setDepth(50)
         .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
-
-      // Option description and the A/B/C/D indicator are rendered by React.
-      // Keep only the actual door and its collision objects inside Phaser.
 
       const doorBlocker = this.add.rectangle(doorX, doorY - 24, 50, 110, 0x000000, 0);
 
@@ -649,7 +673,10 @@ export class GrillingScene extends Phaser.Scene {
       door.roomSegment.doors.splice(roomIndex, 1);
     }
 
-    const doorObjects = [door.doorSprite, door.doorBlocker];
+    const doorObjects = [
+      door.doorSprite,
+      door.doorBlocker,
+    ];
 
     doorObjects.forEach((object) => {
       const objectIndex = door.roomSegment.objects.indexOf(object);
@@ -890,8 +917,14 @@ export class GrillingScene extends Phaser.Scene {
     this.removeSelectedDoor(door);
 
     this.emitUI({
-      type: 'WAITING',
-      message: 'AI is generating the next decision...',
+      type: 'AI_THINKING',
+      visible: true,
+      message: 'Generating the next decision...',
+    });
+
+    this.emitUI({
+      type: 'OBJECTIVE',
+      objective: 'Walk through the corridor',
     });
 
     this.ws.send({
@@ -900,26 +933,6 @@ export class GrillingScene extends Phaser.Scene {
       optionId: door.option.id,
       context,
     });
-  }
-
-  /**
-   * Returns the currently active decision doors in world coordinates.
-   * React uses these anchors to render the option text and A/B/C/D marker.
-   */
-  public getDoorOptionAnchors(): Array<{
-    key: 'A' | 'B' | 'C' | 'D';
-    label: string;
-    x: number;
-    y: number;
-    active: boolean;
-  }> {
-    return (this.activeRoomSegment?.doors ?? []).map((door) => ({
-      key: door.key,
-      label: door.option.label,
-      x: door.x,
-      y: door.y,
-      active: this.currentDoor === door,
-    }));
   }
 
   private extendWorldBounds(left: number, top: number, right: number, bottom: number): void {
@@ -970,7 +983,9 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    const selectedOption = record.options.find((option) => option.id === record.selectedOptionId);
+    const selectedOption = record.options.find(
+      (option) => option.id === record.selectedOptionId,
+    );
 
     if (!selectedOption) {
       return;
@@ -981,7 +996,9 @@ export class GrillingScene extends Phaser.Scene {
       .join('\n\n');
 
     const explanation =
-      explanationOverride?.trim() || evaluationText.trim() || record.recommendation?.why?.trim();
+      explanationOverride?.trim() ||
+      evaluationText.trim() ||
+      record.recommendation?.why?.trim();
 
     const finalRecommendedOption =
       recommendedOption?.trim() || record.recommendation?.option?.trim();
@@ -1028,7 +1045,22 @@ export class GrillingScene extends Phaser.Scene {
       case 'DECISION_CREATED': {
         const decision = msg as DecisionCreatedMsg;
 
-        console.log('[GrillingScene] DECISION_CREATED:', decision.nodeId, 'round:', decision.round);
+        console.log(
+          '[GrillingScene] DECISION_CREATED:',
+          decision.nodeId,
+          'round:',
+          decision.round,
+        );
+
+        this.emitUI({
+          type: 'AI_THINKING',
+          visible: false,
+        });
+
+        this.emitUI({
+          type: 'OBJECTIVE',
+          objective: 'Choose a door',
+        });
 
         const previousDecision = this.store.getCurrentDecision();
 
@@ -1071,6 +1103,16 @@ export class GrillingScene extends Phaser.Scene {
         this.buildOptionRoomFromCorridor(corridor, decision);
 
         this.activeCorridorSegment = undefined;
+
+        this.emitUI({
+          type: 'AI_THINKING',
+          visible: false,
+        });
+
+        this.emitUI({
+          type: 'OBJECTIVE',
+          objective: 'Choose a door',
+        });
 
         this.phase = GamePhase.EXPLORING_DOORS;
 
@@ -1118,6 +1160,11 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         this.emitUI({
+          type: 'AI_THINKING',
+          visible: false,
+        });
+
+        this.emitUI({
           type: 'EVALUATION',
           feedback: evaluation.feedback,
           consequence: evaluation.consequence,
@@ -1128,6 +1175,11 @@ export class GrillingScene extends Phaser.Scene {
 
       case 'ERROR': {
         console.error('Server error:', msg.message);
+
+        this.emitUI({
+          type: 'AI_THINKING',
+          visible: false,
+        });
 
         this.emitUI({
           type: 'ERROR',
@@ -1155,5 +1207,7 @@ export class GrillingScene extends Phaser.Scene {
     this.activeRoomSegment = undefined;
     this.activeCorridorSegment = undefined;
     this.worldBounds = undefined;
+
+    this.playerMoving = false;
   }
 }

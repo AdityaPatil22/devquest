@@ -1,58 +1,155 @@
+import { useEffect, useState } from 'react';
+
 import type { DecisionHistoryEntry } from '../../game/GameBridge';
 
 import './DecisionHistoryPanel.css';
 
 interface Props {
   entries: DecisionHistoryEntry[];
+  currentRound?: number;
+  currentQuestion?: string;
+  compact?: boolean;
 }
 
-export function DecisionHistoryPanel({ entries }: Props) {
+export function DecisionHistoryPanel({
+  entries,
+  currentRound,
+  currentQuestion,
+  compact = false,
+}: Props) {
+  const [expandedNodeId, setExpandedNodeId] = useState<string>();
+
+  useEffect(() => {
+    const latest = entries[entries.length - 1];
+
+    if (latest) {
+      setExpandedNodeId(latest.nodeId);
+    }
+  }, [entries]);
+
+  const orderedEntries = [...entries].reverse();
+
   return (
-    <aside className="decision-history-panel" aria-label="Claude reasoning history">
+    <aside
+      className={`decision-history-panel${
+        compact ? ' decision-history-panel--compact' : ''
+      }`}
+      aria-label="Claude reasoning history"
+    >
       <div className="decision-history-panel__header">
-        <div className="decision-history-panel__eyebrow">AI REASONING</div>
+        <div className="decision-history-panel__eyebrow">
+          AI REASONING
+        </div>
+
         <h2>Claude</h2>
-        <p>Previous choices and the reasoning behind the next decision.</p>
+
+        <p>Your previous choices and Claude's reasoning.</p>
       </div>
 
+      {currentQuestion && (
+        <div className="decision-history-panel__current">
+          <div className="decision-history-panel__current-label">
+            NEXT DECISION
+          </div>
+
+          <div className="decision-history-panel__current-round">
+            ROUND {currentRound}
+          </div>
+
+          <div className="decision-history-panel__current-question">
+            {currentQuestion}
+          </div>
+        </div>
+      )}
+
       <div className="decision-history-panel__list">
-        {entries.length === 0 ? (
+        {orderedEntries.length === 0 ? (
           <div className="decision-history-panel__empty">
-            <strong>Choose a door to begin.</strong>
-            <span>Claude's explanation will appear here and remain visible as you continue.</span>
+            <strong>No previous decisions yet.</strong>
+
+            <span>
+              Choose a door and Claude's reasoning will appear here.
+            </span>
           </div>
         ) : (
-          entries.map((entry) => (
-            <article className="decision-history-entry" key={entry.nodeId}>
-              <div className="decision-history-entry__round">ROUND {entry.round}</div>
+          orderedEntries.map((entry) => {
+            const expanded = expandedNodeId === entry.nodeId;
 
-              <div className="decision-history-entry__question">{entry.question}</div>
+            return (
+              <article
+                className={`decision-history-entry${
+                  expanded ? ' decision-history-entry--expanded' : ''
+                }`}
+                key={entry.nodeId}
+              >
+                <button
+                  type="button"
+                  className="decision-history-entry__toggle"
+                  onClick={() =>
+                    setExpandedNodeId(
+                      expanded ? undefined : entry.nodeId,
+                    )
+                  }
+                >
+                  <div>
+                    <div className="decision-history-entry__round">
+                      ROUND {entry.round}
+                    </div>
 
-              <div className="decision-history-entry__label">SELECTED</div>
+                    <div className="decision-history-entry__summary">
+                      <span>{entry.selectedOption.id}</span>
 
-              <div className="decision-history-entry__selected">
-                <span>{entry.selectedOption.id}</span>
-                <strong>{entry.selectedOption.label}</strong>
-              </div>
-
-              {entry.recommendedOption && (
-                <>
-                  <div className="decision-history-entry__label">CLAUDE RECOMMENDED</div>
-                  <div className="decision-history-entry__recommended">
-                    {entry.recommendedOption}
+                      <strong>{entry.selectedOption.label}</strong>
+                    </div>
                   </div>
-                </>
-              )}
 
-              {entry.explanation && (
-                <div className="decision-history-entry__label">EXPLANATION</div>
-              )}
+                  <span className="decision-history-entry__chevron">
+                    {expanded ? '−' : '+'}
+                  </span>
+                </button>
 
-              {entry.explanation && (
-                <p className="decision-history-entry__explanation">{entry.explanation}</p>
-              )}
-            </article>
-          ))
+                {expanded && (
+                  <div className="decision-history-entry__content">
+                    <div className="decision-history-entry__label">
+                      YOUR CHOICE
+                    </div>
+
+                    <div className="decision-history-entry__selected">
+                      <span>{entry.selectedOption.id}</span>
+
+                      <strong>
+                        {entry.selectedOption.label}
+                      </strong>
+                    </div>
+
+                    {entry.explanation && (
+                      <>
+                        <div className="decision-history-entry__label">
+                          CLAUDE
+                        </div>
+
+                        <p className="decision-history-entry__explanation">
+                          {entry.explanation}
+                        </p>
+                      </>
+                    )}
+
+                    {entry.recommendedOption && (
+                      <>
+                        <div className="decision-history-entry__label">
+                          RECOMMENDATION
+                        </div>
+
+                        <div className="decision-history-entry__recommended">
+                          {entry.recommendedOption}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })
         )}
       </div>
     </aside>

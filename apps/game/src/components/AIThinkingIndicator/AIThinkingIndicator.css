@@ -1,0 +1,62 @@
+.ai-thinking-indicator {
+    position: absolute;
+  
+    left: 50%;
+    bottom: 24px;
+  
+    transform: translateX(-50%);
+  
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  
+    padding: 10px 14px;
+  
+    border: 1px solid rgba(141, 141, 255, 0.25);
+    border-radius: 10px;
+  
+    background: rgba(10, 10, 22, 0.9);
+  
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+  
+    backdrop-filter: blur(10px);
+  
+    pointer-events: none;
+  }
+  
+  .ai-thinking-indicator__dot {
+    width: 8px;
+    height: 8px;
+  
+    flex: 0 0 auto;
+  
+    border-radius: 50%;
+  
+    background: #8d8dff;
+  
+    box-shadow: 0 0 12px rgba(141, 141, 255, 0.8);
+  
+    animation: ai-thinking-pulse 1s ease-in-out infinite;
+  }
+  
+  .ai-thinking-indicator__title {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+  
+  .ai-thinking-indicator__message {
+    margin-top: 2px;
+  
+    color: rgba(255, 255, 255, 0.5);
+  
+    font-size: 11px;
+  }
+  
+  @keyframes ai-thinking-pulse {
+    50% {
+      opacity: 0.35;
+      transform: scale(0.7);
+    }
+  }
+  
