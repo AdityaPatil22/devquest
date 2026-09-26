@@ -935,6 +935,22 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
+  public getDoorOptionAnchors(): Array<{
+    key: 'A' | 'B' | 'C' | 'D';
+    label: string;
+    x: number;
+    y: number;
+    active: boolean;
+  }> {
+    return (this.activeRoomSegment?.doors ?? []).map((door) => ({
+      key: door.key,
+      label: door.option.label,
+      x: door.x,
+      y: door.y - 33,
+      active: this.currentDoor === door,
+    }));
+  }
+
   private extendWorldBounds(left: number, top: number, right: number, bottom: number): void {
     const next = new Phaser.Geom.Rectangle(left, top, right - left, bottom - top);
 

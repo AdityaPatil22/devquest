@@ -41,24 +41,31 @@ function getScreenAnchors(game: Phaser.Game): ScreenAnchor[] {
 
   const rect = canvas.getBoundingClientRect();
   const camera = scene.cameras.main;
-  const worldView = camera.worldView;
+
+  const anchors = scene.getDoorOptionAnchors();
 
   if (
-    worldView.width <= 0 ||
-    worldView.height <= 0 ||
     rect.width <= 0 ||
-    rect.height <= 0
+    rect.height <= 0 ||
+    camera.width <= 0 ||
+    camera.height <= 0
   ) {
     return [];
   }
 
-  const scaleX = rect.width / worldView.width;
-  const scaleY = rect.height / worldView.height;
+  const scaleX = rect.width / camera.width;
+  const scaleY = rect.height / camera.height;
 
-  return scene.getDoorOptionAnchors().map((anchor) => ({
+  return anchors.map((anchor) => ({
     ...anchor,
-    screenX: rect.left + (anchor.x - worldView.x) * scaleX,
-    screenY: rect.top + (anchor.y - 12 - worldView.y) * scaleY,
+
+    screenX:
+      rect.left +
+      (anchor.x - camera.worldView.x) * scaleX,
+
+    screenY:
+      rect.top +
+      (anchor.y - camera.worldView.y) * scaleY,
   }));
 }
 
