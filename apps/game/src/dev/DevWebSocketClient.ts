@@ -4,7 +4,9 @@ import type {
   DecisionCreatedMsg,
 } from '../net/protocol';
 
-const DEV_GENERATION_DELAY_MS = 3000;
+const INITIAL_DECISION_DELAY_MS = 500;
+const NEXT_DECISION_DELAY_MS = 3000;
+const SESSION_COMPLETE_DELAY_MS = 500;
 
 const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
@@ -119,31 +121,34 @@ export class DevWebSocketClient extends WebSocketClient {
     }
 
     switch (msg.type) {
-      case 'PROBLEM_SUBMITTED': {
+      case 'PROBLEM_SUBMITTED':
         this.roundIndex = 0;
-
-        this.scheduleDecision(0);
+        this.scheduleDecision(0, INITIAL_DECISION_DELAY_MS);
         break;
-      }
 
-      case 'OPTION_SELECTED': {
+      case 'OPTION_SELECTED':
         this.roundIndex += 1;
 
         if (this.roundIndex < MOCK_ROUNDS.length) {
-          this.scheduleDecision(this.roundIndex);
+          this.scheduleDecision(
+            this.roundIndex,
+            NEXT_DECISION_DELAY_MS,
+          );
         } else {
-          this.scheduleComplete();
+          this.scheduleComplete(SESSION_COMPLETE_DELAY_MS);
         }
 
         break;
-      }
 
       default:
         break;
     }
   }
 
-  private scheduleDecision(index: number): void {
+  private scheduleDecision(
+    index: number,
+    delay: number,
+  ): void {
     const decision = MOCK_ROUNDS[index];
 
     if (!decision) {
@@ -152,10 +157,10 @@ export class DevWebSocketClient extends WebSocketClient {
 
     this.schedule(() => {
       this.dispatch(decision);
-    }, DEV_GENERATION_DELAY_MS);
+    }, delay);
   }
 
-  private scheduleComplete(): void {
+  private scheduleComplete(delay: number): void {
     this.schedule(() => {
       this.dispatch({
         type: 'SESSION_COMPLETE',
@@ -164,10 +169,13 @@ export class DevWebSocketClient extends WebSocketClient {
         reconsideredCount: 0,
         docContent: SESSION_DOC,
       });
-    }, DEV_GENERATION_DELAY_MS);
+    }, delay);
   }
 
-  private schedule(callback: () => void, delay: number): void {
+  private schedule(
+    callback: () => void,
+    delay: number,
+  ): void {
     const timer = setTimeout(() => {
       this.timers.delete(timer);
       callback();
@@ -176,3 +184,4 @@ export class DevWebSocketClient extends WebSocketClient {
     this.timers.add(timer);
   }
 }
+

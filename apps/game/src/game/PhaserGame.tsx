@@ -10,7 +10,6 @@ declare global {
 
 export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
-
   const { setGame } = useGameUI();
 
   useEffect(() => {
@@ -28,7 +27,9 @@ export function PhaserGame() {
       if (import.meta.env.DEV) {
         globalThis.__DEVQUEST_PHASER_GAME__ = game;
       }
-    } else if (game.canvas.parentElement !== container) {
+    }
+
+    if (game.canvas.parentElement !== container) {
       container.appendChild(game.canvas);
       game.scale.refresh();
     }
@@ -36,15 +37,11 @@ export function PhaserGame() {
     setGame(game);
 
     return () => {
-      /*
-       * During development keep Phaser alive across
-       * React/Vite Fast Refresh.
-       */
       if (import.meta.env.DEV) {
         return;
       }
 
-      game.destroy(true);
+      game?.destroy(true);
 
       if (globalThis.__DEVQUEST_PHASER_GAME__ === game) {
         globalThis.__DEVQUEST_PHASER_GAME__ = undefined;
@@ -54,10 +51,5 @@ export function PhaserGame() {
     };
   }, [setGame]);
 
-  return (
-    <div
-      ref={containerRef}
-      className="phaser-layer"
-    />
-  );
+  return <div ref={containerRef} className="phaser-layer" />;
 }
