@@ -284,6 +284,8 @@ The completed document becomes the player's **trophy**.
 
 ## 🏗️ Architecture
 
+![Devquest runtime architecture](docs/devquest-architecture.png)
+
 DevQuest consists of three primary pieces:
 
 ```
