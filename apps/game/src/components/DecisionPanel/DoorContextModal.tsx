@@ -1,22 +1,17 @@
 import { useEffect, useState } from 'react';
-
 import type { DecisionOption } from '../../net/protocol';
 
 import './DoorContextModal.css';
 
 interface Props {
   option?: DecisionOption;
-
   open: boolean;
-
   onSubmit: (context?: string) => void;
-
   onCancel: () => void;
 }
 
 export function DoorContextModal({ option, open, onSubmit, onCancel }: Props) {
   const [context, setContext] = useState('');
-
   useEffect(() => {
     if (open) {
       setContext('');

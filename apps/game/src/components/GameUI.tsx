@@ -1,12 +1,15 @@
 import { useCallback, useEffect } from 'react';
 
 import type { DecisionOption } from '../net/protocol';
+import type { DecisionHistoryEntry } from '../game/GameBridge';
 import { useGameUI } from '../state/GameUIContext';
 
 import { HUD } from './HUD/HUD';
 import { InteractionPrompt } from './InteractionPrompt/InteractionPrompt';
 import { ElevatorModal } from './ElevatorModal/ElevatorModal';
 import { DoorContextModal } from './DecisionPanel/DoorContextModal';
+import { DecisionHistoryPanel } from './DecisionHistoryPanel/DecisionHistoryPanel';
+import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
 
@@ -100,6 +103,7 @@ export function GameUI() {
             ...previous,
             screen: 'common',
             loading: false,
+            decisionHistory: [],
             error: undefined,
           }));
           break;
@@ -129,6 +133,37 @@ export function GameUI() {
             error: undefined,
           }));
           break;
+
+        case 'DECISION_HISTORY': {
+          const entry = event.entry as DecisionHistoryEntry;
+
+          if (!entry || typeof entry !== 'object' || !entry.nodeId) {
+            break;
+          }
+
+          setState((previous) => {
+            const existingIndex = previous.decisionHistory.findIndex(
+              (item) => item.nodeId === entry.nodeId,
+            );
+
+            if (existingIndex === -1) {
+              return {
+                ...previous,
+                decisionHistory: [...previous.decisionHistory, entry],
+              };
+            }
+
+            const decisionHistory = [...previous.decisionHistory];
+            decisionHistory[existingIndex] = entry;
+
+            return {
+              ...previous,
+              decisionHistory,
+            };
+          });
+
+          break;
+        }
 
         case 'EXPLORING_DOORS':
           setState((previous) => ({
@@ -283,9 +318,27 @@ export function GameUI() {
     }));
   }, [game, setState]);
 
+  const showElevatorGuide =
+    state.screen === 'common' && state.modal === null && !state.elevatorNear;
+
   return (
     <>
       <HUD />
+
+      {showElevatorGuide && (
+        <div className="elevator-guide" aria-live="polite">
+          <div className="elevator-guide__eyebrow">START HERE</div>
+          <div className="elevator-guide__title">Walk to the elevator</div>
+          <div className="elevator-guide__hint">Press E when you get close</div>
+        </div>
+      )}
+
+      <DoorOptionsOverlay
+        game={game}
+        visible={state.screen === 'decision' && state.modal === null}
+      />
+
+      {state.screen === 'decision' && <DecisionHistoryPanel entries={state.decisionHistory} />}
 
       <InteractionPrompt
         visible={state.elevatorNear && state.modal === null}

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { GamePhase } from '../state/GameState';
-import { SessionStore } from '../state/SessionStore';
+import { SessionStore, type DecisionRecord } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 
 import {
@@ -106,25 +106,12 @@ export class GrillingScene extends Phaser.Scene {
 
   private unsubscribeWs?: () => void;
 
-  /**
-   * Every rendered room/corridor is kept here.
-   * Nothing is removed during normal gameplay.
-   */
   private segments = new Map<string, WorldSegment>();
 
-  /**
-   * Room containing the currently active decision.
-   */
   private activeRoomSegment?: WorldSegment;
 
-  /**
-   * Corridor created when the current door is selected.
-   */
   private activeCorridorSegment?: WorldSegment;
 
-  /**
-   * Used to select room-1, room-2, room-3, room-4 sequentially.
-   */
   private optionRoomIndex = 0;
 
   private worldBounds?: Phaser.Geom.Rectangle;
@@ -135,18 +122,10 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // Phaser Assets
-  // ===========================================================================
-
   preload(): void {
     this.load.image('door-closed', 'assets/items/door-closed.png');
     this.load.image('door-open', 'assets/items/door-open.png');
   }
-
-  // ===========================================================================
-  // Scene Initialization
-  // ===========================================================================
 
   init(data: SceneData): void {
     this.ws = data.ws;
@@ -170,10 +149,6 @@ export class GrillingScene extends Phaser.Scene {
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
   }
 
-  // ===========================================================================
-  // Scene Creation
-  // ===========================================================================
-
   create(): void {
     this.createPlayer();
     this.setupInput();
@@ -193,10 +168,6 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // Game Loop
-  // ===========================================================================
-
   update(): void {
     if (this.phase === GamePhase.EXPLORING_DOORS || this.phase === GamePhase.TRAVERSING_OPTION) {
       this.player.handleMovement(this.cursors);
@@ -209,10 +180,6 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ===========================================================================
-  // Initial World
-  // ===========================================================================
-
   private buildInitialWorld(decision: DecisionCreatedMsg): void {
     const room = this.buildDecisionRoom();
 
@@ -220,10 +187,6 @@ export class GrillingScene extends Phaser.Scene {
 
     this.renderDecisionDoors(decision, room);
   }
-
-  // ===========================================================================
-  // Decision Room
-  // ===========================================================================
 
   private buildDecisionRoom(): WorldSegment {
     const cached = this.cache.tilemap.get(DECISION_TILEMAP_KEY);
@@ -292,10 +255,6 @@ export class GrillingScene extends Phaser.Scene {
     return segment;
   }
 
-  // ===========================================================================
-  // Option Room
-  // ===========================================================================
-
   private buildOptionRoomFromCorridor(
     corridor: WorldSegment,
     decision: DecisionCreatedMsg,
@@ -319,7 +278,6 @@ export class GrillingScene extends Phaser.Scene {
       map.addTilesetImage(tileset.name, tileset.key),
     ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
 
-    // Align the option-room entrance marker with the corridor exit marker.
     const corridorExit = CORRIDOR_MARKERS.exit;
     const optionEntrance = OPTION_ROOM_MARKERS.corridorEntrance;
 
@@ -347,10 +305,6 @@ export class GrillingScene extends Phaser.Scene {
 
     const roomX = corridorExitWorldX - optionEntranceLocalX;
     const roomY = corridorExitWorldY - optionEntranceLocalY;
-
-    // -------------------------------------------------------------------------
-    // Create layers
-    // -------------------------------------------------------------------------
 
     const layerX = roomX - OPTION_ROOM_BOUNDS.minTileX * OPTION_ROOM_TILE_SIZE;
 
@@ -396,10 +350,6 @@ export class GrillingScene extends Phaser.Scene {
 
     this.segments.set(roomId, segment);
 
-    // -------------------------------------------------------------------------
-    // Open the corridor exit and room entrance only after the room exists.
-    // -------------------------------------------------------------------------
-
     this.openCorridorExit(corridor);
 
     this.openOptionRoomEntrance(segment);
@@ -417,10 +367,6 @@ export class GrillingScene extends Phaser.Scene {
 
     return segment;
   }
-
-  // ===========================================================================
-  // Corridor
-  // ===========================================================================
 
   private createCorridor(door: DoorObject): WorldSegment {
     const corridor = this.createCorridorAt(door);
@@ -455,52 +401,21 @@ export class GrillingScene extends Phaser.Scene {
 
     const corridorEntrance = CORRIDOR_MARKERS.entrance;
 
-    /*
-     * IMPORTANT:
-     *
-     * `door.x` and `door.y` are already world-space coordinates.
-     *
-     * For the first room:
-     *   door.roomSegment = Decision Room
-     *
-     * For later rooms:
-     *   door.roomSegment = Option Room
-     *
-     * Therefore the same calculation works for every generation.
-     */
     const doorWorldX = door.x;
     const doorWorldY = door.y;
 
-    /*
-     * Convert the corridor's authored entrance marker into
-     * coordinates relative to the corridor layer origin.
-     */
     const corridorEntranceLocalX =
       corridorEntrance.x +
       corridorEntrance.width / 2 -
       CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
 
-    /*
-     * The corridor connects to the bottom edge of the selected
-     * room door.
-     */
     const corridorEntranceTopLocalY =
       corridorEntrance.y - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
 
-    /*
-     * Position the corridor so its entrance touches the
-     * selected door in world space.
-     */
     const segmentX = doorWorldX - corridorEntranceLocalX;
 
     const segmentY = doorWorldY - corridorEntranceTopLocalY - 72;
 
-    /*
-     * For this infinite Tiled map the layer origin is already
-     * represented by segmentX / segmentY.
-     *
-     * Do NOT subtract CORRIDOR_MAP_BOUNDS.minTileY again.
-     */
     const layerX = segmentX;
     const layerY = segmentY;
 
@@ -522,9 +437,6 @@ export class GrillingScene extends Phaser.Scene {
       if (layerName === CORRIDOR_COLLIDABLE_LAYER) {
         layer.setCollisionByExclusion([-1]);
 
-        /*
-         * Only the outside wall tiles should collide.
-         */
         for (let y = CORRIDOR_MAP_BOUNDS.minTileY; y <= CORRIDOR_MAP_BOUNDS.maxTileY; y += 1) {
           for (let x = CORRIDOR_MAP_BOUNDS.minTileX; x <= CORRIDOR_MAP_BOUNDS.maxTileX; x += 1) {
             const tile = layer.getTileAt(x, y, true);
@@ -567,10 +479,6 @@ export class GrillingScene extends Phaser.Scene {
 
     return segment;
   }
-
-  // ===========================================================================
-  // Corridor Entrance / Exit
-  // ===========================================================================
 
   private openCorridorEntrance(corridor: WorldSegment): void {
     this.openMarkerCollision(
@@ -628,18 +536,7 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ===========================================================================
-  // Decision Doors
-  // ===========================================================================
-
   private renderDecisionDoors(decision: DecisionCreatedMsg, room: WorldSegment): void {
-    /*
-     * A room owns its own doors.
-     *
-     * The continuous world keeps previously created rooms alive, so
-     * never clear `this.doors` here. Only the room currently receiving
-     * a new decision owns the newly created doors.
-     */
     if (room.doors.length > 0) {
       room.doors.forEach((door) => {
         door.doorCollider.destroy();
@@ -704,9 +601,9 @@ export class GrillingScene extends Phaser.Scene {
         .setDepth(50)
         .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
 
-      // The Tiled wall behind the doorway is intentionally open so the
-      // corridor can visually connect to the room. Keep an invisible
-      // physics barrier here until the player explicitly presses E.
+      // Option description and the A/B/C/D indicator are rendered by React.
+      // Keep only the actual door and its collision objects inside Phaser.
+
       const doorBlocker = this.add.rectangle(doorX, doorY - 24, 50, 110, 0x000000, 0);
 
       this.physics.add.existing(doorBlocker, true);
@@ -740,33 +637,36 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private removeSelectedDoor(door: DoorObject): void {
-    // Remove from global tracking.
     const globalIndex = this.doors.indexOf(door);
 
     if (globalIndex !== -1) {
       this.doors.splice(globalIndex, 1);
     }
 
-    // Remove from the room that owns this door.
     const roomIndex = door.roomSegment.doors.indexOf(door);
 
     if (roomIndex !== -1) {
       door.roomSegment.doors.splice(roomIndex, 1);
     }
 
-    // Destroy the Phaser objects for only this selected door.
+    const doorObjects = [door.doorSprite, door.doorBlocker];
+
+    doorObjects.forEach((object) => {
+      const objectIndex = door.roomSegment.objects.indexOf(object);
+
+      if (objectIndex !== -1) {
+        door.roomSegment.objects.splice(objectIndex, 1);
+      }
+
+      object.destroy();
+    });
+
     door.doorCollider.destroy();
-    door.doorBlocker.destroy();
-    door.doorSprite.destroy();
 
     if (this.currentDoor === door) {
       this.currentDoor = undefined;
     }
   }
-
-  // ===========================================================================
-  // Door Collision
-  // ===========================================================================
 
   private openDoorwayCollision(door: DoorObject): void {
     if (door.roomId === INITIAL_ROOM_ID) {
@@ -810,11 +710,9 @@ export class GrillingScene extends Phaser.Scene {
     const room = door.roomSegment;
 
     const localX = door.x - room.x;
-
     const localY = door.y - room.y;
 
     const tileX = Math.floor(localX / OPTION_ROOM_TILE_SIZE) + OPTION_ROOM_BOUNDS.minTileX;
-
     const tileY = Math.floor(localY / OPTION_ROOM_TILE_SIZE) + OPTION_ROOM_BOUNDS.minTileY;
 
     this.clearVerticalWall(wallLayer, tileX, tileY, OPTION_ROOM_BOUNDS.minTileY);
@@ -861,10 +759,6 @@ export class GrillingScene extends Phaser.Scene {
     return segment.layers.find((layer) => layer.layer.name === layerName);
   }
 
-  // ===========================================================================
-  // Door Proximity
-  // ===========================================================================
-
   private checkDoorProximity(): void {
     let nearest: DoorObject | null = null;
 
@@ -905,10 +799,6 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ===========================================================================
-  // Door Prompt
-  // ===========================================================================
-
   private showDoorPrompt(door: DoorObject): void {
     door.doorSprite.setTint(0xffaa44);
 
@@ -932,10 +822,6 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // Door Interaction
-  // ===========================================================================
-
   private approachDoor(door: DoorObject): void {
     this.currentDoor = door;
 
@@ -951,14 +837,9 @@ export class GrillingScene extends Phaser.Scene {
       door.doorSprite.setTexture('door-open').setOrigin(0.5, 1.32).setScale(DOOR_OPEN_SCALE);
     }
 
-    // E has been pressed: this is the only point at which the player is
-    // allowed to cross the doorway.
     this.setDoorBarrierEnabled(door, false);
     this.openDoorwayCollision(door);
 
-    // Generate the corridor immediately.
-    // It stays in the world even if the user
-    // cancels the context overlay.
     this.createCorridor(door);
 
     this.emitUI({
@@ -967,10 +848,6 @@ export class GrillingScene extends Phaser.Scene {
       option: door.option,
     });
   }
-
-  // ===========================================================================
-  // Context Confirmation
-  // ===========================================================================
 
   public confirmDoorSelection(context?: string): void {
     if (!this.currentDoor) {
@@ -991,17 +868,6 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    /*
-     * "Back" on the additional-context overlay means:
-     *
-     *   - do not provide additional context
-     *   - still select this door
-     *   - remove the selected door
-     *   - keep the corridor
-     *   - allow the player to walk into the corridor
-     *
-     * It is NOT a cancellation of the door selection.
-     */
     const door = this.currentDoor;
 
     this.selectDoor(door);
@@ -1021,7 +887,6 @@ export class GrillingScene extends Phaser.Scene {
       context,
     });
 
-    // Remove ONLY the selected door.
     this.removeSelectedDoor(door);
 
     this.emitUI({
@@ -1037,9 +902,25 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // World Bounds
-  // ===========================================================================
+  /**
+   * Returns the currently active decision doors in world coordinates.
+   * React uses these anchors to render the option text and A/B/C/D marker.
+   */
+  public getDoorOptionAnchors(): Array<{
+    key: 'A' | 'B' | 'C' | 'D';
+    label: string;
+    x: number;
+    y: number;
+    active: boolean;
+  }> {
+    return (this.activeRoomSegment?.doors ?? []).map((door) => ({
+      key: door.key,
+      label: door.option.label,
+      x: door.x,
+      y: door.y,
+      active: this.currentDoor === door,
+    }));
+  }
 
   private extendWorldBounds(left: number, top: number, right: number, bottom: number): void {
     const next = new Phaser.Geom.Rectangle(left, top, right - left, bottom - top);
@@ -1060,26 +941,15 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
-  // ===========================================================================
-  // Player
-  // ===========================================================================
-
   private createPlayer(): void {
-    // DECISION_SPAWN is authored in Tiled pixel coordinates.
     this.player = new Player(this, DECISION_SPAWN.x, DECISION_SPAWN.y);
 
     this.player.sprite.setDepth(50);
-
     this.player.sprite.setCollideWorldBounds(false);
 
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-
     this.cameras.main.setDeadzone(120, 80);
   }
-
-  // ===========================================================================
-  // Keyboard
-  // ===========================================================================
 
   private setupInput(): void {
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -1087,23 +957,63 @@ export class GrillingScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
   }
 
-  // ===========================================================================
-  // UI
-  // ===========================================================================
-
   private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
     emitUIEvent(this.game, event);
   }
 
-  // ===========================================================================
-  // Restore
-  // ===========================================================================
+  private emitDecisionHistory(
+    record: DecisionRecord | undefined,
+    explanationOverride?: string,
+    recommendedOption?: string,
+  ): void {
+    if (!record?.selectedOptionId) {
+      return;
+    }
+
+    const selectedOption = record.options.find((option) => option.id === record.selectedOptionId);
+
+    if (!selectedOption) {
+      return;
+    }
+
+    const evaluationText = [record.feedback, record.consequence]
+      .filter((value): value is string => Boolean(value?.trim()))
+      .join('\n\n');
+
+    const explanation =
+      explanationOverride?.trim() || evaluationText.trim() || record.recommendation?.why?.trim();
+
+    const finalRecommendedOption =
+      recommendedOption?.trim() || record.recommendation?.option?.trim();
+
+    if (!explanation && !finalRecommendedOption) {
+      return;
+    }
+
+    this.emitUI({
+      type: 'DECISION_HISTORY',
+      entry: {
+        nodeId: record.nodeId,
+        round: record.round,
+        question: record.question,
+        selectedOption,
+        explanation,
+        recommendedOption: finalRecommendedOption,
+      },
+    });
+  }
 
   private restoreCurrentPhase(): void {
     const decision = this.store.getCurrentDecision();
 
     if (!decision) {
       return;
+    }
+
+    for (const record of this.store.decisions) {
+      if (record.nodeId !== decision.nodeId) {
+        this.emitDecisionHistory(record);
+      }
     }
 
     this.phase = GamePhase.EXPLORING_DOORS;
@@ -1113,20 +1023,22 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  // ===========================================================================
-  // Server Messages
-  // ===========================================================================
-
   private handleMessage(msg: ServerMessage): void {
     switch (msg.type) {
-      // -----------------------------------------------------------------------
-      // New decision generated by the server
-      // -----------------------------------------------------------------------
-
       case 'DECISION_CREATED': {
         const decision = msg as DecisionCreatedMsg;
 
         console.log('[GrillingScene] DECISION_CREATED:', decision.nodeId, 'round:', decision.round);
+
+        const previousDecision = this.store.getCurrentDecision();
+
+        if (previousDecision?.selectedOptionId) {
+          this.emitDecisionHistory(
+            previousDecision,
+            decision.recommendation?.why,
+            decision.recommendation?.option,
+          );
+        }
 
         this.store.addDecision({
           nodeId: decision.nodeId,
@@ -1137,10 +1049,6 @@ export class GrillingScene extends Phaser.Scene {
         });
 
         this.currentNodeId = decision.nodeId;
-
-        // -----------------------------------------------------------------------
-        // Initial decision
-        // -----------------------------------------------------------------------
 
         if (!this.activeCorridorSegment) {
           console.log('[GrillingScene] No corridor - rendering initial decision.');
@@ -1156,20 +1064,12 @@ export class GrillingScene extends Phaser.Scene {
           break;
         }
 
-        // -----------------------------------------------------------------------
-        // Next decision
-        //
-        // A corridor exists because the player selected a door.
-        // Attach the new option room to that corridor.
-        // -----------------------------------------------------------------------
-
         const corridor = this.activeCorridorSegment;
 
         console.log('[GrillingScene] Building next option room from:', corridor.id);
 
         this.buildOptionRoomFromCorridor(corridor, decision);
 
-        // The corridor has now been consumed.
         this.activeCorridorSegment = undefined;
 
         this.phase = GamePhase.EXPLORING_DOORS;
@@ -1180,10 +1080,6 @@ export class GrillingScene extends Phaser.Scene {
 
         break;
       }
-
-      // -----------------------------------------------------------------------
-      // Session complete
-      // -----------------------------------------------------------------------
 
       case 'SESSION_COMPLETE': {
         const complete = msg as SessionCompleteMsg;
@@ -1199,10 +1095,6 @@ export class GrillingScene extends Phaser.Scene {
         break;
       }
 
-      // -----------------------------------------------------------------------
-      // Session resumed
-      // -----------------------------------------------------------------------
-
       case 'SESSION_RESUMED': {
         this.emitUI({
           type: 'SESSION_RESUMED',
@@ -1211,12 +1103,19 @@ export class GrillingScene extends Phaser.Scene {
         break;
       }
 
-      // -----------------------------------------------------------------------
-      // Evaluation
-      // -----------------------------------------------------------------------
-
       case 'EVALUATION': {
         const evaluation = msg as EvaluationMsg;
+
+        const evaluatedDecision = this.store.decisions.find(
+          (record) => record.nodeId === evaluation.nodeId,
+        );
+
+        if (evaluatedDecision) {
+          evaluatedDecision.feedback = evaluation.feedback;
+          evaluatedDecision.consequence = evaluation.consequence;
+
+          this.emitDecisionHistory(evaluatedDecision);
+        }
 
         this.emitUI({
           type: 'EVALUATION',
@@ -1226,10 +1125,6 @@ export class GrillingScene extends Phaser.Scene {
 
         break;
       }
-
-      // -----------------------------------------------------------------------
-      // Error
-      // -----------------------------------------------------------------------
 
       case 'ERROR': {
         console.error('Server error:', msg.message);
@@ -1244,9 +1139,6 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
-  // ===========================================================================
-  // Cleanup
-  // ===========================================================================
   private destroySegment(segment: WorldSegment): void {
     segment.colliders.forEach((collider) => collider.destroy());
     segment.objects.forEach((object) => object.destroy());
