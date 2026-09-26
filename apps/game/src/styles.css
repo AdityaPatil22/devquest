@@ -88,6 +88,90 @@ button {
   pointer-events: auto;
 }
 
+.objective-indicator {
+  position: absolute;
+
+  left: 24px;
+  bottom: 24px;
+
+  min-width: 220px;
+
+  padding: 11px 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+
+  background: rgba(10, 10, 22, 0.88);
+
+  backdrop-filter: blur(10px);
+
+  pointer-events: none;
+}
+
+.objective-indicator__eyebrow {
+  margin-bottom: 4px;
+
+  color: #8d8dff;
+
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.objective-indicator__text {
+  color: rgba(255, 255, 255, 0.9);
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.react-ui-layer .elevator-guide {
+  position: absolute;
+
+  top: 94px;
+  left: 24px;
+
+  min-width: 250px;
+
+  padding: 16px 18px;
+
+  border: 1px solid rgba(141, 141, 255, 0.28);
+  border-radius: 12px;
+
+  background: rgba(10, 10, 22, 0.88);
+
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
+
+  backdrop-filter: blur(12px);
+
+  pointer-events: none;
+}
+
+.elevator-guide__eyebrow {
+  margin-bottom: 5px;
+
+  color: #8d8dff;
+
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.elevator-guide__title {
+  color: rgba(255, 255, 255, 0.95);
+
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.elevator-guide__hint {
+  margin-top: 5px;
+
+  color: rgba(255, 255, 255, 0.52);
+
+  font-size: 12px;
+}
+
 .game-error {
   position: absolute;
 
@@ -167,4 +251,23 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+
+@media (max-width: 900px) {
+  .objective-indicator {
+    left: 14px;
+    bottom: 14px;
+
+    min-width: 190px;
+
+    padding: 9px 11px;
+  }
+
+  .elevator-guide {
+    left: 14px;
+    right: 14px;
+
+    min-width: 0;
+  }
 }

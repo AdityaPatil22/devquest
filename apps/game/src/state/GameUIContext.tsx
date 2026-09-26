@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type Phaser from 'phaser';
 
 import type { DecisionOption, Recommendation } from '../net/protocol';
+import type { DecisionHistoryEntry } from '../game/GameBridge';
 
 export type UIScreen = 'loading' | 'common' | 'decision' | 'complete';
 
@@ -34,6 +35,14 @@ export interface UIState {
   recommendation?: Recommendation;
 
   selectedOption?: DecisionOption;
+
+  decisionHistory: DecisionHistoryEntry[];
+
+  aiThinking: boolean;
+  aiThinkingMessage?: string;
+
+  objective: string;
+  playerMoving: boolean;
 
   challenge?: string;
 
@@ -75,6 +84,14 @@ const initialState: UIState = {
   trophySummaryOpen: false,
 
   options: [],
+
+  decisionHistory: [],
+
+  aiThinking: false,
+  aiThinkingMessage: undefined,
+
+  objective: '',
+  playerMoving: false,
 };
 
 const GameUIContext = createContext<GameUIContextValue | undefined>(undefined);

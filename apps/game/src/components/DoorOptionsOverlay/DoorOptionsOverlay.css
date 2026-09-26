@@ -1,0 +1,85 @@
+.door-options-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 20;
+
+  pointer-events: none;
+}
+
+.door-option-overlay {
+  position: absolute;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+
+  width: 92px;
+
+  transform: translate(-50%, -100%);
+
+  pointer-events: none;
+}
+
+.door-option-overlay__label {
+  width: 92px;
+  min-height: 30px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 7px 6px;
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+
+  background: rgba(8, 8, 18, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+
+  text-align: center;
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.door-option-overlay__badge {
+  width: 24px;
+  height: 24px;
+
+  display: grid;
+  place-items: center;
+
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+
+  background: #8d8dff;
+
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.28);
+
+  color: #080812;
+
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.door-option-overlay--active {
+  transform: translate(-50%, -100%) scale(1.05);
+}
+
+.door-option-overlay--active .door-option-overlay__label {
+  border-color: rgba(255, 170, 68, 0.75);
+  background: rgba(38, 23, 10, 0.96);
+}
+
+.door-option-overlay--active .door-option-overlay__badge {
+  border-color: #ffffff;
+  background: #ffaa44;
+}

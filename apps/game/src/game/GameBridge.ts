@@ -2,6 +2,15 @@ import Phaser from 'phaser';
 
 import type { DecisionOption, Recommendation } from '../net/protocol';
 
+export interface DecisionHistoryEntry {
+  nodeId: string;
+  round: number;
+  question: string;
+  selectedOption: DecisionOption;
+  explanation?: string;
+  recommendedOption?: string;
+}
+
 export type GameUIEvent =
   | {
       type: 'GAME_LOADING';
@@ -50,6 +59,10 @@ export type GameUIEvent =
       round: number;
     }
   | {
+      type: 'DECISION_HISTORY';
+      entry: DecisionHistoryEntry;
+    }
+  | {
       type: 'EXPLORING_DOORS';
     }
   | {
@@ -65,6 +78,19 @@ export type GameUIEvent =
   | {
       type: 'WAITING';
       message: string;
+    }
+  | {
+      type: 'AI_THINKING';
+      visible: boolean;
+      message?: string;
+    }
+  | {
+      type: 'PLAYER_MOVING';
+      visible: boolean;
+    }
+  | {
+      type: 'OBJECTIVE';
+      objective: string;
     }
   | {
       type: 'CHALLENGE';
