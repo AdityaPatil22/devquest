@@ -18,7 +18,7 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
     ],
     recommendation: {
       option: 'option-c',
-      why: 'A modular monolith gives clean separation without the operational overhead of microservices at this stage.',
+      why: 'A modular monolith gives clean separation without unnecessary operational complexity.',
     },
     round: 1,
   },
@@ -30,12 +30,12 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
     options: [
       { id: 'option-a', label: 'PostgreSQL only' },
       { id: 'option-b', label: 'MongoDB only' },
-      { id: 'option-c', label: 'PostgreSQL + Redis cache' },
-      { id: 'option-d', label: 'SQLite for simplicity' },
+      { id: 'option-c', label: 'PostgreSQL + Redis' },
+      { id: 'option-d', label: 'SQLite' },
     ],
     recommendation: {
       option: 'option-c',
-      why: 'PostgreSQL handles structured data; Redis cuts read latency on hot paths.',
+      why: 'PostgreSQL handles durable data while Redis handles hot reads.',
     },
     round: 2,
   },
@@ -43,16 +43,16 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
     type: 'DECISION_CREATED',
     nodeId: 'dev-node-3',
-    question: 'What deployment strategy should we adopt?',
+    question: 'What deployment strategy should we use?',
     options: [
       { id: 'option-a', label: 'Docker + Kubernetes' },
-      { id: 'option-b', label: 'Traditional VMs' },
-      { id: 'option-c', label: 'Serverless (Lambda / Cloud Run)' },
-      { id: 'option-d', label: 'PaaS (Railway / Render)' },
+      { id: 'option-b', label: 'Virtual Machines' },
+      { id: 'option-c', label: 'Serverless' },
+      { id: 'option-d', label: 'PaaS' },
     ],
     recommendation: {
       option: 'option-a',
-      why: 'Docker + K8s gives portability and rolling deployments as traffic grows.',
+      why: 'Containerized deployment provides portability and predictable environments.',
     },
     round: 3,
   },
@@ -84,90 +84,43 @@ const SESSION_DOC = `# Feature Implementation Plan
 // ---------------------------------------------------------------------------
 
 export class DevWebSocketClient extends WebSocketClient {
-  /**
-   * Index of the currently active decision.
-   *
-   * Round 1 => 0
-   * Round 2 => 1
-   * Round 3 => 2
-   */
   private roundIndex = 0;
 
   override connect(): void {
-    console.log('[DEV WS] Mock connected — firing SESSION_STARTED');
-
     setTimeout(() => {
       this.dispatch({
         type: 'SESSION_STARTED',
         sessionId: 'dev-session-001',
       });
-    }, 600);
+    }, 0);
   }
 
-  override disconnect(): void {
-    console.log('[DEV WS] Mock disconnected');
-  }
+  override disconnect(): void {}
 
   override get connected(): boolean {
     return true;
   }
 
   override send(msg: ClientMessage): void {
-    console.log('[DEV WS] →', msg.type, msg);
-
     switch (msg.type) {
-      // ---------------------------------------------------------------
-      // Problem submitted from Common Room
-      // ---------------------------------------------------------------
-
-      case 'PROBLEM_SUBMITTED': {
+      case 'PROBLEM_SUBMITTED':
         this.roundIndex = 0;
-
-        this.fireDecision(0, 1200);
-
+        this.scheduleDecision(0, 300);
         break;
-      }
 
-      // ---------------------------------------------------------------
-      // Player selected a door.
-      //
-      // IMPORTANT:
-      // There is NO challenge here anymore.
-      //
-      // The selected option simply advances the decision graph.
-      // ---------------------------------------------------------------
-
-      case 'OPTION_SELECTED': {
-        console.log(`[DEV WS] Option selected: ${msg.optionId} for ${msg.nodeId}`);
-
+      case 'OPTION_SELECTED':
         this.roundIndex += 1;
 
-        const nextDecision = MOCK_ROUNDS[this.roundIndex];
-
-        if (nextDecision) {
-          // The player is now expected to walk through the
-          // corridor before reaching the next decision room.
-          //
-          // We only provide the next decision data here.
-          this.fireDecisionAtEndOfTraversal(nextDecision);
+        if (this.roundIndex < MOCK_ROUNDS.length) {
+          this.scheduleDecision(this.roundIndex, 300);
         } else {
-          // No more decisions.
-          this.fireSessionComplete();
+          this.scheduleComplete();
         }
-
-        break;
-      }
-
-      default:
         break;
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Decision
-  // ---------------------------------------------------------------------------
-
-  private fireDecision(index: number, delay: number): void {
+  private scheduleDecision(index: number, delay: number): void {
     const decision = MOCK_ROUNDS[index];
 
     if (!decision) {
@@ -175,42 +128,19 @@ export class DevWebSocketClient extends WebSocketClient {
     }
 
     setTimeout(() => {
-      console.log(`[DEV WS] ← DECISION_CREATED round ${decision.round}`);
-
       this.dispatch(decision);
     }, delay);
   }
 
-  /**
-   * Sends the next decision after a small delay.
-   *
-   * The delay represents the transition/loading period.
-   * The actual player movement through the corridor remains
-   * handled by Phaser.
-   */
-  private fireDecisionAtEndOfTraversal(decision: DecisionCreatedMsg): void {
+  private scheduleComplete(): void {
     setTimeout(() => {
-      console.log(`[DEV WS] ← DECISION_CREATED round ${decision.round}`);
-
-      this.dispatch(decision);
-    }, 500);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Session complete
-  // ---------------------------------------------------------------------------
-
-  private fireSessionComplete(): void {
-    setTimeout(() => {
-      console.log('[DEV WS] ← SESSION_COMPLETE');
-
       this.dispatch({
         type: 'SESSION_COMPLETE',
-        summary: SESSION_SUMMARY,
+        summary: 'Dev session completed successfully.',
         decisionsCount: MOCK_ROUNDS.length,
         reconsideredCount: 0,
-        docContent: SESSION_DOC,
+        docContent: '# DevQuest Session\n\nMock session completed.',
       });
-    }, 500);
+    }, 300);
   }
 }

@@ -18,12 +18,6 @@ export interface OptionSelectedMsg {
   context?: string;
 }
 
-export interface ChallengeResponseMsg {
-  type: 'CHALLENGE_RESPONSE';
-  nodeId: string;
-  response: string;
-}
-
 export interface ReconsiderMsg {
   type: 'RECONSIDER';
   nodeId: string;
@@ -37,7 +31,6 @@ export type ClientMessage =
   | StartSessionMsg
   | SubmitProblemMsg
   | OptionSelectedMsg
-  | ChallengeResponseMsg
   | ReconsiderMsg
   | ContinueMsg;
 
@@ -123,12 +116,6 @@ export interface DecisionCreatedMsg {
   dependsOn?: string;
 }
 
-export interface ChallengeMsg {
-  type: 'CHALLENGE';
-  nodeId: string;
-  question: string;
-}
-
 export interface EvaluationMsg {
   type: 'EVALUATION';
   nodeId: string;
@@ -153,7 +140,6 @@ export type ServerMessage =
   | SessionStartedMsg
   | SessionResumedMsg
   | DecisionCreatedMsg
-  | ChallengeMsg
   | EvaluationMsg
   | SessionCompleteMsg
   | ErrorMsg;

@@ -136,17 +136,6 @@ class SessionService:
                 },
             )
 
-        elif msg_type == "CHALLENGE_RESPONSE":
-            node_id = msg["nodeId"]
-            response = msg["response"]
-            self.engine.submit_defense(session, node_id, response)
-            await self.enqueue_player_event(session_id, {
-                "type": "CHALLENGE_RESPONSE",
-                "sessionId": session_id,
-                "nodeId": node_id,
-                "response": response,
-            })
-
         elif msg_type == "RECONSIDER":
             node_id = msg["nodeId"]
             self.engine.reconsider(session, node_id)

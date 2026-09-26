@@ -105,14 +105,13 @@ class DecisionEngine:
             normalized_context,
         )
 
-        session.move_to_awaiting_challenge()
+        session.move_to_awaiting_question()
 
     def receive_challenge(
         self, session: Session, node_id: str, question: str
     ) -> EngineEvent:
         """Skill provides a challenge question."""
         session.graph.set_challenge(node_id, question)
-        session.move_to_awaiting_defense()
 
         return EngineEvent(
             type=EventType.CHALLENGE,

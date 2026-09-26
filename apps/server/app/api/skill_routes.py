@@ -85,18 +85,6 @@ async def create_decision(payload: DecisionPayload):
     )
     return {"status": "sent"}
 
-
-@router.post("/challenge")
-async def send_challenge(payload: ChallengePayload):
-    """Skill sends a follow-up challenge."""
-    await session_service.skill_send_challenge(
-        session_id=payload.session_id,
-        node_id=payload.node_id,
-        question=payload.question,
-    )
-    return {"status": "sent"}
-
-
 @router.post("/evaluation")
 async def send_evaluation(payload: EvaluationPayload):
     """Skill sends evaluation of the decision."""

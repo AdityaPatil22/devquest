@@ -21,15 +21,11 @@ export function PhaserGame() {
     setGame(game);
 
     return () => {
-      setGame(null);
-
-      if (gameRef.current === game) {
-        gameRef.current = null;
-      }
-
       game.destroy(true);
+      gameRef.current = null;
+      setGame(null);
     };
-  }, [setGame]);
+  }, []);
 
   return <div ref={containerRef} className="phaser-layer" />;
 }
