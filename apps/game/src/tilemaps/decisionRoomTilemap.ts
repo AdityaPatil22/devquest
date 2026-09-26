@@ -12,8 +12,7 @@
 
 export const DECISION_TILEMAP_KEY = 'decision-room-map';
 
-export const DECISION_TILEMAP_PATH =
-  'assets/map/decisionroom/decisionroom.json';
+export const DECISION_TILEMAP_PATH = 'assets/map/decisionroom/decisionroom.json';
 
 export const DECISION_MAP_TILE_SIZE = 16;
 
@@ -91,12 +90,7 @@ export const DECISION_TILESETS: DecisionTilesetDef[] = [
  *
  * Order follows the layer order in decisionroom.json.
  */
-export const DECISION_TILE_LAYERS = [
-  'Tile Layer 1',
-  'Walls',
-  'furniture',
-  'computers',
-];
+export const DECISION_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'];
 
 /**
  * Layer used for collision detection.
@@ -203,9 +197,7 @@ export const DECISION_DOOR_INTERACTIONS = {
  * Replace Tiled's external .tsx references with embedded tileset
  * definitions that Phaser can consume.
  */
-export function patchDecisionRoomTilesets(
-  rawMapJson: { tilesets: unknown[] },
-): void {
+export function patchDecisionRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
   rawMapJson.tilesets = DECISION_TILESETS.map((tileset) => ({
     firstgid: tileset.firstgid,
     name: tileset.name,

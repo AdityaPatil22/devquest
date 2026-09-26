@@ -2,8 +2,7 @@ import type { DecisionTilesetDef } from './decisionRoomTilemap';
 
 export const CORRIDOR_TILEMAP_KEY = 'corridor-map';
 
-export const CORRIDOR_TILEMAP_PATH =
-  'assets/map/corridor/corridor.json';
+export const CORRIDOR_TILEMAP_PATH = 'assets/map/corridor/corridor.json';
 
 export const CORRIDOR_MAP_TILE_SIZE = 16;
 
@@ -60,12 +59,7 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
   },
 ];
 
-export const CORRIDOR_TILE_LAYERS = [
-  'Floor',
-  'Walls',
-  'furniture',
-  'computers',
-] as const;
+export const CORRIDOR_TILE_LAYERS = ['Floor', 'Walls', 'furniture', 'computers'] as const;
 
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
 
@@ -148,13 +142,9 @@ export const CORRIDOR_MARKERS = {
  * Center point of the corridor spawn marker.
  */
 export const CORRIDOR_SPAWN = {
-  x:
-    CORRIDOR_MARKERS.spawn.x +
-    CORRIDOR_MARKERS.spawn.width / 2,
+  x: CORRIDOR_MARKERS.spawn.x + CORRIDOR_MARKERS.spawn.width / 2,
 
-  y:
-    CORRIDOR_MARKERS.spawn.y +
-    CORRIDOR_MARKERS.spawn.height / 2,
+  y: CORRIDOR_MARKERS.spawn.y + CORRIDOR_MARKERS.spawn.height / 2,
 };
 
 /**
@@ -163,26 +153,18 @@ export const CORRIDOR_SPAWN = {
  * Use this rather than hardcoding a separate entrance coordinate.
  */
 export const CORRIDOR_ENTRANCE = {
-  x:
-    CORRIDOR_MARKERS.entrance.x +
-    CORRIDOR_MARKERS.entrance.width / 2,
+  x: CORRIDOR_MARKERS.entrance.x + CORRIDOR_MARKERS.entrance.width / 2,
 
-  y:
-    CORRIDOR_MARKERS.entrance.y +
-    CORRIDOR_MARKERS.entrance.height / 2,
+  y: CORRIDOR_MARKERS.entrance.y + CORRIDOR_MARKERS.entrance.height / 2,
 };
 
 /**
  * Center point of the corridor exit.
  */
 export const CORRIDOR_EXIT = {
-  x:
-    CORRIDOR_MARKERS.roomExit.x +
-    CORRIDOR_MARKERS.roomExit.width / 2,
+  x: CORRIDOR_MARKERS.roomExit.x + CORRIDOR_MARKERS.roomExit.width / 2,
 
-  y:
-    CORRIDOR_MARKERS.roomExit.y +
-    CORRIDOR_MARKERS.roomExit.height / 2,
+  y: CORRIDOR_MARKERS.roomExit.y + CORRIDOR_MARKERS.roomExit.height / 2,
 };
 
 interface CorridorTileChunk {

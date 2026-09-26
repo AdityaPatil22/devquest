@@ -333,11 +333,13 @@ export class GrillingScene extends Phaser.Scene {
       corridorExit.height / 2;
 
     const optionEntranceLocalX =
-      optionEntrance.x + optionEntrance.width / 2 -
+      optionEntrance.x +
+      optionEntrance.width / 2 -
       OPTION_ROOM_BOUNDS.minTileX * OPTION_ROOM_TILE_SIZE;
 
     const optionEntranceLocalY =
-      optionEntrance.y + optionEntrance.height / 2 -
+      optionEntrance.y +
+      optionEntrance.height / 2 -
       OPTION_ROOM_BOUNDS.minTileY * OPTION_ROOM_TILE_SIZE;
 
     const roomX = corridorExitWorldX - optionEntranceLocalX;
@@ -447,48 +449,54 @@ export class GrillingScene extends Phaser.Scene {
     const height =
       (CORRIDOR_MAP_BOUNDS.maxTileY - CORRIDOR_MAP_BOUNDS.minTileY + 1) * CORRIDOR_MAP_TILE_SIZE;
 
-    // Connect the actual doorway edges, not the centers of the markers.
-    // The Decision Room door opens upward into the corridor, so its top edge
-    // is the connection point. The corridor entrance opens downward into the
-    // Decision Room, so its bottom edge must meet that same point.
     const corridorEntrance = CORRIDOR_MARKERS.entrance;
 
-    const doorIndex = this.doors.indexOf(door);
-    const doorKey = (['A', 'B', 'C', 'D'] as const)[doorIndex];
+    /*
+     * IMPORTANT:
+     *
+     * `door.x` and `door.y` are already world-space coordinates.
+     *
+     * For the first room:
+     *   door.roomSegment = Decision Room
+     *
+     * For later rooms:
+     *   door.roomSegment = Option Room
+     *
+     * Therefore the same calculation works for every generation.
+     */
+    const doorWorldX = door.x;
+    const doorWorldY = door.y;
 
-    if (!doorKey) {
-      throw new Error(`[GrillingScene] No decision door marker for door index ${doorIndex}`);
-    }
-
-    const decisionExit = DECISION_DOOR_EXITS[doorKey];
-
-    // Use the actual selected door position as the horizontal anchor.
-    // This guarantees the corridor follows whichever option the player chose.
-    const decisionExitWorldX = door.x;
-
-    const decisionExitWorldY =
-      decisionExit.y -
-      DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE;
-
+    /*
+     * Convert the corridor's authored entrance marker into
+     * coordinates relative to the corridor layer origin.
+     */
     const corridorEntranceLocalX =
       corridorEntrance.x +
       corridorEntrance.width / 2 -
       CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
 
-    // The corridor's physical boundary is the top edge of the
-    // entrance marker (the wall row is immediately below it).
-    // Align that edge with the top edge of the Decision Room door exit.
+    /*
+     * The corridor connects to the bottom edge of the selected
+     * room door.
+     */
     const corridorEntranceTopLocalY =
-      corridorEntrance.y -
-      CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
+      corridorEntrance.y - CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
 
-    const segmentX = decisionExitWorldX - corridorEntranceLocalX;
-    const segmentY = decisionExitWorldY - corridorEntranceTopLocalY;
+    /*
+     * Position the corridor so its entrance touches the
+     * selected door in world space.
+     */
+    const segmentX = doorWorldX - corridorEntranceLocalX;
 
-    // `segmentX` / `segmentY` are already the world position of the
-    // tilemap layer's top-left origin. For an infinite Tiled layer, the
-    // negative `starty` is part of the layer data, so subtracting
-    // `minTileY` again would shift the corridor down by 16 * 16 = 256px.
+    const segmentY = doorWorldY - corridorEntranceTopLocalY - 72;
+
+    /*
+     * For this infinite Tiled map the layer origin is already
+     * represented by segmentX / segmentY.
+     *
+     * Do NOT subtract CORRIDOR_MAP_BOUNDS.minTileY again.
+     */
     const layerX = segmentX;
     const layerY = segmentY;
 
@@ -510,7 +518,9 @@ export class GrillingScene extends Phaser.Scene {
       if (layerName === CORRIDOR_COLLIDABLE_LAYER) {
         layer.setCollisionByExclusion([-1]);
 
-        // Only the outside wall tiles collide.
+        /*
+         * Only the outside wall tiles should collide.
+         */
         for (let y = CORRIDOR_MAP_BOUNDS.minTileY; y <= CORRIDOR_MAP_BOUNDS.maxTileY; y += 1) {
           for (let x = CORRIDOR_MAP_BOUNDS.minTileX; x <= CORRIDOR_MAP_BOUNDS.maxTileX; x += 1) {
             const tile = layer.getTileAt(x, y, true);
@@ -618,14 +628,12 @@ export class GrillingScene extends Phaser.Scene {
   // ===========================================================================
 
   private renderDecisionDoors(decision: DecisionCreatedMsg, room: WorldSegment): void {
-    this.doors.forEach((door) => {
-      door.doorSprite.destroy();
-      door.doorBlocker.destroy();
-      door.doorCollider.destroy();
-    });
+    // Only clear doors when rendering a completely new room.
+    const doorsForRoom = this.doors.filter((door) => door.roomSegment === room);
 
-    this.doors = [];
-    this.currentDoor = undefined;
+    if (doorsForRoom.length === 0) {
+      this.currentDoor = undefined;
+    }
 
     this.currentNodeId = decision.nodeId;
 
@@ -653,49 +661,35 @@ export class GrillingScene extends Phaser.Scene {
           ? DECISION_DOOR_EXITS[key]
           : OPTION_ROOM_DOOR_EXITS[key.toLowerCase() as 'a' | 'b' | 'c' | 'd'];
 
-      const doorX =
-        room.x +
-        marker.x -
-        DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE +
-        marker.width / 2;
+      const roomMinTileX =
+        room.id === INITIAL_ROOM_ID ? DECISION_MAP_BOUNDS.minTileX : OPTION_ROOM_BOUNDS.minTileX;
 
-      const doorY =
-        room.y +
-        marker.y -
-        DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE +
-        marker.height;
+      const roomMinTileY =
+        room.id === INITIAL_ROOM_ID ? DECISION_MAP_BOUNDS.minTileY : OPTION_ROOM_BOUNDS.minTileY;
 
-        const DOOR_VISUAL_OFFSET_X = 0;
-        const DOOR_VISUAL_OFFSET_Y = 32;
-  
-        const doorSprite = this.add
-          .image(
-            doorX + DOOR_VISUAL_OFFSET_X,
-            doorY + DOOR_VISUAL_OFFSET_Y,
-            'door-closed',
-          )
-          .setOrigin(0.5, 1.42)
-          .setDepth(50)
-          .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
+      const tileSize = room.id === INITIAL_ROOM_ID ? DECISION_MAP_TILE_SIZE : OPTION_ROOM_TILE_SIZE;
+
+      const doorX = room.x + marker.x - roomMinTileX * tileSize + marker.width / 2;
+
+      const doorY = room.y + marker.y - roomMinTileY * tileSize + marker.height;
+
+      const DOOR_VISUAL_OFFSET_X = 0;
+      const DOOR_VISUAL_OFFSET_Y = 32;
+
+      const doorSprite = this.add
+        .image(doorX + DOOR_VISUAL_OFFSET_X, doorY + DOOR_VISUAL_OFFSET_Y, 'door-closed')
+        .setOrigin(0.5, 1.42)
+        .setDepth(50)
+        .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
 
       // The Tiled wall behind the doorway is intentionally open so the
       // corridor can visually connect to the room. Keep an invisible
       // physics barrier here until the player explicitly presses E.
-      const doorBlocker = this.add.rectangle(
-        doorX,
-        doorY - 24,
-        50,
-        110,
-        0x000000,
-        0,
-      );
+      const doorBlocker = this.add.rectangle(doorX, doorY - 24, 50, 110, 0x000000, 0);
 
       this.physics.add.existing(doorBlocker, true);
 
-      const doorCollider = this.physics.add.collider(
-        this.player.sprite,
-        doorBlocker,
-      );
+      const doorCollider = this.physics.add.collider(this.player.sprite, doorBlocker);
 
       const door: DoorObject = {
         option,
@@ -721,6 +715,26 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
+  private removeSelectedDoor(door: DoorObject): void {
+    const index = this.doors.indexOf(door);
+
+    if (index === -1) {
+      return;
+    }
+
+    // Remove the selected door from its room.
+    door.doorCollider.destroy();
+    door.doorBlocker.destroy();
+    door.doorSprite.destroy();
+
+    // Remove it from the active door list.
+    this.doors.splice(index, 1);
+
+    if (this.currentDoor === door) {
+      this.currentDoor = undefined;
+    }
+  }
+
   // ===========================================================================
   // Door Collision
   // ===========================================================================
@@ -743,10 +757,7 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private openDecisionRoomDoorway(door: DoorObject): void {
-    const wallLayer = this.getCollisionLayer(
-      door.roomSegment,
-      DECISION_COLLIDABLE_LAYER,
-    );
+    const wallLayer = this.getCollisionLayer(door.roomSegment, DECISION_COLLIDABLE_LAYER);
 
     if (!wallLayer) {
       return;
@@ -764,12 +775,7 @@ export class GrillingScene extends Phaser.Scene {
     const tileX = Math.floor(marker.x / DECISION_MAP_TILE_SIZE);
     const tileY = Math.floor(marker.y / DECISION_MAP_TILE_SIZE);
 
-    this.clearVerticalWall(
-      wallLayer,
-      tileX,
-      tileY,
-      DECISION_MAP_BOUNDS.minTileY,
-    );
+    this.clearVerticalWall(wallLayer, tileX, tileY, DECISION_MAP_BOUNDS.minTileY);
   }
 
   private openOptionRoomDoorway(door: DoorObject): void {
@@ -955,31 +961,24 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    if (this.currentDoor) {
-      this.currentDoor.isOpen = false;
-      this.setDoorBarrierEnabled(this.currentDoor, true);
-
-      this.currentDoor.doorSprite
-        .setTexture('door-closed')
-        .setOrigin(0.5, 1.42)
-        .setScale(DOOR_SCALE);
+    if (!this.currentDoor) {
+      return;
     }
 
     /*
-     * IMPORTANT:
-     * Do not destroy the corridor.
+     * "Back" on the additional-context overlay means:
      *
-     * It has already been generated and belongs
-     * to the continuous world.
+     *   - do not provide additional context
+     *   - still select this door
+     *   - remove the selected door
+     *   - keep the corridor
+     *   - allow the player to walk into the corridor
      *
-     * It is not destroyed when the player cancels the context overlay.
+     * It is NOT a cancellation of the door selection.
      */
-    this.phase = GamePhase.EXPLORING_DOORS;
+    const door = this.currentDoor;
 
-    this.emitUI({
-      type: 'DOOR_CONTEXT',
-      visible: false,
-    });
+    this.selectDoor(door);
   }
 
   private selectDoor(door: DoorObject, context?: string): void {
@@ -996,8 +995,8 @@ export class GrillingScene extends Phaser.Scene {
       context,
     });
 
-    // The corridor was already created when the door was approached.
-    this.currentDoor = undefined;
+    // Remove ONLY the selected door.
+    this.removeSelectedDoor(door);
 
     this.emitUI({
       type: 'WAITING',
@@ -1016,26 +1015,13 @@ export class GrillingScene extends Phaser.Scene {
   // World Bounds
   // ===========================================================================
 
-  private extendWorldBounds(
-    left: number,
-    top: number,
-    right: number,
-    bottom: number,
-  ): void {
-    const next = new Phaser.Geom.Rectangle(
-      left,
-      top,
-      right - left,
-      bottom - top,
-    );
+  private extendWorldBounds(left: number, top: number, right: number, bottom: number): void {
+    const next = new Phaser.Geom.Rectangle(left, top, right - left, bottom - top);
 
     if (!this.worldBounds) {
       this.worldBounds = next;
     } else {
-      Phaser.Geom.Rectangle.MergeRect(
-        this.worldBounds,
-        next,
-      );
+      Phaser.Geom.Rectangle.MergeRect(this.worldBounds, next);
     }
 
     const padding = 32;
@@ -1054,11 +1040,7 @@ export class GrillingScene extends Phaser.Scene {
 
   private createPlayer(): void {
     // DECISION_SPAWN is authored in Tiled pixel coordinates.
-    this.player = new Player(
-      this,
-      DECISION_SPAWN.x,
-      DECISION_SPAWN.y,
-    );
+    this.player = new Player(this, DECISION_SPAWN.x, DECISION_SPAWN.y);
 
     this.player.sprite.setDepth(50);
 
