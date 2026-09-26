@@ -38,23 +38,42 @@ class DecisionEngine:
         session.set_problem(problem)
 
     def create_decision(
-        self,
-        session: Session,
-        question: str,
-        options: list[dict],
-        recommendation: dict | None = None,
-        round_num: int = 1,
-        depends_on: str | None = None,
+    self,
+    session: Session,
+    question: str,
+    options: list[dict],
+    recommendation: dict | None = None,
+    round_num: int = 1,
+    depends_on: str | None = None,
     ) -> EngineEvent:
-        """Skill provides a decision question."""
-        opts = [Option(id=o["id"], label=o["label"]) for o in options]
+        if session.phase not in {
+            SessionPhase.AWAITING_QUESTION,
+            SessionPhase.AWAITING_PROBLEM,
+        }:
+            raise ValueError(
+                f"Cannot create decision while session is in "
+                f"phase '{session.phase.value}'"
+            )
+
+        opts = [
+            Option(
+                id=o["id"],
+                label=o["label"],
+            )
+            for o in options
+        ]
+
         rec = (
-            Recommendation(option=recommendation["option"], why=recommendation["why"])
+            Recommendation(
+                option=recommendation["option"],
+                why=recommendation["why"],
+            )
             if recommendation
             else None
         )
 
         session.advance_round()
+
         node = session.graph.add_node(
             question=question,
             options=opts,
@@ -63,6 +82,7 @@ class DecisionEngine:
             parent_id=session.current_node_id,
             depends_on=depends_on,
         )
+
         session.set_decision_node(node.id)
 
         return EngineEvent(
@@ -70,9 +90,20 @@ class DecisionEngine:
             data={
                 "nodeId": node.id,
                 "question": question,
-                "options": [{"id": o.id, "label": o.label} for o in opts],
+                "options": [
+                    {
+                        "id": o.id,
+                        "label": o.label,
+                    }
+                    for o in opts
+                ],
                 "recommendation": (
-                    {"option": rec.option, "why": rec.why} if rec else None
+                    {
+                        "option": rec.option,
+                        "why": rec.why,
+                    }
+                    if rec
+                    else None
                 ),
                 "round": node.round,
                 "dependsOn": depends_on,
@@ -86,13 +117,17 @@ class DecisionEngine:
         option_id: str,
         context: str | None = None,
     ) -> None:
-        """
-        Record the player's option selection.
+        if session.phase != SessionPhase.AWAITING_SELECTION:
+            raise ValueError(
+                f"Cannot select an option while session is in "
+                f"phase '{session.phase.value}'"
+            )
 
-        Context is optional. Selecting an option must always advance
-        the session to the challenge/evaluation flow, regardless of
-        whether additional context was provided.
-        """
+        if session.current_node_id != node_id:
+            raise ValueError(
+                f"Node '{node_id}' is not the current decision"
+            )
+
         normalized_context = (
             context.strip()
             if isinstance(context, str) and context.strip()
@@ -105,7 +140,7 @@ class DecisionEngine:
             normalized_context,
         )
 
-        session.move_to_awaiting_challenge()
+        session.move_to_awaiting_question()
 
     def receive_challenge(
         self, session: Session, node_id: str, question: str

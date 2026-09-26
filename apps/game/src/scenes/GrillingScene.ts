@@ -53,6 +53,7 @@ import { emitUIEvent } from '../game/GameBridge';
 
 interface DoorObject {
   option: DecisionOption;
+  key: 'A' | 'B' | 'C' | 'D';
   x: number;
   y: number;
   doorSprite: Phaser.GameObjects.Image;
@@ -81,6 +82,7 @@ interface WorldSegment {
   layers: CreatedTilemapLayer[];
   objects: Phaser.GameObjects.GameObject[];
   colliders: Phaser.Physics.Arcade.Collider[];
+  doors: DoorObject[];
 }
 
 const DOOR_SCALE = 0.191;
@@ -281,6 +283,7 @@ export class GrillingScene extends Phaser.Scene {
       layers,
       objects: [],
       colliders,
+      doors: [],
     };
 
     this.segments.set(segment.id, segment);
@@ -388,6 +391,7 @@ export class GrillingScene extends Phaser.Scene {
       layers,
       objects: [],
       colliders,
+      doors: [],
     };
 
     this.segments.set(roomId, segment);
@@ -554,6 +558,7 @@ export class GrillingScene extends Phaser.Scene {
       layers,
       objects: [],
       colliders,
+      doors: [],
     };
 
     this.segments.set(segment.id, segment);
@@ -628,13 +633,30 @@ export class GrillingScene extends Phaser.Scene {
   // ===========================================================================
 
   private renderDecisionDoors(decision: DecisionCreatedMsg, room: WorldSegment): void {
-    // Only clear doors when rendering a completely new room.
-    const doorsForRoom = this.doors.filter((door) => door.roomSegment === room);
+    /*
+     * A room owns its own doors.
+     *
+     * The continuous world keeps previously created rooms alive, so
+     * never clear `this.doors` here. Only the room currently receiving
+     * a new decision owns the newly created doors.
+     */
+    if (room.doors.length > 0) {
+      room.doors.forEach((door) => {
+        door.doorCollider.destroy();
+        door.doorBlocker.destroy();
+        door.doorSprite.destroy();
 
-    if (doorsForRoom.length === 0) {
-      this.currentDoor = undefined;
+        const globalIndex = this.doors.indexOf(door);
+
+        if (globalIndex !== -1) {
+          this.doors.splice(globalIndex, 1);
+        }
+      });
+
+      room.doors = [];
     }
 
+    this.currentDoor = undefined;
     this.currentNodeId = decision.nodeId;
 
     this.emitUI({
@@ -693,6 +715,7 @@ export class GrillingScene extends Phaser.Scene {
 
       const door: DoorObject = {
         option,
+        key,
         x: doorX,
         y: doorY,
         doorSprite,
@@ -704,6 +727,7 @@ export class GrillingScene extends Phaser.Scene {
       };
 
       this.doors.push(door);
+      room.doors.push(door);
 
       room.objects.push(doorSprite, doorBlocker);
     });
@@ -716,19 +740,24 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private removeSelectedDoor(door: DoorObject): void {
-    const index = this.doors.indexOf(door);
+    // Remove from global tracking.
+    const globalIndex = this.doors.indexOf(door);
 
-    if (index === -1) {
-      return;
+    if (globalIndex !== -1) {
+      this.doors.splice(globalIndex, 1);
     }
 
-    // Remove the selected door from its room.
+    // Remove from the room that owns this door.
+    const roomIndex = door.roomSegment.doors.indexOf(door);
+
+    if (roomIndex !== -1) {
+      door.roomSegment.doors.splice(roomIndex, 1);
+    }
+
+    // Destroy the Phaser objects for only this selected door.
     door.doorCollider.destroy();
     door.doorBlocker.destroy();
     door.doorSprite.destroy();
-
-    // Remove it from the active door list.
-    this.doors.splice(index, 1);
 
     if (this.currentDoor === door) {
       this.currentDoor = undefined;
@@ -763,14 +792,7 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    const optionIndex = this.doors.indexOf(door);
-    const key = (['A', 'B', 'C', 'D'] as const)[optionIndex];
-
-    if (!key) {
-      return;
-    }
-
-    const marker = DECISION_DOOR_EXITS[key];
+    const marker = DECISION_DOOR_EXITS[door.key];
 
     const tileX = Math.floor(marker.x / DECISION_MAP_TILE_SIZE);
     const tileY = Math.floor(marker.y / DECISION_MAP_TILE_SIZE);
@@ -848,7 +870,9 @@ export class GrillingScene extends Phaser.Scene {
 
     let minDist = Infinity;
 
-    for (const door of this.doors) {
+    const activeDoors = this.activeRoomSegment?.doors ?? [];
+
+    for (const door of activeDoors) {
       const distance = Phaser.Math.Distance.Between(
         this.player.sprite.x,
         this.player.sprite.y,
@@ -896,7 +920,9 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private hideDoorPrompt(): void {
-    this.doors.forEach((door) => {
+    const activeDoors = this.activeRoomSegment?.doors ?? [];
+
+    activeDoors.forEach((door) => {
       door.doorSprite.clearTint();
     });
 
