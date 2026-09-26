@@ -56,6 +56,8 @@ interface DoorObject {
   x: number;
   y: number;
   doorSprite: Phaser.GameObjects.Image;
+  doorBlocker: Phaser.GameObjects.Rectangle;
+  doorCollider: Phaser.Physics.Arcade.Collider;
   isOpen: boolean;
   roomId: string;
   roomSegment: WorldSegment;
@@ -618,6 +620,8 @@ export class GrillingScene extends Phaser.Scene {
   private renderDecisionDoors(decision: DecisionCreatedMsg, room: WorldSegment): void {
     this.doors.forEach((door) => {
       door.doorSprite.destroy();
+      door.doorBlocker.destroy();
+      door.doorCollider.destroy();
     });
 
     this.doors = [];
@@ -644,7 +648,10 @@ export class GrillingScene extends Phaser.Scene {
         return;
       }
 
-      const marker = DECISION_DOOR_EXITS[key];
+      const marker =
+        room.id === INITIAL_ROOM_ID
+          ? DECISION_DOOR_EXITS[key]
+          : OPTION_ROOM_DOOR_EXITS[key.toLowerCase() as 'a' | 'b' | 'c' | 'd'];
 
       const doorX =
         room.x +
@@ -658,17 +665,45 @@ export class GrillingScene extends Phaser.Scene {
         DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE +
         marker.height;
 
-      const doorSprite = this.add
-        .image(doorX, doorY, 'door-closed')
-        .setOrigin(0.5, 1.42)
-        .setDepth(50)
-        .setScale(DOOR_SCALE);
+        const DOOR_VISUAL_OFFSET_X = 0;
+        const DOOR_VISUAL_OFFSET_Y = 32;
+  
+        const doorSprite = this.add
+          .image(
+            doorX + DOOR_VISUAL_OFFSET_X,
+            doorY + DOOR_VISUAL_OFFSET_Y,
+            'door-closed',
+          )
+          .setOrigin(0.5, 1.42)
+          .setDepth(50)
+          .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
+
+      // The Tiled wall behind the doorway is intentionally open so the
+      // corridor can visually connect to the room. Keep an invisible
+      // physics barrier here until the player explicitly presses E.
+      const doorBlocker = this.add.rectangle(
+        doorX,
+        doorY - 24,
+        50,
+        110,
+        0x000000,
+        0,
+      );
+
+      this.physics.add.existing(doorBlocker, true);
+
+      const doorCollider = this.physics.add.collider(
+        this.player.sprite,
+        doorBlocker,
+      );
 
       const door: DoorObject = {
         option,
         x: doorX,
         y: doorY,
         doorSprite,
+        doorBlocker,
+        doorCollider,
         isOpen: false,
         roomId: room.id,
         roomSegment: room,
@@ -676,7 +711,7 @@ export class GrillingScene extends Phaser.Scene {
 
       this.doors.push(door);
 
-      room.objects.push(doorSprite);
+      room.objects.push(doorSprite, doorBlocker);
     });
 
     this.phase = GamePhase.EXPLORING_DOORS;
@@ -697,6 +732,14 @@ export class GrillingScene extends Phaser.Scene {
     }
 
     this.openOptionRoomDoorway(door);
+  }
+
+  private setDoorBarrierEnabled(door: DoorObject, enabled: boolean): void {
+    const body = door.doorBlocker.body as Phaser.Physics.Arcade.StaticBody | undefined;
+
+    if (body) {
+      body.enable = enabled;
+    }
   }
 
   private openDecisionRoomDoorway(door: DoorObject): void {
@@ -876,6 +919,9 @@ export class GrillingScene extends Phaser.Scene {
       door.doorSprite.setTexture('door-open').setOrigin(0.5, 1.32).setScale(DOOR_OPEN_SCALE);
     }
 
+    // E has been pressed: this is the only point at which the player is
+    // allowed to cross the doorway.
+    this.setDoorBarrierEnabled(door, false);
     this.openDoorwayCollision(door);
 
     // Generate the corridor immediately.
@@ -911,6 +957,7 @@ export class GrillingScene extends Phaser.Scene {
 
     if (this.currentDoor) {
       this.currentDoor.isOpen = false;
+      this.setDoorBarrierEnabled(this.currentDoor, true);
 
       this.currentDoor.doorSprite
         .setTexture('door-closed')
