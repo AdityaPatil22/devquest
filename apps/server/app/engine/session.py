@@ -14,8 +14,6 @@ class SessionPhase(str, Enum):
     AWAITING_PROBLEM = "awaiting_problem"
     AWAITING_QUESTION = "awaiting_question"
     AWAITING_SELECTION = "awaiting_selection"
-    AWAITING_CHALLENGE = "awaiting_challenge"
-    AWAITING_DEFENSE = "awaiting_defense"
     AWAITING_EVALUATION = "awaiting_evaluation"
     COMPLETE = "complete"
 
@@ -65,20 +63,6 @@ class Session:
 
         self.phase = (
             SessionPhase.AWAITING_SELECTION
-        )
-
-    def move_to_awaiting_challenge(
-        self,
-    ) -> None:
-        self.phase = (
-            SessionPhase.AWAITING_CHALLENGE
-        )
-
-    def move_to_awaiting_defense(
-        self,
-    ) -> None:
-        self.phase = (
-            SessionPhase.AWAITING_DEFENSE
         )
 
     def move_to_awaiting_evaluation(

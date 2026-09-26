@@ -14,7 +14,6 @@ class NodeStatus(str, Enum):
     PENDING = "pending"
     ACTIVE = "active"
     DECIDED = "decided"
-    CHALLENGED = "challenged"
     EVALUATED = "evaluated"
     RECONSIDERED = "reconsidered"
 
@@ -35,7 +34,6 @@ class Recommendation:
 class Decision:
     option_id: str
     context: str | None = None
-    defense: str | None = None
 
 
 @dataclass
@@ -137,20 +135,6 @@ class DecisionGraph:
         node.status = NodeStatus.DECIDED
         return node
 
-    def set_challenge(self, node_id: str, challenge: str) -> DecisionNode:
-        """Record the challenge question."""
-        node = self.nodes[node_id]
-        node.challenge = challenge
-        node.status = NodeStatus.CHALLENGED
-        return node
-
-    def set_defense(self, node_id: str, defense: str) -> DecisionNode:
-        """Record the player's defense."""
-        node = self.nodes[node_id]
-        if node.decision:
-            node.decision.defense = defense
-        return node
-
     def evaluate(self, node_id: str, feedback: str, consequence: str) -> DecisionNode:
         """Record an evaluation on a decided node."""
         node = self.nodes[node_id]
@@ -204,7 +188,6 @@ class DecisionGraph:
                         {
                             "option_id": n.decision.option_id,
                             "context": n.decision.context,
-                            "defense": n.decision.defense,
                         }
                         if n.decision
                         else None

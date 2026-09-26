@@ -1,80 +1,86 @@
-import { useState } from 'react';
 import type Phaser from 'phaser';
-import { launchScene, restartScene, type DevScene } from './SceneTester';
+
+import { useGameUI } from '../state/GameUIContext';
+import {
+  launchDevScene,
+  resetDevGame,
+} from './DevSession';
 
 interface DevToolbarProps {
   game: Phaser.Game | null;
 }
 
-const scenes: { label: string; value: DevScene; description: string }[] = [
-  {
-    label: 'Full Flow',
-    value: 'FullFlow',
-    description: 'CommonRoom → elevator → 3 grilling rounds → Trophy',
-  },
-  {
-    label: 'Grilling Scene',
-    value: 'GrillingScene',
-    description: 'Jump straight to round 1; auto-advances through 3 rounds',
-  },
+type DevScene =
+  | 'CommonRoomScene'
+  | 'GrillingScene'
+  | 'TrophyScene';
+
+const scenes: {
+  label: string;
+  value: DevScene;
+}[] = [
   {
     label: 'Common Room',
     value: 'CommonRoomScene',
-    description: 'CommonRoom only — elevator UI + problem submission',
+  },
+  {
+    label: 'Decision Room',
+    value: 'GrillingScene',
   },
   {
     label: 'Trophy Room',
     value: 'TrophyScene',
-    description: 'Session complete screen with mock data',
   },
 ];
 
 export function DevToolbar({ game }: DevToolbarProps) {
-  const [selectedScene, setSelectedScene] = useState<DevScene>('FullFlow');
+  const { state } = useGameUI();
 
-  const selected = scenes.find((s) => s.value === selectedScene);
+  const disabled = !game || state.loading;
 
   return (
     <div className="dev-toolbar">
-      <span className="dev-toolbar__title">DEV MODE</span>
-
-      <select
-        value={selectedScene}
-        onChange={(event) => {
-          setSelectedScene(event.target.value as DevScene);
-        }}
-      >
-        {scenes.map((scene) => (
-          <option key={scene.value} value={scene.value}>
-            {scene.label}
-          </option>
-        ))}
-      </select>
-
-      {selected && <span className="dev-toolbar__desc">{selected.description}</span>}
+      <span className="dev-toolbar__title">
+        DEV MODE
+      </span>
 
       <button
         type="button"
-        disabled={!game}
+        disabled={disabled}
         onClick={() => {
           if (game) {
-            launchScene(game, selectedScene);
+            resetDevGame(game);
           }
         }}
       >
-        Launch
+        Full Flow
       </button>
 
+      {scenes.map((scene) => (
+        <button
+          key={scene.value}
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (game) {
+              launchDevScene(game, scene.value);
+            }
+          }}
+        >
+          {scene.label}
+        </button>
+      ))}
+
       <button
         type="button"
         disabled={!game}
         onClick={() => {
           if (game) {
-            restartScene(game);
+            resetDevGame(game);
           }
         }}
       >
-        Restart
+        Reset
       </button>
     </div>
   );

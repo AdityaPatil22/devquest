@@ -105,26 +105,7 @@ class DecisionEngine:
             normalized_context,
         )
 
-        session.move_to_awaiting_challenge()
-
-    def receive_challenge(
-        self, session: Session, node_id: str, question: str
-    ) -> EngineEvent:
-        """Skill provides a challenge question."""
-        session.graph.set_challenge(node_id, question)
-        session.move_to_awaiting_defense()
-
-        return EngineEvent(
-            type=EventType.CHALLENGE,
-            data={"nodeId": node_id, "question": question},
-        )
-
-    def submit_defense(
-        self, session: Session, node_id: str, defense: str
-    ) -> None:
-        """Player defended their choice."""
-        session.graph.set_defense(node_id, defense)
-        session.move_to_awaiting_evaluation()
+        session.move_to_awaiting_question()
 
     def receive_evaluation(
         self,

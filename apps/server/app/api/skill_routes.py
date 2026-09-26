@@ -24,14 +24,6 @@ class DecisionPayload(BaseModel):
     round: int = 1
     depends_on: str | None = None
 
-
-class ChallengePayload(BaseModel):
-    """Skill sends a follow-up challenge."""
-    session_id: str
-    node_id: str
-    question: str
-
-
 class EvaluationPayload(BaseModel):
     """Skill sends an evaluation."""
     session_id: str
@@ -84,18 +76,6 @@ async def create_decision(payload: DecisionPayload):
         depends_on=payload.depends_on,
     )
     return {"status": "sent"}
-
-
-@router.post("/challenge")
-async def send_challenge(payload: ChallengePayload):
-    """Skill sends a follow-up challenge."""
-    await session_service.skill_send_challenge(
-        session_id=payload.session_id,
-        node_id=payload.node_id,
-        question=payload.question,
-    )
-    return {"status": "sent"}
-
 
 @router.post("/evaluation")
 async def send_evaluation(payload: EvaluationPayload):
