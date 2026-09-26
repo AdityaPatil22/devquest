@@ -428,113 +428,157 @@ export class GrillingScene extends Phaser.Scene {
 
   private createCorridorAt(door: DoorObject): WorldSegment {
     const cached = this.cache.tilemap.get(CORRIDOR_TILEMAP_KEY);
-
+  
     if (cached?.data) {
       patchCorridorTilesets(cached.data);
     }
-
+  
     const map = this.make.tilemap({
       key: CORRIDOR_TILEMAP_KEY,
     });
-
+  
     const tilesets = CORRIDOR_TILESETS.map((tileset) =>
       map.addTilesetImage(tileset.name, tileset.key),
-    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
-
+    ).filter(
+      (tileset): tileset is Phaser.Tilemaps.Tileset =>
+        tileset !== null,
+    );
+  
     const width =
-      (CORRIDOR_MAP_BOUNDS.maxTileX - CORRIDOR_MAP_BOUNDS.minTileX + 1) * CORRIDOR_MAP_TILE_SIZE;
-
+      (CORRIDOR_MAP_BOUNDS.maxTileX -
+        CORRIDOR_MAP_BOUNDS.minTileX +
+        1) *
+      CORRIDOR_MAP_TILE_SIZE;
+  
     const height =
-      (CORRIDOR_MAP_BOUNDS.maxTileY - CORRIDOR_MAP_BOUNDS.minTileY + 1) * CORRIDOR_MAP_TILE_SIZE;
-
-    // Connect the actual doorway edges, not the centers of the markers.
-    // The Decision Room door opens upward into the corridor, so its top edge
-    // is the connection point. The corridor entrance opens downward into the
-    // Decision Room, so its bottom edge must meet that same point.
+      (CORRIDOR_MAP_BOUNDS.maxTileY -
+        CORRIDOR_MAP_BOUNDS.minTileY +
+        1) *
+      CORRIDOR_MAP_TILE_SIZE;
+  
     const corridorEntrance = CORRIDOR_MARKERS.entrance;
-
-    const doorIndex = this.doors.indexOf(door);
-    const doorKey = (['A', 'B', 'C', 'D'] as const)[doorIndex];
-
-    if (!doorKey) {
-      throw new Error(`[GrillingScene] No decision door marker for door index ${doorIndex}`);
-    }
-
-    const decisionExit = DECISION_DOOR_EXITS[doorKey];
-
-    // Use the actual selected door position as the horizontal anchor.
-    // This guarantees the corridor follows whichever option the player chose.
-    const decisionExitWorldX = door.x;
-
-    const decisionExitWorldY =
-      decisionExit.y -
-      DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE;
-
+  
+    /*
+     * IMPORTANT:
+     *
+     * `door.x` and `door.y` are already world-space coordinates.
+     *
+     * For the first room:
+     *   door.roomSegment = Decision Room
+     *
+     * For later rooms:
+     *   door.roomSegment = Option Room
+     *
+     * Therefore the same calculation works for every generation.
+     */
+    const doorWorldX = door.x;
+    const doorWorldY = door.y;
+  
+    /*
+     * Convert the corridor's authored entrance marker into
+     * coordinates relative to the corridor layer origin.
+     */
     const corridorEntranceLocalX =
       corridorEntrance.x +
       corridorEntrance.width / 2 -
-      CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
-
-    // The corridor's physical boundary is the top edge of the
-    // entrance marker (the wall row is immediately below it).
-    // Align that edge with the top edge of the Decision Room door exit.
+      CORRIDOR_MAP_BOUNDS.minTileX *
+        CORRIDOR_MAP_TILE_SIZE;
+  
+    /*
+     * The corridor connects to the bottom edge of the selected
+     * room door.
+     */
     const corridorEntranceTopLocalY =
       corridorEntrance.y -
-      CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
-
-    const segmentX = decisionExitWorldX - corridorEntranceLocalX;
-    const segmentY = decisionExitWorldY - corridorEntranceTopLocalY;
-
-    // `segmentX` / `segmentY` are already the world position of the
-    // tilemap layer's top-left origin. For an infinite Tiled layer, the
-    // negative `starty` is part of the layer data, so subtracting
-    // `minTileY` again would shift the corridor down by 16 * 16 = 256px.
+      CORRIDOR_MAP_BOUNDS.minTileY *
+        CORRIDOR_MAP_TILE_SIZE;
+  
+    /*
+     * Position the corridor so its entrance touches the
+     * selected door in world space.
+     */
+    const segmentX =
+      doorWorldX - corridorEntranceLocalX;
+  
+    const segmentY =
+      doorWorldY - corridorEntranceTopLocalY - 72;
+  
+    /*
+     * For this infinite Tiled map the layer origin is already
+     * represented by segmentX / segmentY.
+     *
+     * Do NOT subtract CORRIDOR_MAP_BOUNDS.minTileY again.
+     */
     const layerX = segmentX;
     const layerY = segmentY;
-
+  
     const layers: CreatedTilemapLayer[] = [];
     const colliders: Phaser.Physics.Arcade.Collider[] = [];
-
+  
     CORRIDOR_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = map.createLayer(layerName, tilesets, layerX, layerY);
-
+      const layer = map.createLayer(
+        layerName,
+        tilesets,
+        layerX,
+        layerY,
+      );
+  
       if (!layer) {
-        console.error(`[GrillingScene] Failed to create corridor layer: ${layerName}`);
+        console.error(
+          `[GrillingScene] Failed to create corridor layer: ${layerName}`,
+        );
         return;
       }
-
+  
       layer.setDepth(depth + 10);
-
+  
       layers.push(layer);
-
+  
       if (layerName === CORRIDOR_COLLIDABLE_LAYER) {
         layer.setCollisionByExclusion([-1]);
-
-        // Only the outside wall tiles collide.
-        for (let y = CORRIDOR_MAP_BOUNDS.minTileY; y <= CORRIDOR_MAP_BOUNDS.maxTileY; y += 1) {
-          for (let x = CORRIDOR_MAP_BOUNDS.minTileX; x <= CORRIDOR_MAP_BOUNDS.maxTileX; x += 1) {
-            const tile = layer.getTileAt(x, y, true);
-
+  
+        /*
+         * Only the outside wall tiles should collide.
+         */
+        for (
+          let y = CORRIDOR_MAP_BOUNDS.minTileY;
+          y <= CORRIDOR_MAP_BOUNDS.maxTileY;
+          y += 1
+        ) {
+          for (
+            let x = CORRIDOR_MAP_BOUNDS.minTileX;
+            x <= CORRIDOR_MAP_BOUNDS.maxTileX;
+            x += 1
+          ) {
+            const tile = layer.getTileAt(
+              x,
+              y,
+              true,
+            );
+  
             if (!tile) {
               continue;
             }
-
+  
             const isOuterWall =
               x === CORRIDOR_MAP_BOUNDS.minTileX ||
               x === CORRIDOR_MAP_BOUNDS.maxTileX ||
               y === CORRIDOR_MAP_BOUNDS.minTileY ||
               y === CORRIDOR_MAP_BOUNDS.maxTileY;
-
+  
             tile.setCollision(isOuterWall);
           }
         }
-
-        const collider = this.physics.add.collider(this.player.sprite, layer);
-
+  
+        const collider = this.physics.add.collider(
+          this.player.sprite,
+          layer,
+        );
+  
         colliders.push(collider);
       }
     });
-
+  
     const segment: WorldSegment = {
       id: `corridor-${this.segments.size}`,
       x: segmentX,
@@ -545,11 +589,16 @@ export class GrillingScene extends Phaser.Scene {
       objects: [],
       colliders,
     };
-
+  
     this.segments.set(segment.id, segment);
-
-    this.extendWorldBounds(segmentX, segmentY, segmentX + width, segmentY + height);
-
+  
+    this.extendWorldBounds(
+      segmentX,
+      segmentY,
+      segmentX + width,
+      segmentY + height,
+    );
+  
     return segment;
   }
 
@@ -651,18 +700,35 @@ export class GrillingScene extends Phaser.Scene {
       const marker =
         room.id === INITIAL_ROOM_ID
           ? DECISION_DOOR_EXITS[key]
-          : OPTION_ROOM_DOOR_EXITS[key.toLowerCase() as 'a' | 'b' | 'c' | 'd'];
+          : OPTION_ROOM_DOOR_EXITS[
+              key.toLowerCase() as 'a' | 'b' | 'c' | 'd'
+            ];
+
+      const roomMinTileX =
+        room.id === INITIAL_ROOM_ID
+          ? DECISION_MAP_BOUNDS.minTileX
+          : OPTION_ROOM_BOUNDS.minTileX;
+
+      const roomMinTileY =
+        room.id === INITIAL_ROOM_ID
+          ? DECISION_MAP_BOUNDS.minTileY
+          : OPTION_ROOM_BOUNDS.minTileY;
+
+      const tileSize =
+        room.id === INITIAL_ROOM_ID
+          ? DECISION_MAP_TILE_SIZE
+          : OPTION_ROOM_TILE_SIZE;
 
       const doorX =
         room.x +
         marker.x -
-        DECISION_MAP_BOUNDS.minTileX * DECISION_MAP_TILE_SIZE +
+        roomMinTileX * tileSize +
         marker.width / 2;
 
       const doorY =
         room.y +
         marker.y -
-        DECISION_MAP_BOUNDS.minTileY * DECISION_MAP_TILE_SIZE +
+        roomMinTileY * tileSize +
         marker.height;
 
         const DOOR_VISUAL_OFFSET_X = 0;
