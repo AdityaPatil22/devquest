@@ -4,6 +4,126 @@
   "infinite": true,
   "layers": [
     {
+      "draworder": "topdown",
+      "id": 10,
+      "name": "markers",
+      "objects": [
+        {
+          "height": 63,
+          "id": 2,
+          "name": "door-exit-a",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorExit",
+          "visible": true,
+          "width": 33,
+          "x": 159.216284987,
+          "y": -0.151823579
+        },
+        {
+          "height": 63,
+          "id": 4,
+          "name": "door-exit-b",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorExit",
+          "visible": true,
+          "width": 33,
+          "x": 271.031806615776,
+          "y": -0.117472434266318
+        },
+        {
+          "height": 63,
+          "id": 5,
+          "name": "door-exit-c",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorExit",
+          "visible": true,
+          "width": 33,
+          "x": 382.991094147583,
+          "y": 0.730703986429177
+        },
+        {
+          "height": 63,
+          "id": 6,
+          "name": "door-exit-d",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorExit",
+          "visible": true,
+          "width": 33,
+          "x": 495.798558100085,
+          "y": 0.730703986429177
+        },
+        {
+          "height": 40,
+          "id": 7,
+          "name": "starting-point",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "SpawnPoint",
+          "visible": true,
+          "width": 40,
+          "x": 377.72064874195,
+          "y": 358.893263802101
+        },
+        {
+          "height": 16.3690476190476,
+          "id": 8,
+          "name": "door-interact-a",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorInteraction",
+          "visible": true,
+          "width": 59.5238095238095,
+          "x": 148.809523809524,
+          "y": 61.0119047619048
+        },
+        {
+          "height": 16.369,
+          "id": 10,
+          "name": "door-interact-b",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorInteraction",
+          "visible": true,
+          "width": 59.5238,
+          "x": 261.904766666667,
+          "y": 61.7559761904762
+        },
+        {
+          "height": 16.369,
+          "id": 11,
+          "name": "door-interact-c",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorInteraction",
+          "visible": true,
+          "width": 59.5238,
+          "x": 373.511909523809,
+          "y": 61.7559761904762
+        },
+        {
+          "height": 16.369,
+          "id": 12,
+          "name": "door-interact-d",
+          "opacity": 1,
+          "rotation": 0,
+          "type": "DoorInteraction",
+          "visible": true,
+          "width": 59.5238,
+          "x": 488.095242857143,
+          "y": 61.7559761904762
+        }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
       "chunks": [
         {
           "data": [
@@ -494,12 +614,12 @@
           "y": 32
         }
       ],
-      "height": 64,
+      "height": 48,
       "id": 4,
       "name": "Walls",
       "opacity": 1,
       "startx": -16,
-      "starty": -16,
+      "starty": 0,
       "type": "tilelayer",
       "visible": true,
       "width": 80,
@@ -936,8 +1056,8 @@
       "y": 0
     }
   ],
-  "nextlayerid": 10,
-  "nextobjectid": 2,
+  "nextlayerid": 11,
+  "nextobjectid": 13,
   "orientation": "orthogonal",
   "renderorder": "right-down",
   "tiledversion": "1.12.2",
