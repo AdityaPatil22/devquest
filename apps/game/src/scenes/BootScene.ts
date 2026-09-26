@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { getDevGameSession } from '../dev/DevSession';
 import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
 
 import {
@@ -236,19 +237,23 @@ export class BootScene extends Phaser.Scene {
       repeat: 0,
     });
 
-    // ─────────────────────────────────────────
-    // Session state
-    // ─────────────────────────────────────────
-
+    const devMode =
+    import.meta.env.DEV &&
+    import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
+  
+  if (devMode) {
+    const devSession = getDevGameSession();
+  
+    this.store = devSession.store;
+    this.ws = devSession.ws;
+  } else {
     this.store = new SessionStore();
-
-    // ─────────────────────────────────────────
-    // WebSocket
-    // ─────────────────────────────────────────
-
     this.ws = new WebSocketClient();
-
-    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
+  }
+  
+  this.unsubscribeWs = this.ws.onMessage(
+    this.handleMessage.bind(this),
+  );
 
     /**
      * Tell React that the game engine

@@ -1,9 +1,10 @@
 import { WebSocketClient } from '../net/WebSocketClient';
-import type { ClientMessage, DecisionCreatedMsg } from '../net/protocol';
+import type {
+  ClientMessage,
+  DecisionCreatedMsg,
+} from '../net/protocol';
 
-// ---------------------------------------------------------------------------
-// Scripted mock rounds
-// ---------------------------------------------------------------------------
+const DEV_GENERATION_DELAY_MS = 3000;
 
 const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
@@ -59,7 +60,7 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
 ];
 
 const SESSION_SUMMARY =
-  'You made three strong architectural decisions: a modular monolith backend, a PostgreSQL + Redis data layer, and Docker + Kubernetes deployment with rolling updates.';
+  'You made three strong architectural decisions: a modular monolith backend, a PostgreSQL + Redis data layer, and Docker + Kubernetes deployment.';
 
 const SESSION_DOC = `# Feature Implementation Plan
 
@@ -79,15 +80,21 @@ const SESSION_DOC = `# Feature Implementation Plan
 4. Configure Kubernetes deployment
 `;
 
-// ---------------------------------------------------------------------------
-// Dev WebSocket client
-// ---------------------------------------------------------------------------
+type Timer = ReturnType<typeof setTimeout>;
 
 export class DevWebSocketClient extends WebSocketClient {
   private roundIndex = 0;
+  private mockConnected = false;
+  private timers = new Set<Timer>();
 
   override connect(): void {
-    setTimeout(() => {
+    if (this.mockConnected) {
+      return;
+    }
+
+    this.mockConnected = true;
+
+    this.schedule(() => {
       this.dispatch({
         type: 'SESSION_STARTED',
         sessionId: 'dev-session-001',
@@ -95,52 +102,77 @@ export class DevWebSocketClient extends WebSocketClient {
     }, 0);
   }
 
-  override disconnect(): void {}
+  override disconnect(): void {
+    this.mockConnected = false;
+
+    this.timers.forEach((timer) => clearTimeout(timer));
+    this.timers.clear();
+  }
 
   override get connected(): boolean {
-    return true;
+    return this.mockConnected;
   }
 
   override send(msg: ClientMessage): void {
-    switch (msg.type) {
-      case 'PROBLEM_SUBMITTED':
-        this.roundIndex = 0;
-        this.scheduleDecision(0, 300);
-        break;
+    if (!this.mockConnected) {
+      return;
+    }
 
-      case 'OPTION_SELECTED':
+    switch (msg.type) {
+      case 'PROBLEM_SUBMITTED': {
+        this.roundIndex = 0;
+
+        this.scheduleDecision(0);
+        break;
+      }
+
+      case 'OPTION_SELECTED': {
         this.roundIndex += 1;
 
         if (this.roundIndex < MOCK_ROUNDS.length) {
-          this.scheduleDecision(this.roundIndex, 300);
+          this.scheduleDecision(this.roundIndex);
         } else {
           this.scheduleComplete();
         }
+
+        break;
+      }
+
+      default:
         break;
     }
   }
 
-  private scheduleDecision(index: number, delay: number): void {
+  private scheduleDecision(index: number): void {
     const decision = MOCK_ROUNDS[index];
 
     if (!decision) {
       return;
     }
 
-    setTimeout(() => {
+    this.schedule(() => {
       this.dispatch(decision);
-    }, delay);
+    }, DEV_GENERATION_DELAY_MS);
   }
 
   private scheduleComplete(): void {
-    setTimeout(() => {
+    this.schedule(() => {
       this.dispatch({
         type: 'SESSION_COMPLETE',
-        summary: 'Dev session completed successfully.',
+        summary: SESSION_SUMMARY,
         decisionsCount: MOCK_ROUNDS.length,
         reconsideredCount: 0,
-        docContent: '# DevQuest Session\n\nMock session completed.',
+        docContent: SESSION_DOC,
       });
-    }, 300);
+    }, DEV_GENERATION_DELAY_MS);
+  }
+
+  private schedule(callback: () => void, delay: number): void {
+    const timer = setTimeout(() => {
+      this.timers.delete(timer);
+      callback();
+    }, delay);
+
+    this.timers.add(timer);
   }
 }

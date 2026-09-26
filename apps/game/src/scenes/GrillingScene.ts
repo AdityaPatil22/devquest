@@ -927,32 +927,30 @@ export class GrillingScene extends Phaser.Scene {
     });
   }
 
-  private selectDoor(door: DoorObject, context?: string): void {
+  private selectDoor(
+    door: DoorObject,
+    context?: string,
+  ): void {
     if (this.phase !== GamePhase.DOOR_CONTEXT) {
       return;
     }
-
+  
     this.phase = GamePhase.TRAVERSING_OPTION;
-
+  
     this.player.stop();
-
+  
     this.store.updateCurrent({
       selectedOptionId: door.option.id,
       context,
     });
-
-    // Create a NEW corridor for every selected door.
-    const corridor = this.createCorridor(door);
-
-    console.log('[GrillingScene] Created corridor:', corridor.id, 'for option:', door.option.id);
-
+  
     this.currentDoor = undefined;
-
+  
     this.emitUI({
       type: 'WAITING',
       message: 'AI is generating the next decision...',
     });
-
+  
     this.ws.send({
       type: 'OPTION_SELECTED',
       nodeId: this.currentNodeId,

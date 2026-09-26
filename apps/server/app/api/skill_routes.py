@@ -24,14 +24,6 @@ class DecisionPayload(BaseModel):
     round: int = 1
     depends_on: str | None = None
 
-
-class ChallengePayload(BaseModel):
-    """Skill sends a follow-up challenge."""
-    session_id: str
-    node_id: str
-    question: str
-
-
 class EvaluationPayload(BaseModel):
     """Skill sends an evaluation."""
     session_id: str

@@ -1,34 +1,66 @@
 import type Phaser from 'phaser';
 
-import { createDevGameSession, type DevGameSession } from './DevGameFactory';
+import {
+  createDevGameSession,
+  type DevGameSession,
+} from './DevGameFactory';
 
-let session: DevGameSession | undefined;
+interface DevRuntime {
+  session?: DevGameSession;
+}
+
+declare global {
+  var __DEVQUEST_RUNTIME__: DevRuntime | undefined;
+}
+
+function getRuntime(): DevRuntime {
+  if (!globalThis.__DEVQUEST_RUNTIME__) {
+    globalThis.__DEVQUEST_RUNTIME__ = {};
+  }
+
+  return globalThis.__DEVQUEST_RUNTIME__;
+}
 
 export function getDevGameSession(): DevGameSession {
-  if (!session) {
-    session = createDevGameSession();
+  const runtime = getRuntime();
+
+  if (!runtime.session) {
+    runtime.session = createDevGameSession();
   }
 
-  return session;
+  return runtime.session;
 }
-
 
 export function resetDevGameSession(): DevGameSession {
-  session = createDevGameSession();
+  const runtime = getRuntime();
 
-  return session;
+  runtime.session?.ws.disconnect();
+
+  runtime.session = createDevGameSession();
+
+  return runtime.session;
 }
 
-export function launchDevGame(game: Phaser.Game): void {
-  const { ws, store } = getDevGameSession();
+export function resetDevGame(game: Phaser.Game): void {
+  const { ws, store } = resetDevGameSession();
 
-  const boot = game.scene.getScene('BootScene');
+  const sceneKeys = [
+    'CommonRoomScene',
+    'GrillingScene',
+    'TrophyScene',
+  ];
 
-  if (!boot.scene.isActive()) {
-    game.scene.start('CommonRoomScene', {
-      ws,
-      store,
-      gateWaiting: false,
-    });
-  }
+  sceneKeys.forEach((key) => {
+    const scene = game.scene.getScene(key);
+
+    if (scene?.scene.isActive()) {
+      scene.scene.stop();
+    }
+  });
+
+  game.scene.start('CommonRoomScene', {
+    ws,
+    store,
+    gateWaiting: false,
+  });
 }

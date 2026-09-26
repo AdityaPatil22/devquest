@@ -4,28 +4,60 @@ import type Phaser from 'phaser';
 import { createPhaserGame } from './createPhaserGame';
 import { useGameUI } from '../state/GameUIContext';
 
+declare global {
+  var __DEVQUEST_PHASER_GAME__: Phaser.Game | undefined;
+}
+
 export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameRef = useRef<Phaser.Game | null>(null);
 
   const { setGame } = useGameUI();
 
   useEffect(() => {
-    if (!containerRef.current || gameRef.current) {
+    const container = containerRef.current;
+
+    if (!container) {
       return;
     }
 
-    const game = createPhaserGame(containerRef.current);
+    let game = globalThis.__DEVQUEST_PHASER_GAME__;
 
-    gameRef.current = game;
+    if (!game) {
+      game = createPhaserGame(container);
+
+      if (import.meta.env.DEV) {
+        globalThis.__DEVQUEST_PHASER_GAME__ = game;
+      }
+    } else if (game.canvas.parentElement !== container) {
+      container.appendChild(game.canvas);
+      game.scale.refresh();
+    }
+
     setGame(game);
 
     return () => {
+      /*
+       * During development keep Phaser alive across
+       * React/Vite Fast Refresh.
+       */
+      if (import.meta.env.DEV) {
+        return;
+      }
+
       game.destroy(true);
-      gameRef.current = null;
+
+      if (globalThis.__DEVQUEST_PHASER_GAME__ === game) {
+        globalThis.__DEVQUEST_PHASER_GAME__ = undefined;
+      }
+
       setGame(null);
     };
-  }, []);
+  }, [setGame]);
 
-  return <div ref={containerRef} className="phaser-layer" />;
+  return (
+    <div
+      ref={containerRef}
+      className="phaser-layer"
+    />
+  );
 }

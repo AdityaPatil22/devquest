@@ -107,24 +107,6 @@ class DecisionEngine:
 
         session.move_to_awaiting_question()
 
-    def receive_challenge(
-        self, session: Session, node_id: str, question: str
-    ) -> EngineEvent:
-        """Skill provides a challenge question."""
-        session.graph.set_challenge(node_id, question)
-
-        return EngineEvent(
-            type=EventType.CHALLENGE,
-            data={"nodeId": node_id, "question": question},
-        )
-
-    def submit_defense(
-        self, session: Session, node_id: str, defense: str
-    ) -> None:
-        """Player defended their choice."""
-        session.graph.set_defense(node_id, defense)
-        session.move_to_awaiting_evaluation()
-
     def receive_evaluation(
         self,
         session: Session,
