@@ -1,8 +1,13 @@
-import type { DecisionOption, Recommendation, SessionSnapshot } from '../net/protocol';
+import type {
+  DecisionOption,
+  Recommendation,
+  SessionSnapshot,
+} from '../net/protocol';
 
 export interface DecisionRecord {
   nodeId: string;
   question: string;
+  description: string;
   options: DecisionOption[];
   recommendation?: Recommendation;
   round: number;
@@ -34,9 +39,12 @@ export class SessionStore {
     this.sessionId = undefined;
     this.problem = undefined;
     this.currentNodeId = undefined;
+
     this.decisions = [];
+
     this.totalRounds = 0;
     this.finished = false;
+
     this.docContent = undefined;
     this.summary = undefined;
   }
@@ -50,75 +58,120 @@ export class SessionStore {
   }
 
   addDecision(record: DecisionRecord): void {
-    const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
+    const existing = this.decisions.find(
+      (decision) =>
+        decision.nodeId === record.nodeId,
+    );
 
     if (existing) {
-      Object.assign(existing, record);
+      Object.assign(
+        existing,
+        record,
+      );
     } else {
       this.decisions.push(record);
     }
 
     this.currentNodeId = record.nodeId;
-    this.totalRounds = Math.max(this.totalRounds, record.round);
+
+    this.totalRounds = Math.max(
+      this.totalRounds,
+      record.round,
+    );
   }
 
   getCurrentDecision(): DecisionRecord | undefined {
-    return this.decisions.find((decision) => decision.nodeId === this.currentNodeId);
+    return this.decisions.find(
+      (decision) =>
+        decision.nodeId === this.currentNodeId,
+    );
   }
 
-  updateCurrent(update: Partial<DecisionRecord>): void {
+  updateCurrent(
+    update: Partial<DecisionRecord>,
+  ): void {
     const current = this.getCurrentDecision();
 
     if (current) {
-      Object.assign(current, update);
+      Object.assign(
+        current,
+        update,
+      );
     }
   }
 
-  complete(summary: string, docContent: string): void {
+  complete(
+    summary: string,
+    docContent: string,
+  ): void {
     this.finished = true;
     this.summary = summary;
     this.docContent = docContent;
   }
 
-  /**
-   * Restore the client-side store from the authoritative
-   * server-side session snapshot.
-   */
-  hydrate(snapshot: SessionSnapshot): void {
+  hydrate(
+    snapshot: SessionSnapshot,
+  ): void {
     this.sessionId = snapshot.sessionId;
     this.problem = snapshot.problem;
-    this.currentNodeId = snapshot.currentNodeId;
-    this.totalRounds = snapshot.round;
+    this.currentNodeId =
+      snapshot.currentNodeId;
 
-    this.decisions = snapshot.decisions.map((node): DecisionRecord => ({
-      nodeId: node.id,
-      question: node.question,
-      options: node.options,
-      recommendation: node.recommendation,
-      round: node.round,
+    this.totalRounds =
+      snapshot.round;
 
-      selectedOptionId: node.decision?.optionId,
+    this.decisions =
+      snapshot.decisions.map(
+        (
+          node,
+        ): DecisionRecord => ({
+          nodeId: node.id,
 
-      context: node.decision?.context,
+          question:
+            node.question,
 
-      challenge: node.challenge,
+          description:
+            node.description,
 
-      defense: node.decision?.defense,
+          options:
+            node.options,
 
-      feedback: node.evaluation?.feedback,
+          recommendation:
+            node.recommendation,
 
-      consequence: node.evaluation?.consequence,
-    }));
+          round:
+            node.round,
 
-    this.finished = snapshot.phase === 'complete';
+          selectedOptionId:
+            node.decision?.optionId,
 
-    this.summary = snapshot.summary;
-    this.docContent = snapshot.docContent;
+          context:
+            node.decision?.context,
+
+          challenge:
+            node.challenge,
+
+          defense:
+            node.decision?.defense,
+
+          feedback:
+            node.evaluation?.feedback,
+
+          consequence:
+            node.evaluation?.consequence,
+        }),
+      );
+
+    this.finished =
+      snapshot.phase === 'complete';
+
+    this.summary =
+      snapshot.summary;
+
+    this.docContent =
+      snapshot.docContent;
   }
 
-  /**
-   * Returns the current server-side phase.
-   */
   get phase(): string | undefined {
     return undefined;
   }

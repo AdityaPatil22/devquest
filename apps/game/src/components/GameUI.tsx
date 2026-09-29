@@ -13,6 +13,7 @@ import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { AIThinkingIndicator } from './AIThinkingIndicator/AIThinkingIndicator';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
+import { DecisionBriefPanel } from './DecisionBriefPanel/DecisionBriefPanel';
 
 interface GameUIEvent {
   type: string;
@@ -132,37 +133,58 @@ export function GameUI() {
           }));
           break;
 
-        case 'DECISION':
-          setState((previous) => ({
-            ...previous,
-            screen: 'decision',
-            modal: null,
-            question:
-              typeof event.question === 'string'
-                ? event.question
-                : undefined,
-            options: Array.isArray(event.options)
-              ? (event.options as DecisionOption[])
-              : [],
-            recommendation:
-              event.recommendation as
-                | typeof previous.recommendation
-                | undefined,
-            round:
-              typeof event.round === 'number'
-                ? event.round
-                : undefined,
-            selectedOption: undefined,
-            challenge: undefined,
-            feedback: undefined,
-            consequence: undefined,
-            waitingMessage: undefined,
-            aiThinking: false,
-            aiThinkingMessage: undefined,
-            objective: 'Choose a door',
-            error: undefined,
-          }));
-          break;
+          case 'DECISION':
+            setState((previous) => ({
+              ...previous,
+          
+              screen: 'decision',
+          
+              modal: null,
+          
+              question:
+                typeof event.question === 'string'
+                  ? event.question
+                  : undefined,
+          
+              description:
+                typeof event.description === 'string'
+                  ? event.description
+                  : undefined,
+          
+              options: Array.isArray(event.options)
+                ? (event.options as DecisionOption[])
+                : [],
+          
+              recommendation:
+                event.recommendation as
+                  | typeof previous.recommendation
+                  | undefined,
+          
+              round:
+                typeof event.round === 'number'
+                  ? event.round
+                  : undefined,
+          
+              selectedOption: undefined,
+          
+              challenge: undefined,
+          
+              feedback: undefined,
+          
+              consequence: undefined,
+          
+              waitingMessage: undefined,
+          
+              aiThinking: false,
+          
+              aiThinkingMessage: undefined,
+          
+              objective: 'Choose a door',
+          
+              error: undefined,
+            }));
+          
+            break;
 
         case 'DECISION_HISTORY': {
           const entry = event.entry as DecisionHistoryEntry;
@@ -466,6 +488,14 @@ export function GameUI() {
           {state.objective || 'Explore the room'}
         </div>
       </div>
+
+      <DecisionBriefPanel
+        question={state.question}
+        description={state.description}
+        options={state.options}
+        recommendation={state.recommendation}
+        compact={state.playerMoving}
+      />
 
       <DoorOptionsOverlay
         game={game}

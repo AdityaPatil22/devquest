@@ -7,7 +7,11 @@ from __future__ import annotations
 
 import uuid
 
-from app.engine.decision_graph import DecisionGraph, Option, Recommendation
+from app.engine.decision_graph import (
+    DecisionGraph,
+    Option,
+    Recommendation,
+)
 from app.engine.events import EngineEvent, EventType
 from app.engine.session import Session, SessionPhase
 
@@ -20,31 +24,46 @@ class DecisionEngine:
 
     def create_session(self) -> tuple[Session, EngineEvent]:
         session_id = str(uuid.uuid4())
+
         session = Session(session_id=session_id)
+
         session.start()
+
         self.sessions[session_id] = session
 
         event = EngineEvent(
             type=EventType.SESSION_STARTED,
-            data={"sessionId": session_id},
+            data={
+                "sessionId": session_id,
+            },
         )
+
         return session, event
 
-    def get_session(self, session_id: str) -> Session | None:
+    def get_session(
+        self,
+        session_id: str,
+    ) -> Session | None:
         return self.sessions.get(session_id)
 
-    def submit_problem(self, session: Session, problem: str) -> None:
+    def submit_problem(
+        self,
+        session: Session,
+        problem: str,
+    ) -> None:
         """Player submitted their problem statement at the Gate."""
+
         session.set_problem(problem)
 
     def create_decision(
-    self,
-    session: Session,
-    question: str,
-    options: list[dict],
-    recommendation: dict | None = None,
-    round_num: int = 1,
-    depends_on: str | None = None,
+        self,
+        session: Session,
+        question: str,
+        options: list[dict],
+        recommendation: dict | None = None,
+        round_num: int = 1,
+        depends_on: str | None = None,
+        description: str = "",
     ) -> EngineEvent:
         if session.phase not in {
             SessionPhase.AWAITING_QUESTION,
@@ -59,6 +78,7 @@ class DecisionEngine:
             Option(
                 id=o["id"],
                 label=o["label"],
+                description=o.get("description", ""),
             )
             for o in options
         ]
@@ -67,6 +87,10 @@ class DecisionEngine:
             Recommendation(
                 option=recommendation["option"],
                 why=recommendation["why"],
+                what_to_know=recommendation.get(
+                    "what_to_know",
+                    "",
+                ),
             )
             if recommendation
             else None
@@ -77,6 +101,7 @@ class DecisionEngine:
         node = session.graph.add_node(
             question=question,
             options=opts,
+            description=description,
             recommendation=rec,
             round=round_num or session.current_round,
             parent_id=session.current_node_id,
@@ -90,17 +115,20 @@ class DecisionEngine:
             data={
                 "nodeId": node.id,
                 "question": question,
+                "description": description,
                 "options": [
                     {
-                        "id": o.id,
-                        "label": o.label,
+                        "id": option.id,
+                        "label": option.label,
+                        "description": option.description,
                     }
-                    for o in opts
+                    for option in opts
                 ],
                 "recommendation": (
                     {
                         "option": rec.option,
                         "why": rec.why,
+                        "whatToKnow": rec.what_to_know,
                     }
                     if rec
                     else None
@@ -143,22 +171,41 @@ class DecisionEngine:
         session.move_to_awaiting_question()
 
     def receive_challenge(
-        self, session: Session, node_id: str, question: str
+        self,
+        session: Session,
+        node_id: str,
+        question: str,
     ) -> EngineEvent:
         """Skill provides a challenge question."""
-        session.graph.set_challenge(node_id, question)
+
+        session.graph.set_challenge(
+            node_id,
+            question,
+        )
+
         session.move_to_awaiting_defense()
 
         return EngineEvent(
             type=EventType.CHALLENGE,
-            data={"nodeId": node_id, "question": question},
+            data={
+                "nodeId": node_id,
+                "question": question,
+            },
         )
 
     def submit_defense(
-        self, session: Session, node_id: str, defense: str
+        self,
+        session: Session,
+        node_id: str,
+        defense: str,
     ) -> None:
         """Player defended their choice."""
-        session.graph.set_defense(node_id, defense)
+
+        session.graph.set_defense(
+            node_id,
+            defense,
+        )
+
         session.move_to_awaiting_evaluation()
 
     def receive_evaluation(
@@ -169,7 +216,12 @@ class DecisionEngine:
         consequence: str,
     ) -> EngineEvent:
         """Skill provides evaluation of the decision."""
-        session.graph.evaluate(node_id, feedback, consequence)
+
+        session.graph.evaluate(
+            node_id,
+            feedback,
+            consequence,
+        )
 
         return EngineEvent(
             type=EventType.EVALUATION,
@@ -201,9 +253,15 @@ class DecisionEngine:
                 "reconsideredCount": session.graph.reconsidered_count,
                 "docContent": doc_content,
             },
-    )
+        )
 
-    def reconsider(self, session: Session, node_id: str) -> None:
-        """Player wants to reconsider. Skill will provide new question."""
+    def reconsider(
+        self,
+        session: Session,
+        node_id: str,
+    ) -> None:
+        """Player wants to reconsider."""
+
         session.current_node_id = node_id
+
         session.move_to_awaiting_question()
