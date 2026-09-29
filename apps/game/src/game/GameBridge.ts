@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 
-import type { DecisionOption, Recommendation } from '../net/protocol';
+import type {
+  DecisionOption,
+  Recommendation,
+} from '../net/protocol';
 
 export interface DecisionHistoryEntry {
   nodeId: string;
@@ -54,6 +57,7 @@ export type GameUIEvent =
       type: 'DECISION';
       nodeId: string;
       question: string;
+      description: string;
       options: DecisionOption[];
       recommendation?: Recommendation;
       round: number;
@@ -124,6 +128,12 @@ export type GameUIEvent =
       message: string;
     };
 
-export function emitUIEvent(game: Phaser.Game, event: GameUIEvent): void {
-  game.events.emit('devquest:ui', event);
+export function emitUIEvent(
+  game: Phaser.Game,
+  event: GameUIEvent,
+): void {
+  game.events.emit(
+    'devquest:ui',
+    event,
+  );
 }

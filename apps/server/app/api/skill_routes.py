@@ -5,59 +5,133 @@ Bridges skill responses to the game client via WebSocket.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from app.services.session_service import session_service
 
 router = APIRouter()
 
 
-# ─── Request models ───
+# ─────────────────────────────────────────────
+# Request models
+# ─────────────────────────────────────────────
+
+
+class OptionPayload(BaseModel):
+    """One decision-room door."""
+
+    id: Literal["A", "B", "C", "D"]
+
+    label: str = Field(
+        min_length=1,
+    )
+
+    description: str = Field(
+        min_length=1,
+    )
+
+
+class RecommendationPayload(BaseModel):
+    """Claude's current recommendation."""
+
+    option: Literal["A", "B", "C", "D"]
+
+    why: str = Field(
+        min_length=1,
+    )
+
+    what_to_know: str = Field(
+        min_length=1,
+    )
+
 
 class DecisionPayload(BaseModel):
     """Skill sends a new decision question."""
+
     session_id: str
-    question: str
-    options: list[dict]
-    recommendation: dict | None = None
+
+    question: str = Field(
+        min_length=1,
+    )
+
+    description: str = Field(
+        min_length=1,
+    )
+
+    options: list[OptionPayload] = Field(
+        min_length=4,
+        max_length=4,
+    )
+
+    recommendation: RecommendationPayload
+
     round: int = 1
+
     depends_on: str | None = None
 
 
 class ChallengePayload(BaseModel):
     """Skill sends a follow-up challenge."""
+
     session_id: str
+
     node_id: str
+
     question: str
 
 
 class EvaluationPayload(BaseModel):
     """Skill sends an evaluation."""
+
     session_id: str
+
     node_id: str
+
     feedback: str
+
     consequence: str
 
 
 class FinishPayload(BaseModel):
     """Skill says the session is complete."""
+
     session_id: str
+
     summary: str
+
     doc_content: str
+
     decisions_count: int | None = None
+
     reconsidered_count: int | None = None
 
 
-# ─── Skill-facing endpoints ───
+# ─────────────────────────────────────────────
+# Skill-facing endpoints
+# ─────────────────────────────────────────────
+
 
 @router.get("/events/pending")
-async def get_pending_events(session_id: str | None = None):
+async def get_pending_events(
+    session_id: str | None = None,
+):
     """Skill polls this to get player actions."""
-    event = await session_service.get_pending_player_event(session_id)
+
+    event = await session_service.get_pending_player_event(
+        session_id,
+    )
+
     if event is None:
-        return {"event": None}
-    return {"event": event}
+        return {
+            "event": None,
+        }
+
+    return {
+        "event": event,
+    }
 
 
 @router.get("/events/pending/long-poll")
@@ -65,72 +139,158 @@ async def get_pending_events_long_poll(
     session_id: str | None = None,
     timeout: int = 30,
 ):
-    """Long-poll — blocks until a player event arrives or timeout."""
-    event = await session_service.wait_for_player_event(session_id, timeout=timeout)
+    """Long-poll until a player event arrives."""
+
+    event = await session_service.wait_for_player_event(
+        session_id,
+        timeout=timeout,
+    )
+
     if event is None:
-        return {"event": None}
-    return {"event": event}
+        return {
+            "event": None,
+        }
+
+    return {
+        "event": event,
+    }
 
 
 @router.post("/decisions")
-async def create_decision(payload: DecisionPayload):
-    """Skill sends a new question with doors for the player."""
+async def create_decision(
+    payload: DecisionPayload,
+):
+    """
+    Skill sends a new decision.
+
+    DevQuest requires exactly four doors,
+    ordered A, B, C, D.
+    """
+
+    option_ids = [
+        option.id
+        for option in payload.options
+    ]
+
+    expected_ids = [
+        "A",
+        "B",
+        "C",
+        "D",
+    ]
+
+    if option_ids != expected_ids:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Decision options must contain exactly "
+                "four options ordered A, B, C, D."
+            ),
+        )
+
+    if payload.recommendation.option not in option_ids:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Recommendation option must reference "
+                "one of A, B, C, or D."
+            ),
+        )
+
     await session_service.skill_create_decision(
         session_id=payload.session_id,
         question=payload.question,
-        options=payload.options,
-        recommendation=payload.recommendation,
+        description=payload.description,
+        options=[
+            option.model_dump()
+            for option in payload.options
+        ],
+        recommendation=payload.recommendation.model_dump(),
         round_num=payload.round,
         depends_on=payload.depends_on,
     )
-    return {"status": "sent"}
+
+    return {
+        "status": "sent",
+    }
 
 
 @router.post("/challenge")
-async def send_challenge(payload: ChallengePayload):
+async def send_challenge(
+    payload: ChallengePayload,
+):
     """Skill sends a follow-up challenge."""
+
     await session_service.skill_send_challenge(
         session_id=payload.session_id,
         node_id=payload.node_id,
         question=payload.question,
     )
-    return {"status": "sent"}
+
+    return {
+        "status": "sent",
+    }
 
 
 @router.post("/evaluation")
-async def send_evaluation(payload: EvaluationPayload):
+async def send_evaluation(
+    payload: EvaluationPayload,
+):
     """Skill sends evaluation of the decision."""
+
     await session_service.skill_send_evaluation(
         session_id=payload.session_id,
         node_id=payload.node_id,
         feedback=payload.feedback,
         consequence=payload.consequence,
     )
-    return {"status": "sent"}
+
+    return {
+        "status": "sent",
+    }
 
 
 @router.post("/finish")
-async def finish_session(payload: FinishPayload):
-    """Skill says the grilling is done. Send trophy to player."""
+async def finish_session(
+    payload: FinishPayload,
+):
+    """Skill says the grilling is done."""
+
     await session_service.skill_finish(
         session_id=payload.session_id,
         summary=payload.summary,
         doc_content=payload.doc_content,
     )
-    return {"status": "sent"}
+
+    return {
+        "status": "sent",
+    }
 
 
 @router.get("/sessions")
 async def list_sessions():
     """List all sessions."""
+
     sessions = session_service.list_sessions()
-    return {"sessions": sessions}
+
+    return {
+        "sessions": sessions,
+    }
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str):
+async def get_session(
+    session_id: str,
+):
     """Get session details including the decision graph."""
-    info = session_service.get_session_info(session_id)
+
+    info = session_service.get_session_info(
+        session_id,
+    )
+
     if info is None:
-        return {"error": "Session not found"}
+        return {
+            "error": "Session not found",
+        }
+
     return info

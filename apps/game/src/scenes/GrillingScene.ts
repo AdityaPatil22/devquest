@@ -586,6 +586,7 @@ export class GrillingScene extends Phaser.Scene {
       type: 'DECISION',
       nodeId: decision.nodeId,
       question: decision.question,
+      description: decision.description,
       options: decision.options,
       recommendation: decision.recommendation,
       round: decision.round,
@@ -904,29 +905,44 @@ export class GrillingScene extends Phaser.Scene {
     if (this.phase !== GamePhase.DOOR_CONTEXT) {
       return;
     }
-
+  
     this.phase = GamePhase.TRAVERSING_OPTION;
-
+  
     this.player.stop();
-
+  
     this.store.updateCurrent({
       selectedOptionId: door.option.id,
       context,
     });
-
+  
+    // IMPORTANT:
+    // Create the corridor immediately after the player selects
+    // an option. The AI can generate the next decision while
+    // the player is walking through this corridor.
+    const corridor = this.createCorridor(door);
+  
+    console.log(
+      '[GrillingScene] Created corridor:',
+      corridor.id,
+      'for option:',
+      door.option.id,
+    );
+  
+    // Remove the selected door only after the corridor has been
+    // positioned using the door coordinates.
     this.removeSelectedDoor(door);
-
+  
     this.emitUI({
       type: 'AI_THINKING',
       visible: true,
       message: 'Generating the next decision...',
     });
-
+  
     this.emitUI({
       type: 'OBJECTIVE',
       objective: 'Walk through the corridor',
     });
-
+  
     this.ws.send({
       type: 'OPTION_SELECTED',
       nodeId: this.currentNodeId,
@@ -1060,82 +1076,116 @@ export class GrillingScene extends Phaser.Scene {
     switch (msg.type) {
       case 'DECISION_CREATED': {
         const decision = msg as DecisionCreatedMsg;
-
+      
         console.log(
           '[GrillingScene] DECISION_CREATED:',
           decision.nodeId,
           'round:',
           decision.round,
         );
-
+      
+        // AI generation is finished.
         this.emitUI({
           type: 'AI_THINKING',
           visible: false,
         });
-
-        this.emitUI({
-          type: 'OBJECTIVE',
-          objective: 'Choose a door',
+      
+        this.store.addDecision({
+          nodeId: decision.nodeId,
+          question: decision.question,
+          description: decision.description,
+          options: decision.options,
+          recommendation: decision.recommendation,
+          round: decision.round,
         });
-
-        const previousDecision = this.store.getCurrentDecision();
-
-        if (previousDecision?.selectedOptionId) {
+      
+        this.currentNodeId = decision.nodeId;
+      
+        const previousDecision = this.store.decisions.find(
+          (record) =>
+            record.nodeId !== decision.nodeId &&
+            record.selectedOptionId,
+        );
+      
+        if (previousDecision) {
           this.emitDecisionHistory(
             previousDecision,
             decision.recommendation?.why,
             decision.recommendation?.option,
           );
         }
-
-        this.store.addDecision({
-          nodeId: decision.nodeId,
-          question: decision.question,
-          options: decision.options,
-          recommendation: decision.recommendation,
-          round: decision.round,
-        });
-
-        this.currentNodeId = decision.nodeId;
-
+      
+        /*
+         * FIRST DECISION
+         *
+         * There is no corridor because the player has just entered
+         * the Grilling Room from the Common Room.
+         */
         if (!this.activeCorridorSegment) {
-          console.log('[GrillingScene] No corridor - rendering initial decision.');
-
+          console.log(
+            '[GrillingScene] No active corridor - rendering initial decision.',
+          );
+      
           if (!this.activeRoomSegment) {
             this.buildInitialWorld(decision);
           } else {
-            this.renderDecisionDoors(decision, this.activeRoomSegment);
+            this.renderDecisionDoors(
+              decision,
+              this.activeRoomSegment,
+            );
           }
-
+      
           this.phase = GamePhase.EXPLORING_DOORS;
-
+      
+          this.emitUI({
+            type: 'OBJECTIVE',
+            objective: 'Choose a door',
+          });
+      
+          this.emitUI({
+            type: 'EXPLORING_DOORS',
+          });
+      
           break;
         }
-
+      
+        /*
+         * NEXT ROUND
+         *
+         * A corridor was created when the player selected the previous
+         * door. Attach the new Option Room to the corridor exit.
+         */
         const corridor = this.activeCorridorSegment;
-
-        console.log('[GrillingScene] Building next option room from:', corridor.id);
-
-        this.buildOptionRoomFromCorridor(corridor, decision);
-
+      
+        console.log(
+          '[GrillingScene] Creating next option room from corridor:',
+          corridor.id,
+        );
+      
+        this.buildOptionRoomFromCorridor(
+          corridor,
+          decision,
+        );
+      
+        // The corridor has now been consumed by this transition.
         this.activeCorridorSegment = undefined;
-
+      
+        this.phase = GamePhase.EXPLORING_DOORS;
+      
         this.emitUI({
           type: 'AI_THINKING',
           visible: false,
         });
-
+      
         this.emitUI({
           type: 'OBJECTIVE',
           objective: 'Choose a door',
         });
-
-        this.phase = GamePhase.EXPLORING_DOORS;
-
+      
         this.emitUI({
           type: 'EXPLORING_DOORS',
         });
-
+      
         break;
       }
 

@@ -41,6 +41,7 @@ export type ClientMessage =
   | ReconsiderMsg
   | ContinueMsg;
 
+
 // ─────────────────────────────────────────────
 // Decision types
 // ─────────────────────────────────────────────
@@ -48,16 +49,19 @@ export type ClientMessage =
 export interface DecisionOption {
   id: string;
   label: string;
+  description: string;
 }
 
 export interface Recommendation {
   option: string;
   why: string;
+  whatToKnow?: string;
 }
 
 export interface DecisionSnapshot {
   id: string;
   question: string;
+  description: string;
   options: DecisionOption[];
   recommendation?: Recommendation;
   round: number;
@@ -79,6 +83,7 @@ export interface DecisionSnapshot {
   };
 }
 
+
 // ─────────────────────────────────────────────
 // Complete server-side session snapshot
 // ─────────────────────────────────────────────
@@ -95,6 +100,7 @@ export interface SessionSnapshot {
   summary?: string;
   docContent?: string;
 }
+
 
 // ─────────────────────────────────────────────
 // Server → Client Messages
@@ -117,6 +123,7 @@ export interface DecisionCreatedMsg {
   type: 'DECISION_CREATED';
   nodeId: string;
   question: string;
+  description: string;
   options: DecisionOption[];
   recommendation?: Recommendation;
   round: number;
