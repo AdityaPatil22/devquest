@@ -998,6 +998,16 @@ The final document should preserve the fact that the player changed direction.
 
 ---
 
+# Maximum round limit
+
+DevQuest has a hard maximum of **7 decision rounds per session**.
+
+A round is one decision question sent to the game through:
+
+```text
+POST /api/skill/decisions
+```
+
 # Finishing
 
 The skill should finish when:
@@ -1007,6 +1017,7 @@ The skill should finish when:
 * Remaining decisions are routine or inconsequential
 * The resulting engineering direction is sufficiently defined
 * No meaningful next decision remains
+* Round 7 has been completed and evaluated
 
 Do not continue generating questions just to make the session longer.
 
