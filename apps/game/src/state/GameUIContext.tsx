@@ -69,7 +69,6 @@ export interface UIState {
   aiThinkingMessage?: string;
 
   objective: string;
-  playerMoving: boolean;
 
   challenge?: string;
 
@@ -122,13 +121,12 @@ const initialState: UIState = {
   aiThinkingMessage: undefined,
 
   objective: '',
-  playerMoving: false,
 };
 
 const GameUIContext =
-  createContext<GameUIContextValue | undefined>(
-    undefined,
-  );
+  createContext<
+    GameUIContextValue | undefined
+  >(undefined);
 
 export function GameUIProvider({
   children,
@@ -136,14 +134,10 @@ export function GameUIProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] =
-    useState<UIState>(
-      initialState,
-    );
+    useState<UIState>(initialState);
 
   const [game, setGameState] =
-    useState<Phaser.Game | null>(
-      null,
-    );
+    useState<Phaser.Game | null>(null);
 
   const setGame = useCallback(
     (
