@@ -861,8 +861,6 @@ export class GrillingScene extends Phaser.Scene {
     this.setDoorBarrierEnabled(door, false);
     this.openDoorwayCollision(door);
 
-    this.createCorridor(door);
-
     this.emitUI({
       type: 'DOOR_CONTEXT',
       visible: true,
@@ -1093,13 +1091,13 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         /*
-         * FIRST DECISION
+         * ROUND 1
          *
-         * There is no corridor because the player has just entered
-         * the Grilling Room from the Common Room.
+         * The first decision is always rendered in the original
+         * Decision Room.
          */
-        if (!this.activeCorridorSegment) {
-          console.log('[GrillingScene] No active corridor - rendering initial decision.');
+        if (decision.round === 1) {
+          console.log('[GrillingScene] Round 1 - rendering initial Decision Room.');
 
           if (!this.activeRoomSegment) {
             this.buildInitialWorld(decision);
@@ -1122,26 +1120,41 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         /*
-         * NEXT ROUND
+         * ROUND 2+
          *
-         * A corridor was created when the player selected the previous
-         * door. Attach the new Option Room to the corridor exit.
+         * Every decision after round 1 MUST be rendered inside
+         * a newly generated Option Room attached to the corridor.
          */
         const corridor = this.activeCorridorSegment;
 
-        console.log('[GrillingScene] Creating next option room from corridor:', corridor.id);
+        if (!corridor) {
+          console.error(
+            '[GrillingScene] Cannot create Option Room:',
+            'no active corridor exists for round',
+            decision.round,
+          );
+
+          this.emitUI({
+            type: 'ERROR',
+            message: 'Unable to continue to the next option room because the corridor is missing.',
+          });
+
+          break;
+        }
+
+        console.log(
+          '[GrillingScene] Round',
+          decision.round,
+          '- creating Option Room from corridor:',
+          corridor.id,
+        );
 
         this.buildOptionRoomFromCorridor(corridor, decision);
 
-        // The corridor has now been consumed by this transition.
+        // The corridor has been consumed by this transition.
         this.activeCorridorSegment = undefined;
 
         this.phase = GamePhase.EXPLORING_DOORS;
-
-        this.emitUI({
-          type: 'AI_THINKING',
-          visible: false,
-        });
 
         this.emitUI({
           type: 'OBJECTIVE',

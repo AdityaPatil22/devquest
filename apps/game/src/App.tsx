@@ -6,7 +6,7 @@ import { DevToolbar } from './dev/DevToolbar';
 function AppContent() {
   const { game } = useGameUI();
 
-  const showDevToolbar = import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
+  const showDevToolbar = import.meta.env.DEV && import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
 
   return (
     <main className="devquest-app">

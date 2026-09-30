@@ -636,13 +636,10 @@ export class CommonRoomScene extends Phaser.Scene {
 
         this.store.addDecision({
           nodeId: decision.nodeId,
-
           question: decision.question,
-
+          description: decision.description,
           options: decision.options,
-
           recommendation: decision.recommendation,
-
           round: decision.round,
         });
 
