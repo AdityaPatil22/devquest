@@ -32,9 +32,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             loading: Boolean(event.loading),
-            loadingProgress: Number(
-              event.progress ?? 0,
-            ),
+            loadingProgress: Number(event.progress ?? 0),
           }));
           break;
 
@@ -69,9 +67,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             elevatorNear: Boolean(event.visible),
-            objective: event.visible
-              ? 'Press E to enter the elevator'
-              : previous.objective,
+            objective: event.visible ? 'Press E to enter the elevator' : previous.objective,
           }));
           break;
 
@@ -80,13 +76,8 @@ export function GameUI() {
             ...previous,
             screen: 'common',
             modal: 'elevator',
-            elevatorWaiting: Boolean(
-              event.waiting,
-            ),
-            waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : undefined,
+            elevatorWaiting: Boolean(event.waiting),
+            waitingMessage: typeof event.message === 'string' ? event.message : undefined,
             error: undefined,
           }));
           break;
@@ -97,9 +88,7 @@ export function GameUI() {
             modal: 'elevator',
             elevatorWaiting: true,
             waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Entering the elevator...',
+              typeof event.message === 'string' ? event.message : 'Entering the elevator...',
             error: undefined,
           }));
           break;
@@ -142,29 +131,15 @@ export function GameUI() {
 
             modal: null,
 
-            question:
-              typeof event.question === 'string'
-                ? event.question
-                : undefined,
+            question: typeof event.question === 'string' ? event.question : undefined,
 
-            description:
-              typeof event.description === 'string'
-                ? event.description
-                : undefined,
+            description: typeof event.description === 'string' ? event.description : undefined,
 
-            options: Array.isArray(event.options)
-              ? (event.options as DecisionOption[])
-              : [],
+            options: Array.isArray(event.options) ? (event.options as DecisionOption[]) : [],
 
-            recommendation:
-              event.recommendation as
-                | typeof previous.recommendation
-                | undefined,
+            recommendation: event.recommendation as typeof previous.recommendation | undefined,
 
-            round:
-              typeof event.round === 'number'
-                ? event.round
-                : undefined,
+            round: typeof event.round === 'number' ? event.round : undefined,
 
             selectedOption: undefined,
 
@@ -187,37 +162,25 @@ export function GameUI() {
           break;
 
         case 'DECISION_HISTORY': {
-          const entry =
-            event.entry as DecisionHistoryEntry;
+          const entry = event.entry as DecisionHistoryEntry;
 
-          if (
-            !entry ||
-            typeof entry !== 'object' ||
-            !entry.nodeId
-          ) {
+          if (!entry || typeof entry !== 'object' || !entry.nodeId) {
             break;
           }
 
           setState((previous) => {
-            const existingIndex =
-              previous.decisionHistory.findIndex(
-                (item) =>
-                  item.nodeId === entry.nodeId,
-              );
+            const existingIndex = previous.decisionHistory.findIndex(
+              (item) => item.nodeId === entry.nodeId,
+            );
 
             if (existingIndex === -1) {
               return {
                 ...previous,
-                decisionHistory: [
-                  ...previous.decisionHistory,
-                  entry,
-                ],
+                decisionHistory: [...previous.decisionHistory, entry],
               };
             }
 
-            const decisionHistory = [
-              ...previous.decisionHistory,
-            ];
+            const decisionHistory = [...previous.decisionHistory];
 
             decisionHistory[existingIndex] = entry;
 
@@ -247,10 +210,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             doorNear: Boolean(event.visible),
-            nearDoorOption:
-              event.option as
-                | DecisionOption
-                | undefined,
+            nearDoorOption: event.option as DecisionOption | undefined,
             elevatorNear: false,
           }));
           break;
@@ -258,14 +218,8 @@ export function GameUI() {
         case 'DOOR_CONTEXT':
           setState((previous) => ({
             ...previous,
-            modal:
-              event.visible === false
-                ? null
-                : 'door-context',
-            selectedOption:
-              event.option as
-                | DecisionOption
-                | undefined,
+            modal: event.visible === false ? null : 'door-context',
+            selectedOption: event.option as DecisionOption | undefined,
           }));
           break;
 
@@ -274,25 +228,16 @@ export function GameUI() {
             ...previous,
             aiThinking: Boolean(event.visible),
             aiThinkingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Preparing the next decision...',
-            objective: event.visible
-              ? 'Walk through the corridor'
-              : previous.objective,
-            modal: event.visible
-              ? null
-              : previous.modal,
+              typeof event.message === 'string' ? event.message : 'Preparing the next decision...',
+            objective: event.visible ? 'Walk through the corridor' : previous.objective,
+            modal: event.visible ? null : previous.modal,
           }));
           break;
 
         case 'OBJECTIVE':
           setState((previous) => ({
             ...previous,
-            objective:
-              typeof event.objective === 'string'
-                ? event.objective
-                : previous.objective,
+            objective: typeof event.objective === 'string' ? event.objective : previous.objective,
           }));
           break;
 
@@ -300,10 +245,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'waiting',
-            waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Waiting...',
+            waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
           }));
           break;
 
@@ -311,8 +253,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'waiting',
-            waitingMessage:
-              'Preparing the next decision...',
+            waitingMessage: 'Preparing the next decision...',
           }));
           break;
 
@@ -321,14 +262,8 @@ export function GameUI() {
             ...previous,
             screen: 'complete',
             modal: null,
-            summary:
-              typeof event.summary === 'string'
-                ? event.summary
-                : undefined,
-            docContent:
-              typeof event.docContent === 'string'
-                ? event.docContent
-                : undefined,
+            summary: typeof event.summary === 'string' ? event.summary : undefined,
+            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
             waitingMessage: undefined,
             aiThinking: false,
             aiThinkingMessage: undefined,
@@ -340,10 +275,7 @@ export function GameUI() {
         case 'ERROR':
           setState((previous) => ({
             ...previous,
-            error:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Something went wrong.',
+            error: typeof event.message === 'string' ? event.message : 'Something went wrong.',
             elevatorWaiting: false,
             aiThinking: false,
             aiThinkingMessage: undefined,
@@ -362,18 +294,9 @@ export function GameUI() {
             ...previous,
             trophyNear: false,
             trophySummaryOpen: true,
-            trophyProblem:
-              typeof event.problem === 'string'
-                ? event.problem
-                : undefined,
-            summary:
-              typeof event.summary === 'string'
-                ? event.summary
-                : undefined,
-            docContent:
-              typeof event.docContent === 'string'
-                ? event.docContent
-                : undefined,
+            trophyProblem: typeof event.problem === 'string' ? event.problem : undefined,
+            summary: typeof event.summary === 'string' ? event.summary : undefined,
+            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
           }));
           break;
       }
@@ -388,13 +311,9 @@ export function GameUI() {
 
   const submitProblem = useCallback(
     (problem: string) => {
-      const scene = game?.scene.getScene(
-        'CommonRoomScene',
-      ) as
+      const scene = game?.scene.getScene('CommonRoomScene') as
         | {
-            submitProblem?: (
-              value: string,
-            ) => void;
+            submitProblem?: (value: string) => void;
           }
         | undefined;
 
@@ -404,9 +323,7 @@ export function GameUI() {
   );
 
   const closeElevator = useCallback(() => {
-    const scene = game?.scene.getScene(
-      'CommonRoomScene',
-    ) as
+    const scene = game?.scene.getScene('CommonRoomScene') as
       | {
           closeGate?: () => void;
         }
@@ -417,13 +334,9 @@ export function GameUI() {
 
   const submitDoorContext = useCallback(
     (context?: string) => {
-      const scene = game?.scene.getScene(
-        'GrillingScene',
-      ) as
+      const scene = game?.scene.getScene('GrillingScene') as
         | {
-            confirmDoorSelection?: (
-              value?: string,
-            ) => void;
+            confirmDoorSelection?: (value?: string) => void;
           }
         | undefined;
 
@@ -433,9 +346,7 @@ export function GameUI() {
   );
 
   const cancelDoorContext = useCallback(() => {
-    const scene = game?.scene.getScene(
-      'GrillingScene',
-    ) as
+    const scene = game?.scene.getScene('GrillingScene') as
       | {
           cancelDoorSelection?: () => void;
         }
@@ -445,9 +356,7 @@ export function GameUI() {
   }, [game]);
 
   const closeTrophySummary = useCallback(() => {
-    const scene = game?.scene.getScene(
-      'TrophyScene',
-    );
+    const scene = game?.scene.getScene('TrophyScene');
 
     if (scene) {
       const trophyScene = scene as unknown as {
@@ -464,56 +373,30 @@ export function GameUI() {
   }, [game, setState]);
 
   const showElevatorGuide =
-    state.screen === 'common' &&
-    state.modal === null &&
-    !state.elevatorNear;
+    state.screen === 'common' && state.modal === null && !state.elevatorNear;
 
-  const showDecisionUI =
-    state.screen === 'decision' &&
-    state.modal === null &&
-    !state.aiThinking;
+  const showDecisionUI = state.screen === 'decision' && state.modal === null && !state.aiThinking;
 
-  const latestDecisionHistory =
-    state.decisionHistory;
+  const latestDecisionHistory = state.decisionHistory;
 
   return (
     <>
-      <HUD
-        round={
-          state.screen === 'decision'
-            ? state.round
-            : undefined
-        }
-      />
+      <HUD round={state.screen === 'decision' ? state.round : undefined} />
 
       {showElevatorGuide && (
-        <div
-          className="elevator-guide"
-          aria-live="polite"
-        >
-          <div className="elevator-guide__eyebrow">
-            START GRILLING
-          </div>
+        <div className="elevator-guide" aria-live="polite">
+          <div className="elevator-guide__eyebrow">START GRILLING</div>
 
-          <div className="elevator-guide__title">
-            Walk to the elevator
-          </div>
+          <div className="elevator-guide__title">Walk to the elevator</div>
 
-          <div className="elevator-guide__hint">
-            Press E when you get close
-          </div>
+          <div className="elevator-guide__hint">Press E when you get close</div>
         </div>
       )}
 
       <div className="objective-indicator">
-        <div className="objective-indicator__eyebrow">
-          OBJECTIVE
-        </div>
+        <div className="objective-indicator__eyebrow">OBJECTIVE</div>
 
-        <div className="objective-indicator__text">
-          {state.objective ||
-            'Explore the room'}
-        </div>
+        <div className="objective-indicator__text">{state.objective || 'Explore the room'}</div>
       </div>
 
       <DecisionBriefPanel
@@ -524,29 +407,18 @@ export function GameUI() {
         round={state.round}
         decisionHistory={latestDecisionHistory}
         aiThinking={state.aiThinking}
-        aiThinkingMessage={
-          state.aiThinkingMessage
-        }
+        aiThinkingMessage={state.aiThinkingMessage}
       />
 
-      <DoorOptionsOverlay
-        game={game}
-        visible={showDecisionUI}
-      />
+      <DoorOptionsOverlay game={game} visible={showDecisionUI} />
 
       <InteractionPrompt
-        visible={
-          state.elevatorNear &&
-          state.modal === null
-        }
+        visible={state.elevatorNear && state.modal === null}
         text="Press E to enter the elevator"
       />
 
       <InteractionPrompt
-        visible={
-          state.doorNear &&
-          state.modal === null
-        }
+        visible={state.doorNear && state.modal === null}
         text={
           state.nearDoorOption
             ? `Press E to enter ${state.nearDoorOption.label}`
@@ -555,10 +427,7 @@ export function GameUI() {
       />
 
       <InteractionPrompt
-        visible={
-          state.trophyNear &&
-          !state.trophySummaryOpen
-        }
+        visible={state.trophyNear && !state.trophySummaryOpen}
         text="Press E to view summary"
       />
 
@@ -578,10 +447,7 @@ export function GameUI() {
       />
 
       <WaitingOverlay
-        open={
-          state.modal === 'waiting' &&
-          !state.aiThinking
-        }
+        open={state.modal === 'waiting' && !state.aiThinking}
         message={state.waitingMessage}
       />
 
@@ -593,11 +459,7 @@ export function GameUI() {
         onClose={closeTrophySummary}
       />
 
-      {state.error && (
-        <div className="game-error">
-          {state.error}
-        </div>
-      )}
+      {state.error && <div className="game-error">{state.error}</div>}
     </>
   );
 }

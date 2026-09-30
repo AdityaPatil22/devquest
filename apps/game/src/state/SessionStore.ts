@@ -1,8 +1,4 @@
-import type {
-  DecisionOption,
-  Recommendation,
-  SessionSnapshot,
-} from '../net/protocol';
+import type { DecisionOption, Recommendation, SessionSnapshot } from '../net/protocol';
 
 export interface DecisionRecord {
   nodeId: string;
@@ -58,118 +54,75 @@ export class SessionStore {
   }
 
   addDecision(record: DecisionRecord): void {
-    const existing = this.decisions.find(
-      (decision) =>
-        decision.nodeId === record.nodeId,
-    );
+    const existing = this.decisions.find((decision) => decision.nodeId === record.nodeId);
 
     if (existing) {
-      Object.assign(
-        existing,
-        record,
-      );
+      Object.assign(existing, record);
     } else {
       this.decisions.push(record);
     }
 
     this.currentNodeId = record.nodeId;
 
-    this.totalRounds = Math.max(
-      this.totalRounds,
-      record.round,
-    );
+    this.totalRounds = Math.max(this.totalRounds, record.round);
   }
 
   getCurrentDecision(): DecisionRecord | undefined {
-    return this.decisions.find(
-      (decision) =>
-        decision.nodeId === this.currentNodeId,
-    );
+    return this.decisions.find((decision) => decision.nodeId === this.currentNodeId);
   }
 
-  updateCurrent(
-    update: Partial<DecisionRecord>,
-  ): void {
+  updateCurrent(update: Partial<DecisionRecord>): void {
     const current = this.getCurrentDecision();
 
     if (current) {
-      Object.assign(
-        current,
-        update,
-      );
+      Object.assign(current, update);
     }
   }
 
-  complete(
-    summary: string,
-    docContent: string,
-  ): void {
+  complete(summary: string, docContent: string): void {
     this.finished = true;
     this.summary = summary;
     this.docContent = docContent;
   }
 
-  hydrate(
-    snapshot: SessionSnapshot,
-  ): void {
+  hydrate(snapshot: SessionSnapshot): void {
     this.sessionId = snapshot.sessionId;
     this.problem = snapshot.problem;
-    this.currentNodeId =
-      snapshot.currentNodeId;
+    this.currentNodeId = snapshot.currentNodeId;
 
-    this.totalRounds =
-      snapshot.round;
+    this.totalRounds = snapshot.round;
 
-    this.decisions =
-      snapshot.decisions.map(
-        (
-          node,
-        ): DecisionRecord => ({
-          nodeId: node.id,
+    this.decisions = snapshot.decisions.map((node): DecisionRecord => ({
+      nodeId: node.id,
 
-          question:
-            node.question,
+      question: node.question,
 
-          description:
-            node.description,
+      description: node.description,
 
-          options:
-            node.options,
+      options: node.options,
 
-          recommendation:
-            node.recommendation,
+      recommendation: node.recommendation,
 
-          round:
-            node.round,
+      round: node.round,
 
-          selectedOptionId:
-            node.decision?.optionId,
+      selectedOptionId: node.decision?.optionId,
 
-          context:
-            node.decision?.context,
+      context: node.decision?.context,
 
-          challenge:
-            node.challenge,
+      challenge: node.challenge,
 
-          defense:
-            node.decision?.defense,
+      defense: node.decision?.defense,
 
-          feedback:
-            node.evaluation?.feedback,
+      feedback: node.evaluation?.feedback,
 
-          consequence:
-            node.evaluation?.consequence,
-        }),
-      );
+      consequence: node.evaluation?.consequence,
+    }));
 
-    this.finished =
-      snapshot.phase === 'complete';
+    this.finished = snapshot.phase === 'complete';
 
-    this.summary =
-      snapshot.summary;
+    this.summary = snapshot.summary;
 
-    this.docContent =
-      snapshot.docContent;
+    this.docContent = snapshot.docContent;
   }
 
   get phase(): string | undefined {

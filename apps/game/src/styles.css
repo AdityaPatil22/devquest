@@ -253,7 +253,6 @@ button {
   text-overflow: ellipsis;
 }
 
-
 @media (max-width: 900px) {
   .objective-indicator {
     left: 14px;

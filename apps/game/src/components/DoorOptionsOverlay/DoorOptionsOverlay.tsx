@@ -44,12 +44,7 @@ function getScreenAnchors(game: Phaser.Game): ScreenAnchor[] {
 
   const anchors = scene.getDoorOptionAnchors();
 
-  if (
-    rect.width <= 0 ||
-    rect.height <= 0 ||
-    camera.width <= 0 ||
-    camera.height <= 0
-  ) {
+  if (rect.width <= 0 || rect.height <= 0 || camera.width <= 0 || camera.height <= 0) {
     return [];
   }
 
@@ -59,13 +54,9 @@ function getScreenAnchors(game: Phaser.Game): ScreenAnchor[] {
   return anchors.map((anchor) => ({
     ...anchor,
 
-    screenX:
-      rect.left +
-      (anchor.x - camera.worldView.x) * scaleX,
+    screenX: rect.left + (anchor.x - camera.worldView.x) * scaleX,
 
-    screenY:
-      rect.top +
-      (anchor.y - camera.worldView.y) * scaleY,
+    screenY: rect.top + (anchor.y - camera.worldView.y) * scaleY,
   }));
 }
 
@@ -121,22 +112,16 @@ export function DoorOptionsOverlay({ game, visible }: Props) {
     <div className="door-options-overlay" aria-hidden="true">
       {anchors.map((anchor) => (
         <div
-          className={`door-option-overlay${
-            anchor.active ? ' door-option-overlay--active' : ''
-          }`}
+          className={`door-option-overlay${anchor.active ? ' door-option-overlay--active' : ''}`}
           key={anchor.key}
           style={{
             left: `${anchor.screenX}px`,
             top: `${anchor.screenY}px`,
           }}
         >
-          <div className="door-option-overlay__label">
-            {anchor.label}
-          </div>
+          <div className="door-option-overlay__label">{anchor.label}</div>
 
-          <div className="door-option-overlay__badge">
-            {anchor.key}
-          </div>
+          <div className="door-option-overlay__badge">{anchor.key}</div>
         </div>
       ))}
     </div>

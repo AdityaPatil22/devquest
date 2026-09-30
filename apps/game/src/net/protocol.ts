@@ -41,7 +41,6 @@ export type ClientMessage =
   | ReconsiderMsg
   | ContinueMsg;
 
-
 // ─────────────────────────────────────────────
 // Decision types
 // ─────────────────────────────────────────────
@@ -83,7 +82,6 @@ export interface DecisionSnapshot {
   };
 }
 
-
 // ─────────────────────────────────────────────
 // Complete server-side session snapshot
 // ─────────────────────────────────────────────
@@ -100,7 +98,6 @@ export interface SessionSnapshot {
   summary?: string;
   docContent?: string;
 }
-
 
 // ─────────────────────────────────────────────
 // Server → Client Messages
