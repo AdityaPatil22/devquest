@@ -170,68 +170,6 @@ class DecisionEngine:
 
         session.move_to_awaiting_question()
 
-    def receive_challenge(
-        self,
-        session: Session,
-        node_id: str,
-        question: str,
-    ) -> EngineEvent:
-        """Skill provides a challenge question."""
-
-        session.graph.set_challenge(
-            node_id,
-            question,
-        )
-
-        session.move_to_awaiting_defense()
-
-        return EngineEvent(
-            type=EventType.CHALLENGE,
-            data={
-                "nodeId": node_id,
-                "question": question,
-            },
-        )
-
-    def submit_defense(
-        self,
-        session: Session,
-        node_id: str,
-        defense: str,
-    ) -> None:
-        """Player defended their choice."""
-
-        session.graph.set_defense(
-            node_id,
-            defense,
-        )
-
-        session.move_to_awaiting_evaluation()
-
-    def receive_evaluation(
-        self,
-        session: Session,
-        node_id: str,
-        feedback: str,
-        consequence: str,
-    ) -> EngineEvent:
-        """Skill provides evaluation of the decision."""
-
-        session.graph.evaluate(
-            node_id,
-            feedback,
-            consequence,
-        )
-
-        return EngineEvent(
-            type=EventType.EVALUATION,
-            data={
-                "nodeId": node_id,
-                "feedback": feedback,
-                "consequence": consequence,
-            },
-        )
-
     def finish_session(
         self,
         session: Session,
@@ -250,18 +188,6 @@ class DecisionEngine:
             data={
                 "summary": summary,
                 "decisionsCount": session.graph.decided_count,
-                "reconsideredCount": session.graph.reconsidered_count,
                 "docContent": doc_content,
             },
         )
-
-    def reconsider(
-        self,
-        session: Session,
-        node_id: str,
-    ) -> None:
-        """Player wants to reconsider."""
-
-        session.current_node_id = node_id
-
-        session.move_to_awaiting_question()

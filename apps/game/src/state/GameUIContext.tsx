@@ -8,7 +8,7 @@ import type { DecisionHistoryEntry } from '../game/GameBridge';
 
 export type UIScreen = 'loading' | 'common' | 'decision' | 'complete';
 
-export type UIModal = null | 'elevator' | 'door-context' | 'challenge' | 'evaluation' | 'waiting';
+export type UIModal = null | 'elevator' | 'door-context' | 'waiting';
 
 export interface UIState {
   screen: UIScreen;
@@ -48,11 +48,6 @@ export interface UIState {
   aiThinkingMessage?: string;
 
   objective: string;
-
-  challenge?: string;
-
-  feedback?: string;
-  consequence?: string;
 
   waitingMessage?: string;
 

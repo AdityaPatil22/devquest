@@ -73,28 +73,6 @@ class DecisionPayload(BaseModel):
     depends_on: str | None = None
 
 
-class ChallengePayload(BaseModel):
-    """Skill sends a follow-up challenge."""
-
-    session_id: str
-
-    node_id: str
-
-    question: str
-
-
-class EvaluationPayload(BaseModel):
-    """Skill sends an evaluation."""
-
-    session_id: str
-
-    node_id: str
-
-    feedback: str
-
-    consequence: str
-
-
 class FinishPayload(BaseModel):
     """Skill says the session is complete."""
 
@@ -104,9 +82,6 @@ class FinishPayload(BaseModel):
 
     doc_content: str
 
-    decisions_count: int | None = None
-
-    reconsidered_count: int | None = None
 
 
 # ─────────────────────────────────────────────
@@ -208,41 +183,6 @@ async def create_decision(
         recommendation=payload.recommendation.model_dump(),
         round_num=payload.round,
         depends_on=payload.depends_on,
-    )
-
-    return {
-        "status": "sent",
-    }
-
-
-@router.post("/challenge")
-async def send_challenge(
-    payload: ChallengePayload,
-):
-    """Skill sends a follow-up challenge."""
-
-    await session_service.skill_send_challenge(
-        session_id=payload.session_id,
-        node_id=payload.node_id,
-        question=payload.question,
-    )
-
-    return {
-        "status": "sent",
-    }
-
-
-@router.post("/evaluation")
-async def send_evaluation(
-    payload: EvaluationPayload,
-):
-    """Skill sends evaluation of the decision."""
-
-    await session_service.skill_send_evaluation(
-        session_id=payload.session_id,
-        node_id=payload.node_id,
-        feedback=payload.feedback,
-        consequence=payload.consequence,
     )
 
     return {

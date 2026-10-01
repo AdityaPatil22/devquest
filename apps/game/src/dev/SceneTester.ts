@@ -21,7 +21,7 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
     // Full flow: CommonRoom → GrillingScene (3 rounds) → TrophyScene
     //
     // The player interacts normally. DevWebSocketClient handles all server
-    // responses automatically (DECISION_CREATED, CHALLENGE, EVALUATION,
+    // responses automatically (DECISION_CREATED,
     // SESSION_COMPLETE) so no real backend is needed.
     // -----------------------------------------------------------------------
     case 'FullFlow': {
@@ -56,7 +56,7 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
     // -----------------------------------------------------------------------
     // GrillingScene starting at round 1.
     // Skips CommonRoom; player sees the first decision immediately.
-    // DevWebSocketClient fires CHALLENGE → EVALUATION → DECISION_CREATED
+    // DevWebSocketClient fires DECISION_CREATED
     // for 3 rounds automatically.
     // -----------------------------------------------------------------------
     case 'GrillingScene': {
@@ -84,9 +84,6 @@ export function launchScene(game: Phaser.Game, scene: DevScene): void {
       store.updateCurrent({
         selectedOptionId: 'option-c',
         context: 'Use existing components where possible.',
-        defense: 'A hybrid solution reduces implementation risk.',
-        feedback: 'The proposed approach balances reuse and flexibility well.',
-        consequence: 'The implementation will be easier to maintain long-term.',
       });
 
       store.complete(
@@ -124,9 +121,6 @@ export function restartScene(game: Phaser.Game): void {
     store.updateCurrent({
       selectedOptionId: 'option-c',
       context: 'Use existing components where possible.',
-      defense: 'A hybrid solution reduces implementation risk.',
-      feedback: 'The proposed approach balances reuse and flexibility well.',
-      consequence: 'The implementation will be easier to maintain long-term.',
     });
 
     store.complete(

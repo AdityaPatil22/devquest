@@ -1,9 +1,8 @@
-import type { DecisionTilesetDef } from './decisionRoomTilemap';
+import { patchTilesets, type TilesetDef } from './patchTilesets';
 
 export const CORRIDOR_TILEMAP_KEY = 'corridor-map';
 
-export const CORRIDOR_TILEMAP_PATH =
-  'assets/map/corridor/corridor.json';
+export const CORRIDOR_TILEMAP_PATH = 'assets/map/corridor/corridor.json';
 
 export const CORRIDOR_MAP_TILE_SIZE = 16;
 
@@ -14,7 +13,7 @@ export const CORRIDOR_MAP_TILE_SIZE = 16;
  * references with embedded definitions before Phaser consumes
  * the tilemap.
  */
-export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
+export const CORRIDOR_TILESETS: TilesetDef[] = [
   {
     name: 'FloorAndGround16',
     key: 'tileset-floor-and-ground-16',
@@ -80,22 +79,12 @@ export const CORRIDOR_TILESETS: DecisionTilesetDef[] = [
  * `markers` is intentionally NOT included here because it is
  * an object layer, not a tile layer.
  */
-export const CORRIDOR_TILE_LAYERS = [
-  'Floor',
-  'Walls',
-  'furniture',
-  'computers',
-] as const;
+export const CORRIDOR_TILE_LAYERS = ['Floor', 'Walls', 'furniture', 'computers'] as const;
 
 /**
  * Tile layer used for physics collision.
  */
 export const CORRIDOR_COLLIDABLE_LAYER = 'Walls';
-
-/**
- * Layer containing authored connection/spawn objects.
- */
-export const CORRIDOR_MARKER_LAYER = 'markers';
 
 /**
  * Bounds of the authored corridor map.
@@ -189,60 +178,6 @@ export const CORRIDOR_MARKERS = {
 } as const;
 
 /**
- * Center of the authored corridor spawn marker.
- */
-export const CORRIDOR_SPAWN = {
-  x:
-    CORRIDOR_MARKERS.spawn.x +
-    CORRIDOR_MARKERS.spawn.width / 2,
-
-  y:
-    CORRIDOR_MARKERS.spawn.y +
-    CORRIDOR_MARKERS.spawn.height / 2,
-} as const;
-
-/**
- * Center of the corridor entrance.
- */
-export const CORRIDOR_ENTRANCE = {
-  x:
-    CORRIDOR_MARKERS.entrance.x +
-    CORRIDOR_MARKERS.entrance.width / 2,
-
-  y:
-    CORRIDOR_MARKERS.entrance.y +
-    CORRIDOR_MARKERS.entrance.height / 2,
-} as const;
-
-/**
- * Center of the corridor's RoomExit marker.
- */
-export const CORRIDOR_EXIT = {
-  x:
-    CORRIDOR_MARKERS.roomExit.x +
-    CORRIDOR_MARKERS.roomExit.width / 2,
-
-  y:
-    CORRIDOR_MARKERS.roomExit.y +
-    CORRIDOR_MARKERS.roomExit.height / 2,
-} as const;
-
-/**
- * Marker bounding box type.
- *
- * Kept local to this file so consumers can use the exported
- * constants without depending on Tiled-specific types.
- */
-export interface CorridorMarker {
-  name: string;
-  type: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
  * Tiled infinite-map chunk.
  */
 interface CorridorTileChunk {
@@ -287,54 +222,41 @@ interface CorridorRawMapJson {
  *
  * Object layers such as `markers` are also preserved untouched.
  */
-export function patchCorridorTilesets(
-  rawMapJson: CorridorRawMapJson,
-): void {
-  rawMapJson.tilesets = CORRIDOR_TILESETS.map(
-    (tileset) => ({
-      firstgid: tileset.firstgid,
-      name: tileset.name,
-
-      image: tileset.path
-        .split('/')
-        .pop(),
-
-      imagewidth:
-        tileset.imagewidth,
-
-      imageheight:
-        tileset.imageheight,
-
-      columns:
-        tileset.columns,
-
-      tilecount:
-        tileset.tilecount,
-
-      tilewidth:
-        CORRIDOR_MAP_TILE_SIZE,
-
-      tileheight:
-        CORRIDOR_MAP_TILE_SIZE,
-
-      margin: 0,
-      spacing: 0,
-    }),
-  );
+export function patchCorridorTilesets(rawMapJson: CorridorRawMapJson): void {
+  patchTilesets(rawMapJson, CORRIDOR_TILESETS, CORRIDOR_MAP_TILE_SIZE);
 
   /*
-   * Deliberately preserve:
+   * Phaser's Tiled parser needs a layer origin for infinite
+   * chunked maps.
    *
-   * - tile layer chunks
-   * - chunk x/y positions
-   * - chunk widths/heights
-   * - tile data
-   * - object layers
-   * - authored object coordinates
+   * Tiled stores the actual chunks using their absolute tile
+   * coordinates. Phaser uses startx/starty to normalize those
+   * coordinates into the layer's internal data array.
    *
-   * The Phaser scene is responsible for positioning the entire
-   * tilemap segment in world space.
+   * Calculate the minimum chunk coordinate for every layer
+   * instead of modifying any chunk data.
    */
+  rawMapJson.layers?.forEach((layer) => {
+    if (layer.type !== 'tilelayer' || !layer.chunks || layer.chunks.length === 0) {
+      return;
+    }
 
-  void rawMapJson.layers;
+    const minChunkX = Math.min(...layer.chunks.map((chunk) => chunk.x));
+
+    const minChunkY = Math.min(...layer.chunks.map((chunk) => chunk.y));
+
+    (
+      layer as CorridorTileLayer & {
+        startx?: number;
+        starty?: number;
+      }
+    ).startx = minChunkX;
+
+    (
+      layer as CorridorTileLayer & {
+        startx?: number;
+        starty?: number;
+      }
+    ).starty = minChunkY;
+  });
 }

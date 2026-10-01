@@ -14,9 +14,6 @@ class NodeStatus(str, Enum):
     PENDING = "pending"
     ACTIVE = "active"
     DECIDED = "decided"
-    CHALLENGED = "challenged"
-    EVALUATED = "evaluated"
-    RECONSIDERED = "reconsidered"
 
 
 @dataclass
@@ -37,13 +34,6 @@ class Recommendation:
 class Decision:
     option_id: str
     context: str | None = None
-    defense: str | None = None
-
-
-@dataclass
-class Evaluation:
-    feedback: str
-    consequence: str
 
 
 @dataclass
@@ -59,8 +49,6 @@ class DecisionNode:
     branch_label: str | None = None
     status: NodeStatus = NodeStatus.PENDING
     decision: Decision | None = None
-    challenge: str | None = None
-    evaluation: Evaluation | None = None
     sequence: int = 0
 
     @staticmethod
@@ -95,23 +83,11 @@ class DecisionGraph:
         self._sequence = 0
 
     @property
-    def node_count(self) -> int:
-        return len(self.nodes)
-
-    @property
     def decided_count(self) -> int:
         return sum(
             1
             for n in self.nodes.values()
-            if n.status == NodeStatus.EVALUATED
-        )
-
-    @property
-    def reconsidered_count(self) -> int:
-        return sum(
-            1
-            for n in self.nodes.values()
-            if n.status == NodeStatus.RECONSIDERED
+            if n.status == NodeStatus.DECIDED
         )
 
     def add_node(
@@ -170,80 +146,6 @@ class DecisionGraph:
 
         return node
 
-    def set_challenge(
-        self,
-        node_id: str,
-        challenge: str,
-    ) -> DecisionNode:
-        """Record the challenge question."""
-
-        node = self.nodes[node_id]
-
-        node.challenge = challenge
-        node.status = NodeStatus.CHALLENGED
-
-        return node
-
-    def set_defense(
-        self,
-        node_id: str,
-        defense: str,
-    ) -> DecisionNode:
-        """Record the player's defense."""
-
-        node = self.nodes[node_id]
-
-        if node.decision:
-            node.decision.defense = defense
-
-        return node
-
-    def evaluate(
-        self,
-        node_id: str,
-        feedback: str,
-        consequence: str,
-    ) -> DecisionNode:
-        """Record an evaluation on a decided node."""
-
-        node = self.nodes[node_id]
-
-        node.evaluation = Evaluation(
-            feedback=feedback,
-            consequence=consequence,
-        )
-
-        node.status = NodeStatus.EVALUATED
-
-        return node
-
-    def fork(
-        self,
-        from_node_id: str,
-        question: str,
-        options: list[Option],
-        recommendation: Recommendation | None = None,
-        description: str = "",
-    ) -> DecisionNode:
-        """Create a new branch from an existing node."""
-
-        original = self.nodes[from_node_id]
-
-        original.status = NodeStatus.RECONSIDERED
-
-        new_node = self.add_node(
-            question=question,
-            options=options,
-            description=description,
-            recommendation=recommendation,
-            round=original.round,
-            parent_id=from_node_id,
-        )
-
-        new_node.branch_label = f"reconsider-{new_node.sequence}"
-
-        return new_node
-
     def get_chain(self) -> list[DecisionNode]:
         """Get all nodes in sequence order."""
 
@@ -288,18 +190,8 @@ class DecisionGraph:
                         {
                             "option_id": node.decision.option_id,
                             "context": node.decision.context,
-                            "defense": node.decision.defense,
                         }
                         if node.decision
-                        else None
-                    ),
-                    "challenge": node.challenge,
-                    "evaluation": (
-                        {
-                            "feedback": node.evaluation.feedback,
-                            "consequence": node.evaluation.consequence,
-                        }
-                        if node.evaluation
                         else None
                     ),
                     "sequence": node.sequence,
@@ -307,5 +199,4 @@ class DecisionGraph:
                 for node in self.get_chain()
             ],
             "decided_count": self.decided_count,
-            "reconsidered_count": self.reconsidered_count,
         }

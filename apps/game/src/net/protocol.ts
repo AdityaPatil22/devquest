@@ -18,28 +18,7 @@ export interface OptionSelectedMsg {
   context?: string;
 }
 
-export interface ChallengeResponseMsg {
-  type: 'CHALLENGE_RESPONSE';
-  nodeId: string;
-  response: string;
-}
-
-export interface ReconsiderMsg {
-  type: 'RECONSIDER';
-  nodeId: string;
-}
-
-export interface ContinueMsg {
-  type: 'CONTINUE';
-}
-
-export type ClientMessage =
-  | StartSessionMsg
-  | SubmitProblemMsg
-  | OptionSelectedMsg
-  | ChallengeResponseMsg
-  | ReconsiderMsg
-  | ContinueMsg;
+export type ClientMessage = StartSessionMsg | SubmitProblemMsg | OptionSelectedMsg;
 
 // ─────────────────────────────────────────────
 // Decision types
@@ -71,14 +50,6 @@ export interface DecisionSnapshot {
   decision?: {
     optionId: string;
     context?: string;
-    defense?: string;
-  };
-
-  challenge?: string;
-
-  evaluation?: {
-    feedback: string;
-    consequence: string;
   };
 }
 
@@ -127,24 +98,10 @@ export interface DecisionCreatedMsg {
   dependsOn?: string;
 }
 
-export interface ChallengeMsg {
-  type: 'CHALLENGE';
-  nodeId: string;
-  question: string;
-}
-
-export interface EvaluationMsg {
-  type: 'EVALUATION';
-  nodeId: string;
-  feedback: string;
-  consequence: string;
-}
-
 export interface SessionCompleteMsg {
   type: 'SESSION_COMPLETE';
   summary: string;
   decisionsCount: number;
-  reconsideredCount: number;
   docContent: string;
 }
 
@@ -154,10 +111,4 @@ export interface ErrorMsg {
 }
 
 export type ServerMessage =
-  | SessionStartedMsg
-  | SessionResumedMsg
-  | DecisionCreatedMsg
-  | ChallengeMsg
-  | EvaluationMsg
-  | SessionCompleteMsg
-  | ErrorMsg;
+  SessionStartedMsg | SessionResumedMsg | DecisionCreatedMsg | SessionCompleteMsg | ErrorMsg;

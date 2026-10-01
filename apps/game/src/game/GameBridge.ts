@@ -94,15 +94,6 @@ export type GameUIEvent =
       objective: string;
     }
   | {
-      type: 'CHALLENGE';
-      question: string;
-    }
-  | {
-      type: 'EVALUATION';
-      feedback: string;
-      consequence: string;
-    }
-  | {
       type: 'NEXT_DECISION_LOADING';
     }
   | {

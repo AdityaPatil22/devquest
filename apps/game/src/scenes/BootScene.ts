@@ -18,21 +18,14 @@ import {
 
 import { CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH } from '../tilemaps/corridorTilemap';
 
-import {
-  OPTION_ROOM_TILEMAP_KEYS,
-  OPTION_ROOM_TILEMAP_PATHS,
-} from '../tilemaps/optionRoomTilemap';
+import { OPTION_ROOM_TILEMAP_KEYS, OPTION_ROOM_TILEMAP_PATHS } from '../tilemaps/optionRoomTilemap';
 
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
 import { SessionStore } from '../state/SessionStore';
 
-import type {
-  ServerMessage,
-  SessionResumedMsg,
-  DecisionCreatedMsg,
-} from '../net/protocol';
+import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
 
 import { emitUIEvent } from '../game/GameBridge';
 
@@ -85,10 +78,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     // Decision Room
-    this.load.tilemapTiledJSON(
-      DECISION_TILEMAP_KEY,
-      DECISION_TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
 
     const seenKeys = new Set<string>();
 
@@ -108,29 +98,17 @@ export class BootScene extends Phaser.Scene {
     });
 
     // Corridor
-    this.load.tilemapTiledJSON(
-      CORRIDOR_TILEMAP_KEY,
-      CORRIDOR_TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH);
 
     // Option Rooms
     OPTION_ROOM_TILEMAP_KEYS.forEach((key) => {
-      this.load.tilemapTiledJSON(
-        key,
-        OPTION_ROOM_TILEMAP_PATHS[key],
-      );
+      this.load.tilemapTiledJSON(key, OPTION_ROOM_TILEMAP_PATHS[key]);
     });
 
     // Trophy Room
-    this.load.image(
-      'trophy',
-      'assets/items/trophy.png',
-    );
+    this.load.image('trophy', 'assets/items/trophy.png');
 
-    this.load.tilemapTiledJSON(
-      TROPHY_TILEMAP_KEY,
-      TROPHY_TILEMAP_PATH,
-    );
+    this.load.tilemapTiledJSON(TROPHY_TILEMAP_KEY, TROPHY_TILEMAP_PATH);
 
     const trophySeenKeys = new Set<string>();
 
@@ -186,9 +164,7 @@ export class BootScene extends Phaser.Scene {
 
     this.ws = new WebSocketClient();
 
-    this.unsubscribeWs = this.ws.onMessage(
-      this.handleMessage.bind(this),
-    );
+    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
     this.emitUI({
       type: 'GAME_READY',
@@ -271,10 +247,7 @@ export class BootScene extends Phaser.Scene {
     const phase = msg.snapshot.phase;
 
     // No problem yet
-    if (
-      phase === 'idle' ||
-      phase === 'awaiting_problem'
-    ) {
+    if (phase === 'idle' || phase === 'awaiting_problem') {
       this.leaveBoot();
 
       this.scene.start('CommonRoomScene', {
@@ -309,8 +282,7 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    const currentDecision =
-      this.store.getCurrentDecision();
+    const currentDecision = this.store.getCurrentDecision();
 
     if (!currentDecision) {
       this.leaveBoot();
@@ -331,11 +303,8 @@ export class BootScene extends Phaser.Scene {
       options: currentDecision.options,
       recommendation: currentDecision.recommendation,
       round: currentDecision.round,
-      dependsOn:
-        msg.snapshot.decisions.find(
-          (item) =>
-            item.id === currentDecision.nodeId,
-        )?.dependsOn,
+      dependsOn: msg.snapshot.decisions.find((item) => item.id === currentDecision.nodeId)
+        ?.dependsOn,
     };
 
     this.leaveBoot();
@@ -348,9 +317,7 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  private restoreDecision(
-    decision: DecisionCreatedMsg,
-  ): void {
+  private restoreDecision(decision: DecisionCreatedMsg): void {
     this.store.addDecision({
       nodeId: decision.nodeId,
       question: decision.question,

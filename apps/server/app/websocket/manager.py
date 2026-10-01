@@ -72,8 +72,3 @@ class ConnectionManager:
                 await ws.send_json(msg)
             except Exception:
                 break
-
-    async def broadcast(self, message: dict) -> None:
-        """Send to all connected clients across all sessions."""
-        for session_id in list(self._connections.keys()):
-            await self.send_to_session(session_id, message)

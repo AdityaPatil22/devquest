@@ -143,12 +143,6 @@ export function GameUI() {
 
             selectedOption: undefined,
 
-            challenge: undefined,
-
-            feedback: undefined,
-
-            consequence: undefined,
-
             waitingMessage: undefined,
 
             aiThinking: false,

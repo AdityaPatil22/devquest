@@ -1,3 +1,5 @@
+import type { TilesetDef } from './patchTilesets';
+
 /**
  * Config + helpers for the Trophy Room's hand-authored Tiled map.
  *
@@ -12,18 +14,7 @@ export const TROPHY_TILEMAP_PATH = 'assets/map/trophyroom/trophyroom.json';
 
 export const TROPHY_MAP_TILE_SIZE = 16;
 
-export interface TrophyTilesetDef {
-  name: string;
-  key: string;
-  path: string;
-  firstgid: number;
-  columns: number;
-  imagewidth: number;
-  imageheight: number;
-  tilecount: number;
-}
-
-export const TROPHY_TILESETS: TrophyTilesetDef[] = [
+export const TROPHY_TILESETS: TilesetDef[] = [
   {
     name: 'FloorAndGround16',
     key: 'tileset-floor-and-ground-16',
@@ -94,19 +85,3 @@ export const TROPHY_SPAWN_TILE = {
   x: 16,
   y: 16,
 };
-
-export function patchTrophyRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
-  rawMapJson.tilesets = TROPHY_TILESETS.map((t) => ({
-    columns: t.columns,
-    firstgid: t.firstgid,
-    image: t.path.split('/').pop(),
-    imageheight: t.imageheight,
-    imagewidth: t.imagewidth,
-    margin: 0,
-    name: t.name,
-    spacing: 0,
-    tilecount: t.tilecount,
-    tileheight: TROPHY_MAP_TILE_SIZE,
-    tilewidth: TROPHY_MAP_TILE_SIZE,
-  }));
-}

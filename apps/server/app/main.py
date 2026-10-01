@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.router import api_router
+from app.api.skill_routes import router as skill_router
 from app.config import settings
 from app.models.database import init_db
 from app.websocket.handlers import websocket_endpoint
@@ -36,7 +36,13 @@ app.add_middleware(
 )
 
 # API routes (for skill communication)
-app.include_router(api_router, prefix="/api")
+app.include_router(skill_router, prefix="/api/skill", tags=["skill"])
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "service": "devquest"}
+
 
 # WebSocket endpoint (for game client)
 app.add_api_websocket_route("/ws", websocket_endpoint)

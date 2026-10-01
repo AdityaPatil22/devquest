@@ -17,11 +17,7 @@
  * relying on hardcoded tile rows/columns.
  */
 
-import {
-  DECISION_TILESETS,
-  DECISION_MAP_TILE_SIZE,
-  patchDecisionRoomTilesets,
-} from './decisionRoomTilemap';
+import { DECISION_TILESETS, DECISION_MAP_TILE_SIZE } from './decisionRoomTilemap';
 
 export const OPTION_ROOM_TILESETS = DECISION_TILESETS;
 export const OPTION_ROOM_TILE_SIZE = DECISION_MAP_TILE_SIZE;
@@ -33,7 +29,7 @@ export const OPTION_ROOM_TILEMAP_KEYS = [
   'option-room-4',
 ] as const;
 
-export type OptionRoomKey = (typeof OPTION_ROOM_TILEMAP_KEYS)[number];
+type OptionRoomKey = (typeof OPTION_ROOM_TILEMAP_KEYS)[number];
 
 export const OPTION_ROOM_TILEMAP_PATHS: Record<OptionRoomKey, string> = {
   'option-room-1': 'assets/map/randomrooms/room-1.json',
@@ -54,22 +50,12 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<OptionRoomKey, string> = {
  *
  * The markers layer is an object layer and is handled separately.
  */
-export const OPTION_ROOM_TILE_LAYERS = [
-  'Tile Layer 1',
-  'Walls',
-  'furniture',
-  'computers',
-] as const;
+export const OPTION_ROOM_TILE_LAYERS = ['Tile Layer 1', 'Walls', 'furniture', 'computers'] as const;
 
 /**
  * Layer containing blocking wall tiles.
  */
 export const OPTION_ROOM_COLLIDABLE_LAYER = 'Walls';
-
-/**
- * Layer containing authored marker objects.
- */
-export const OPTION_ROOM_MARKER_LAYER = 'markers';
 
 /**
  * The updated option-room maps are infinite/chunked.
@@ -94,15 +80,13 @@ export const OPTION_ROOM_BOUNDS = {
  * Width of the playable room in pixels.
  */
 export const OPTION_ROOM_WIDTH_PX =
-  (OPTION_ROOM_BOUNDS.maxTileX - OPTION_ROOM_BOUNDS.minTileX + 1) *
-  OPTION_ROOM_TILE_SIZE;
+  (OPTION_ROOM_BOUNDS.maxTileX - OPTION_ROOM_BOUNDS.minTileX + 1) * OPTION_ROOM_TILE_SIZE;
 
 /**
  * Height of the playable room in pixels.
  */
 export const OPTION_ROOM_HEIGHT_PX =
-  (OPTION_ROOM_BOUNDS.maxTileY - OPTION_ROOM_BOUNDS.minTileY + 1) *
-  OPTION_ROOM_TILE_SIZE;
+  (OPTION_ROOM_BOUNDS.maxTileY - OPTION_ROOM_BOUNDS.minTileY + 1) * OPTION_ROOM_TILE_SIZE;
 
 /**
  * Marker coordinates authored in Tiled.
@@ -186,35 +170,6 @@ export const OPTION_ROOM_MARKERS = {
 } as const;
 
 /**
- * Convenience spawn marker.
- */
-export const OPTION_ROOM_SPAWN = OPTION_ROOM_MARKERS.startingPoint;
-
-/**
- * Convenience corridor entrance marker.
- */
-export const OPTION_ROOM_ENTRANCE = OPTION_ROOM_MARKERS.corridorEntrance;
-
-/**
  * Door exit markers.
  */
 export const OPTION_ROOM_DOOR_EXITS = OPTION_ROOM_MARKERS.doorExits;
-
-/**
- * Door interaction markers.
- */
-export const OPTION_ROOM_DOOR_INTERACTIONS =
-  OPTION_ROOM_MARKERS.doorInteractions;
-
-/**
- * Replace Tiled's external tileset references with
- * embedded tileset definitions that Phaser can consume.
- *
- * The option-room maps are infinite/chunked maps, so
- * preserve the authored chunk coordinates and tile data.
- */
-export function patchOptionRoomTilesets(rawMapJson: {
-  tilesets: unknown[];
-}): void {
-  patchDecisionRoomTilesets(rawMapJson);
-}

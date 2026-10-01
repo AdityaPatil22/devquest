@@ -1,3 +1,5 @@
+import type { TilesetDef } from './patchTilesets';
+
 /**
  * Configuration + helpers for the hand-authored Decision Room Tiled map.
  *
@@ -16,23 +18,12 @@ export const DECISION_TILEMAP_PATH = 'assets/map/decisionroom/decisionroom.json'
 
 export const DECISION_MAP_TILE_SIZE = 16;
 
-export interface DecisionTilesetDef {
-  name: string;
-  key: string;
-  path: string;
-  firstgid: number;
-  columns: number;
-  imagewidth: number;
-  imageheight: number;
-  tilecount: number;
-}
-
 /**
  * Tilesets referenced by decisionroom.json.
  *
  * firstgid values come directly from the Tiled map.
  */
-export const DECISION_TILESETS: DecisionTilesetDef[] = [
+export const DECISION_TILESETS: TilesetDef[] = [
   {
     name: 'FloorAndGround16',
     key: 'tileset-floor-and-ground-16',
@@ -158,61 +149,3 @@ export const DECISION_DOOR_EXITS = {
     height: 63,
   },
 };
-
-/**
- * Door interaction areas from Tiled.
- *
- * These are intentionally kept separate from the door-exit markers.
- * DoorInteraction represents the area where the player can interact
- * with a door.
- */
-export const DECISION_DOOR_INTERACTIONS = {
-  A: {
-    x: 148.809523809524,
-    y: 61.0119047619048,
-    width: 59.5238095238095,
-    height: 16.3690476190476,
-  },
-  B: {
-    x: 261.904766666667,
-    y: 61.7559761904762,
-    width: 59.5238,
-    height: 16.369,
-  },
-  C: {
-    x: 373.511909523809,
-    y: 61.7559761904762,
-    width: 59.5238,
-    height: 16.369,
-  },
-  D: {
-    x: 488.095242857143,
-    y: 61.7559761904762,
-    width: 59.5238,
-    height: 16.369,
-  },
-};
-
-/**
- * Replace Tiled's external .tsx references with embedded tileset
- * definitions that Phaser can consume.
- */
-export function patchDecisionRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
-  rawMapJson.tilesets = DECISION_TILESETS.map((tileset) => ({
-    firstgid: tileset.firstgid,
-    name: tileset.name,
-
-    image: tileset.path.split('/').pop(),
-    imagewidth: tileset.imagewidth,
-    imageheight: tileset.imageheight,
-
-    columns: tileset.columns,
-    tilecount: tileset.tilecount,
-
-    tilewidth: DECISION_MAP_TILE_SIZE,
-    tileheight: DECISION_MAP_TILE_SIZE,
-
-    margin: 0,
-    spacing: 0,
-  }));
-}

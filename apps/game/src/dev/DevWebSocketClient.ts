@@ -9,12 +9,13 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
     type: 'DECISION_CREATED',
     nodeId: 'dev-node-1',
+    description: '',
     question: 'Which backend architecture pattern should we use?',
     options: [
-      { id: 'option-a', label: 'Traditional Monolith' },
-      { id: 'option-b', label: 'Microservices' },
-      { id: 'option-c', label: 'Modular Monolith' },
-      { id: 'option-d', label: 'Serverless Functions' },
+      { id: 'option-a', label: 'Traditional Monolith', description: '' },
+      { id: 'option-b', label: 'Microservices', description: '' },
+      { id: 'option-c', label: 'Modular Monolith', description: '' },
+      { id: 'option-d', label: 'Serverless Functions', description: '' },
     ],
     recommendation: {
       option: 'option-c',
@@ -26,12 +27,13 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
     type: 'DECISION_CREATED',
     nodeId: 'dev-node-2',
+    description: '',
     question: 'How should we handle data persistence and caching?',
     options: [
-      { id: 'option-a', label: 'PostgreSQL only' },
-      { id: 'option-b', label: 'MongoDB only' },
-      { id: 'option-c', label: 'PostgreSQL + Redis cache' },
-      { id: 'option-d', label: 'SQLite for simplicity' },
+      { id: 'option-a', label: 'PostgreSQL only', description: '' },
+      { id: 'option-b', label: 'MongoDB only', description: '' },
+      { id: 'option-c', label: 'PostgreSQL + Redis cache', description: '' },
+      { id: 'option-d', label: 'SQLite for simplicity', description: '' },
     ],
     recommendation: {
       option: 'option-c',
@@ -43,12 +45,13 @@ const MOCK_ROUNDS: DecisionCreatedMsg[] = [
   {
     type: 'DECISION_CREATED',
     nodeId: 'dev-node-3',
+    description: '',
     question: 'What deployment strategy should we adopt?',
     options: [
-      { id: 'option-a', label: 'Docker + Kubernetes' },
-      { id: 'option-b', label: 'Traditional VMs' },
-      { id: 'option-c', label: 'Serverless (Lambda / Cloud Run)' },
-      { id: 'option-d', label: 'PaaS (Railway / Render)' },
+      { id: 'option-a', label: 'Docker + Kubernetes', description: '' },
+      { id: 'option-b', label: 'Traditional VMs', description: '' },
+      { id: 'option-c', label: 'Serverless (Lambda / Cloud Run)', description: '' },
+      { id: 'option-d', label: 'PaaS (Railway / Render)', description: '' },
     ],
     recommendation: {
       option: 'option-a',
@@ -208,7 +211,6 @@ export class DevWebSocketClient extends WebSocketClient {
         type: 'SESSION_COMPLETE',
         summary: SESSION_SUMMARY,
         decisionsCount: MOCK_ROUNDS.length,
-        reconsideredCount: 0,
         docContent: SESSION_DOC,
       });
     }, 500);

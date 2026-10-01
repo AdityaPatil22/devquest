@@ -16,23 +16,13 @@ export function createDevGameState() {
 
     question: 'Which approach should we take for this feature?',
 
+    description: '',
+
     options: [
-      {
-        id: 'option-a',
-        label: 'Build it from scratch',
-      },
-      {
-        id: 'option-b',
-        label: 'Reuse the existing implementation',
-      },
-      {
-        id: 'option-c',
-        label: 'Create a hybrid solution',
-      },
-      {
-        id: 'option-d',
-        label: 'Investigate further',
-      },
+      { id: 'option-a', label: 'Build it from scratch', description: '' },
+      { id: 'option-b', label: 'Reuse the existing implementation', description: '' },
+      { id: 'option-c', label: 'Create a hybrid solution', description: '' },
+      { id: 'option-d', label: 'Investigate further', description: '' },
     ],
 
     recommendation: {
@@ -50,6 +40,7 @@ export function createDevGameState() {
   store.addDecision({
     nodeId: decision.nodeId,
     question: decision.question,
+    description: decision.description ?? '',
     options: decision.options,
     recommendation: decision.recommendation,
     round: decision.round,

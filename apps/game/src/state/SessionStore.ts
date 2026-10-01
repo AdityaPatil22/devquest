@@ -10,12 +10,6 @@ export interface DecisionRecord {
 
   selectedOptionId?: string;
   context?: string;
-
-  challenge?: string;
-  defense?: string;
-
-  feedback?: string;
-  consequence?: string;
 }
 
 export class SessionStore {
@@ -108,14 +102,6 @@ export class SessionStore {
       selectedOptionId: node.decision?.optionId,
 
       context: node.decision?.context,
-
-      challenge: node.challenge,
-
-      defense: node.decision?.defense,
-
-      feedback: node.evaluation?.feedback,
-
-      consequence: node.evaluation?.consequence,
     }));
 
     this.finished = snapshot.phase === 'complete';

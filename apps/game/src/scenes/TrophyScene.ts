@@ -12,8 +12,9 @@ import {
   TROPHY_COLLIDABLE_LAYER,
   TROPHY_MAP_BOUNDS,
   TROPHY_SPAWN_TILE,
-  patchTrophyRoomTilesets,
 } from '../tilemaps/trophyRoomTilemap';
+
+import { patchTilesets } from '../tilemaps/patchTilesets';
 
 interface SceneData {
   store: SessionStore;
@@ -80,7 +81,7 @@ export class TrophyScene extends Phaser.Scene {
     const cached = this.cache.tilemap.get(TROPHY_TILEMAP_KEY);
 
     if (cached?.data) {
-      patchTrophyRoomTilesets(cached.data);
+      patchTilesets(cached.data, TROPHY_TILESETS, TROPHY_MAP_TILE_SIZE);
     }
 
     this.map = this.make.tilemap({

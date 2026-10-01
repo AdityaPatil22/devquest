@@ -15,7 +15,7 @@ class TestDecisionGraph:
         assert node.id is not None
         assert node.question == "Which database?"
         assert len(node.options) == 2
-        assert graph.node_count == 1
+        assert len(graph.nodes) == 1
 
     def test_choose(self):
         graph = DecisionGraph()
@@ -30,54 +30,6 @@ class TestDecisionGraph:
         assert node.decision is not None
         assert node.decision.option_id == "A"
         assert node.decision.context == "REST is simpler for CRUD"
-
-    def test_challenge_and_defense(self):
-        graph = DecisionGraph()
-        node = graph.add_node(
-            question="API style?",
-            options=[Option(id="A", label="REST")],
-        )
-        graph.choose(node.id, "A")
-        graph.set_challenge(node.id, "What about complex queries?")
-        assert node.status == NodeStatus.CHALLENGED
-        assert node.challenge == "What about complex queries?"
-
-        graph.set_defense(node.id, "We'll use query params with filtering")
-        assert node.decision is not None
-        assert node.decision.defense == "We'll use query params with filtering"
-
-    def test_evaluate(self):
-        graph = DecisionGraph()
-        node = graph.add_node(
-            question="API style?",
-            options=[Option(id="A", label="REST")],
-        )
-        graph.choose(node.id, "A")
-        graph.evaluate(node.id, "Good choice", "Consider versioning")
-
-        assert node.status == NodeStatus.EVALUATED
-        assert node.evaluation is not None
-        assert node.evaluation.feedback == "Good choice"
-
-    def test_fork(self):
-        graph = DecisionGraph()
-        original = graph.add_node(
-            question="Which database?",
-            options=[Option(id="A", label="PostgreSQL"), Option(id="B", label="MongoDB")],
-        )
-        graph.choose(original.id, "A")
-        graph.evaluate(original.id, "Good", "Consider scaling")
-
-        forked = graph.fork(
-            original.id,
-            "Reconsidering: Which database?",
-            [Option(id="A", label="PostgreSQL"), Option(id="B", label="MongoDB")],
-        )
-
-        assert original.status == NodeStatus.RECONSIDERED
-        assert forked.parent_id == original.id
-        assert forked.branch_label is not None
-        assert graph.node_count == 2
 
     def test_recommendation(self):
         graph = DecisionGraph()
@@ -101,9 +53,8 @@ class TestDecisionGraph:
     def test_decided_count(self):
         graph = DecisionGraph()
         n1 = graph.add_node("Q1", [Option("A", "X")])
-        n2 = graph.add_node("Q2", [Option("A", "Y")])
+        graph.add_node("Q2", [Option("A", "Y")])
         graph.choose(n1.id, "A")
-        graph.evaluate(n1.id, "ok", "ok")
         assert graph.decided_count == 1
 
     def test_to_dict(self):
@@ -156,21 +107,6 @@ class TestDecisionEngine:
 
         # Player selects
         engine.select_option(session, node_id, "A", context="Need distributed cache")
-
-        # Skill challenges
-        challenge_event = engine.receive_challenge(
-            session, node_id, "Redis adds operational complexity. Worth it?"
-        )
-        assert challenge_event.type == EventType.CHALLENGE
-
-        # Player defends
-        engine.submit_defense(session, node_id, "We already run Redis for sessions")
-
-        # Skill evaluates
-        eval_event = engine.receive_evaluation(
-            session, node_id, "Good — reusing existing infra", "Monitor memory usage"
-        )
-        assert eval_event.type == EventType.EVALUATION
 
         # Finish
         finish_event = engine.finish_session(session, "Redis caching", "# Doc\n...")

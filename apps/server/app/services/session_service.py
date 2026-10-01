@@ -210,46 +210,6 @@ class SessionService:
                 },
             )
 
-        elif msg_type == "CHALLENGE_RESPONSE":
-            node_id = msg["nodeId"]
-            response = msg["response"]
-
-            self.engine.submit_defense(
-                session,
-                node_id,
-                response,
-            )
-
-            await self.enqueue_player_event(
-                session_id,
-                {
-                    "type": "CHALLENGE_RESPONSE",
-                    "sessionId": session_id,
-                    "nodeId": node_id,
-                    "response": response,
-                },
-            )
-
-        elif msg_type == "RECONSIDER":
-            node_id = msg["nodeId"]
-
-            self.engine.reconsider(
-                session,
-                node_id,
-            )
-
-            await self.enqueue_player_event(
-                session_id,
-                {
-                    "type": "RECONSIDER",
-                    "sessionId": session_id,
-                    "nodeId": node_id,
-                },
-            )
-
-        elif msg_type == "CONTINUE":
-            pass
-
     # ─────────────────────────────────────────
     # Skill → game
     # ─────────────────────────────────────────
@@ -279,56 +239,6 @@ class SessionService:
             recommendation=recommendation,
             round_num=round_num,
             depends_on=depends_on,
-        )
-
-        await self.ws_manager.send_to_session(
-            session_id,
-            event.to_ws_message(),
-        )
-
-    async def skill_send_challenge(
-        self,
-        session_id: str,
-        node_id: str,
-        question: str,
-    ) -> None:
-        session = self.engine.get_session(
-            session_id,
-        )
-
-        if not session:
-            return
-
-        event = self.engine.receive_challenge(
-            session,
-            node_id,
-            question,
-        )
-
-        await self.ws_manager.send_to_session(
-            session_id,
-            event.to_ws_message(),
-        )
-
-    async def skill_send_evaluation(
-        self,
-        session_id: str,
-        node_id: str,
-        feedback: str,
-        consequence: str,
-    ) -> None:
-        session = self.engine.get_session(
-            session_id,
-        )
-
-        if not session:
-            return
-
-        event = self.engine.receive_evaluation(
-            session,
-            node_id,
-            feedback,
-            consequence,
         )
 
         await self.ws_manager.send_to_session(
