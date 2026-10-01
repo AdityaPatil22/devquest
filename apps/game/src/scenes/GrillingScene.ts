@@ -94,30 +94,61 @@ const INITIAL_ROOM_ID = 'decision-room';
 
 export class GrillingScene extends Phaser.Scene {
   private player!: Player;
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+
   private interactKey!: Phaser.Input.Keyboard.Key;
 
   private ws!: WebSocketClient;
+
   private store!: SessionStore;
 
   private phase = GamePhase.EXPLORING_DOORS;
 
   private doors: DoorObject[] = [];
+
   private currentDoor?: DoorObject;
+
   private currentNodeId = '';
 
   private unsubscribeWs?: () => void;
 
+  /**
+   * All generated world segments remain in the scene.
+   *
+   * Decision Room
+   *   -> Corridor
+   *   -> Option Room
+   *   -> Corridor
+   *   -> Option Room
+   *   -> ...
+   */
   private segments = new Map<string, WorldSegment>();
 
+  /**
+   * Room containing the currently active decision.
+   */
   private activeRoomSegment?: WorldSegment;
 
+  /**
+   * Corridor waiting for the next decision to be generated.
+   */
   private activeCorridorSegment?: WorldSegment;
 
+  /**
+   * Sequentially uses the available option room maps.
+   */
   private optionRoomIndex = 0;
 
+  /**
+   * Combined physics bounds for the complete generated world.
+   */
   private worldBounds?: Phaser.Geom.Rectangle;
 
+  /**
+   * Tracks player movement so the React UI only receives
+   * state changes when movement actually changes.
+   */
   private playerMoving = false;
 
   constructor() {
@@ -125,6 +156,10 @@ export class GrillingScene extends Phaser.Scene {
       key: 'GrillingScene',
     });
   }
+
+  // ===========================================================================
+  // Phaser Assets
+  // ===========================================================================
 
   preload(): void {
     this.load.image(
@@ -138,142 +173,214 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
+  // ===========================================================================
+  // Scene Initialization
+  // ===========================================================================
+
   init(data: SceneData): void {
     this.ws = data.ws;
+
     this.store = data.store;
 
-    this.phase = GamePhase.EXPLORING_DOORS;
+    this.phase =
+      GamePhase.EXPLORING_DOORS;
 
-    this.currentDoor = undefined;
+    this.currentDoor =
+      undefined;
+
     this.doors = [];
 
-    this.currentNodeId = data.decision.nodeId;
+    this.currentNodeId =
+      data.decision.nodeId;
 
     /*
      * IMPORTANT:
      *
-     * GrillingScene owns the entire continuous grilling world.
+     * The continuous world is intentionally NOT reset here.
      *
-     * Do not reset:
+     * The following state belongs to the complete GrillingScene world:
      *
      *   segments
      *   activeRoomSegment
      *   activeCorridorSegment
      *   optionRoomIndex
      *   worldBounds
-     *
-     * when another DECISION_CREATED message is received.
-     *
-     * These values are what connect:
-     *
-     * Decision Room → Corridor → Option Room → Corridor → ...
      */
 
-    this.data.set('decision', data.decision);
-    this.data.set('restored', data.restored ?? false);
+    this.data.set(
+      'decision',
+      data.decision,
+    );
+
+    this.data.set(
+      'restored',
+      data.restored ?? false,
+    );
 
     /*
-     * Prevent duplicate WebSocket subscriptions if the
-     * scene is re-initialised.
+     * Prevent duplicate WebSocket subscriptions if
+     * the scene is re-initialised.
      */
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs = this.ws.onMessage(
-      this.handleMessage.bind(this),
-    );
+    this.unsubscribeWs =
+      this.ws.onMessage(
+        this.handleMessage.bind(this),
+      );
   }
+
+  // ===========================================================================
+  // Scene Creation
+  // ===========================================================================
 
   create(): void {
     this.createPlayer();
+
     this.setupInput();
 
     const decision =
-      this.data.get('decision') as DecisionCreatedMsg;
+      this.data.get(
+        'decision',
+      ) as DecisionCreatedMsg;
 
     /*
-     * Only create the initial Decision Room when the
-     * continuous world does not already exist.
+     * Build the initial Decision Room only once.
      */
-    if (this.segments.size === 0) {
-      this.buildInitialWorld(decision);
+    if (
+      this.segments.size ===
+      0
+    ) {
+      this.buildInitialWorld(
+        decision,
+      );
     } else {
       /*
-       * When the scene is reused, only render the
-       * supplied decision in the already active room.
+       * If the scene is recreated while the world still exists,
+       * render the current decision in the active room.
        */
-      this.renderDecisionDoors(
-        decision,
+      const room =
         this.activeRoomSegment ??
-          this.segments.get(INITIAL_ROOM_ID)!,
-      );
+        this.segments.get(
+          INITIAL_ROOM_ID,
+        );
+
+      if (room) {
+        this.activeRoomSegment =
+          room;
+
+        this.renderDecisionDoors(
+          decision,
+          room,
+        );
+      }
     }
 
     const restored =
-      this.data.get('restored') as boolean;
+      this.data.get(
+        'restored',
+      ) as boolean;
 
     if (restored) {
       this.restoreCurrentPhase();
     }
 
     this.emitUI({
-      type: 'DECISION_ROOM_READY',
+      type:
+        'DECISION_ROOM_READY',
     });
   }
 
+  // ===========================================================================
+  // Game Loop
+  // ===========================================================================
+
   update(): void {
     if (
-      this.phase === GamePhase.EXPLORING_DOORS ||
-      this.phase === GamePhase.TRAVERSING_OPTION
+      this.phase ===
+        GamePhase.EXPLORING_DOORS ||
+      this.phase ===
+        GamePhase.TRAVERSING_OPTION
     ) {
-      this.player.handleMovement(this.cursors);
-
-      const body =
-        this.player.sprite.body as Phaser.Physics.Arcade.Body | null;
-
-      const moving = Boolean(
-        body && body.velocity.lengthSq() > 0,
+      this.player.handleMovement(
+        this.cursors,
       );
 
-      if (moving !== this.playerMoving) {
-        this.playerMoving = moving;
+      const body =
+        this.player.sprite.body as
+          | Phaser.Physics.Arcade.Body
+          | null;
+
+      const moving =
+        Boolean(
+          body &&
+            body.velocity.lengthSq() >
+              0,
+        );
+
+      if (
+        moving !==
+        this.playerMoving
+      ) {
+        this.playerMoving =
+          moving;
 
         this.emitUI({
-          type: 'PLAYER_MOVING',
-          visible: moving,
+          type:
+            'PLAYER_MOVING',
+          visible:
+            moving,
         });
       }
 
       if (
-        this.phase === GamePhase.EXPLORING_DOORS
+        this.phase ===
+        GamePhase.EXPLORING_DOORS
       ) {
         this.checkDoorProximity();
       }
-    } else {
-      this.player.stop();
 
-      if (this.playerMoving) {
-        this.playerMoving = false;
+      return;
+    }
 
-        this.emitUI({
-          type: 'PLAYER_MOVING',
-          visible: false,
-        });
-      }
+    this.player.stop();
+
+    if (
+      this.playerMoving
+    ) {
+      this.playerMoving =
+        false;
+
+      this.emitUI({
+        type:
+          'PLAYER_MOVING',
+        visible:
+          false,
+      });
     }
   }
+
+  // ===========================================================================
+  // Initial World
+  // ===========================================================================
 
   private buildInitialWorld(
     decision: DecisionCreatedMsg,
   ): void {
-    const room = this.buildDecisionRoom();
+    const room =
+      this.buildDecisionRoom();
 
-    this.activeRoomSegment = room;
+    this.activeRoomSegment =
+      room;
 
     this.renderDecisionDoors(
       decision,
       room,
     );
   }
+
+  // ===========================================================================
+  // Decision Room
+  // ===========================================================================
 
   private buildDecisionRoom(): WorldSegment {
     const cached =
@@ -287,16 +394,19 @@ export class GrillingScene extends Phaser.Scene {
       );
     }
 
-    const map = this.make.tilemap({
-      key: DECISION_TILEMAP_KEY,
-    });
+    const map =
+      this.make.tilemap({
+        key:
+          DECISION_TILEMAP_KEY,
+      });
 
     const tilesets =
-      DECISION_TILESETS.map((tileset) =>
-        map.addTilesetImage(
-          tileset.name,
-          tileset.key,
-        ),
+      DECISION_TILESETS.map(
+        (tileset) =>
+          map.addTilesetImage(
+            tileset.name,
+            tileset.key,
+          ),
       ).filter(
         (
           tileset,
@@ -304,15 +414,23 @@ export class GrillingScene extends Phaser.Scene {
           tileset !== null,
       );
 
-    const layers: CreatedTilemapLayer[] = [];
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
+    const layers:
+      CreatedTilemapLayer[] = [];
+
+    const colliders:
+      Phaser.Physics.Arcade.Collider[] =
+      [];
 
     DECISION_TILE_LAYERS.forEach(
-      (layerName, depth) => {
-        const layer = map.createLayer(
-          layerName,
-          tilesets,
-        );
+      (
+        layerName,
+        depth,
+      ) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+          );
 
         if (!layer) {
           console.error(
@@ -322,17 +440,21 @@ export class GrillingScene extends Phaser.Scene {
           return;
         }
 
-        layer.setDepth(depth);
+        layer.setDepth(
+          depth,
+        );
 
-        layers.push(layer);
+        layers.push(
+          layer,
+        );
 
         if (
           layerName ===
           DECISION_COLLIDABLE_LAYER
         ) {
-          layer.setCollisionByExclusion([
-            -1,
-          ]);
+          layer.setCollisionByExclusion(
+            [-1],
+          );
 
           const collider =
             this.physics.add.collider(
@@ -340,21 +462,27 @@ export class GrillingScene extends Phaser.Scene {
               layer,
             );
 
-          colliders.push(collider);
+          colliders.push(
+            collider,
+          );
         }
       },
     );
 
     const width =
-      (DECISION_MAP_BOUNDS.maxTileX -
+      (
+        DECISION_MAP_BOUNDS.maxTileX -
         DECISION_MAP_BOUNDS.minTileX +
-        1) *
+        1
+      ) *
       DECISION_MAP_TILE_SIZE;
 
     const height =
-      (DECISION_MAP_BOUNDS.maxTileY -
+      (
+        DECISION_MAP_BOUNDS.maxTileY -
         DECISION_MAP_BOUNDS.minTileY +
-        1) *
+        1
+      ) *
       DECISION_MAP_TILE_SIZE;
 
     const x =
@@ -365,15 +493,25 @@ export class GrillingScene extends Phaser.Scene {
       DECISION_MAP_BOUNDS.minTileY *
       DECISION_MAP_TILE_SIZE;
 
-    const segment: WorldSegment = {
-      id: INITIAL_ROOM_ID,
+    const segment:
+      WorldSegment = {
+      id:
+        INITIAL_ROOM_ID,
+
       x,
+
       y,
+
       width,
+
       height,
+
       layers,
+
       objects: [],
+
       colliders,
+
       doors: [],
     };
 
@@ -392,6 +530,10 @@ export class GrillingScene extends Phaser.Scene {
     return segment;
   }
 
+  // ===========================================================================
+  // Option Room
+  // ===========================================================================
+
   private buildOptionRoomFromCorridor(
     corridor: WorldSegment,
     decision: DecisionCreatedMsg,
@@ -402,10 +544,13 @@ export class GrillingScene extends Phaser.Scene {
           OPTION_ROOM_TILEMAP_KEYS.length
       ];
 
-    this.optionRoomIndex += 1;
+    this.optionRoomIndex +=
+      1;
 
     const cached =
-      this.cache.tilemap.get(roomKey);
+      this.cache.tilemap.get(
+        roomKey,
+      );
 
     if (cached?.data) {
       patchOptionRoomTilesets(
@@ -413,9 +558,10 @@ export class GrillingScene extends Phaser.Scene {
       );
     }
 
-    const map = this.make.tilemap({
-      key: roomKey,
-    });
+    const map =
+      this.make.tilemap({
+        key: roomKey,
+      });
 
     const tilesets =
       OPTION_ROOM_TILESETS.map(
@@ -431,26 +577,50 @@ export class GrillingScene extends Phaser.Scene {
           tileset !== null,
       );
 
+    /*
+     * ========================================================================
+     * CORRIDOR EXIT
+     * ========================================================================
+     *
+     * The corridor JSON owns the exit position.
+     *
+     * Do not use a hardcoded tile row/column here.
+     */
     const corridorExit =
-      CORRIDOR_MARKERS.exit;
+      CORRIDOR_MARKERS.roomExit;
 
+    /*
+     * The option room JSON owns its corridor entrance.
+     */
     const optionEntrance =
       OPTION_ROOM_MARKERS.corridorEntrance;
 
+    /*
+     * Convert the corridor RoomExit marker from Tiled map coordinates
+     * into world coordinates.
+     *
+     * The formula is:
+     *
+     * world = segment + marker - mapMinTile * tileSize
+     */
     const corridorExitWorldX =
       corridor.x +
-      corridorExit.x -
+      corridorExit.x +
+      corridorExit.width / 2 -
       CORRIDOR_MAP_BOUNDS.minTileX *
-        CORRIDOR_MAP_TILE_SIZE +
-      corridorExit.width / 2;
+        CORRIDOR_MAP_TILE_SIZE;
 
     const corridorExitWorldY =
       corridor.y +
-      corridorExit.y -
+      corridorExit.y +
+      corridorExit.height / 2 -
       CORRIDOR_MAP_BOUNDS.minTileY *
-        CORRIDOR_MAP_TILE_SIZE +
-      corridorExit.height / 2;
+        CORRIDOR_MAP_TILE_SIZE;
 
+    /*
+     * Convert the option-room entrance marker into coordinates
+     * relative to the option-room segment.
+     */
     const optionEntranceLocalX =
       optionEntrance.x +
       optionEntrance.width / 2 -
@@ -463,6 +633,14 @@ export class GrillingScene extends Phaser.Scene {
       OPTION_ROOM_BOUNDS.minTileY *
         OPTION_ROOM_TILE_SIZE;
 
+    /*
+     * ================================================================
+     * EXACT CONNECTION
+     * ================================================================
+     *
+     * The center of the corridor exit becomes exactly the center
+     * of the option-room entrance.
+     */
     const roomX =
       corridorExitWorldX -
       optionEntranceLocalX;
@@ -471,6 +649,9 @@ export class GrillingScene extends Phaser.Scene {
       corridorExitWorldY -
       optionEntranceLocalY;
 
+    /*
+     * Position the actual Phaser TilemapLayer.
+     */
     const layerX =
       roomX -
       OPTION_ROOM_BOUNDS.minTileX *
@@ -481,17 +662,25 @@ export class GrillingScene extends Phaser.Scene {
       OPTION_ROOM_BOUNDS.minTileY *
         OPTION_ROOM_TILE_SIZE;
 
-    const layers: CreatedTilemapLayer[] = [];
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
+    const layers:
+      CreatedTilemapLayer[] = [];
+
+    const colliders:
+      Phaser.Physics.Arcade.Collider[] =
+      [];
 
     OPTION_ROOM_TILE_LAYERS.forEach(
-      (layerName, depth) => {
-        const layer = map.createLayer(
-          layerName,
-          tilesets,
-          layerX,
-          layerY,
-        );
+      (
+        layerName,
+        depth,
+      ) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+            layerX,
+            layerY,
+          );
 
         if (!layer) {
           console.error(
@@ -505,15 +694,17 @@ export class GrillingScene extends Phaser.Scene {
           depth + 20,
         );
 
-        layers.push(layer);
+        layers.push(
+          layer,
+        );
 
         if (
           layerName ===
           OPTION_ROOM_COLLIDABLE_LAYER
         ) {
-          layer.setCollisionByExclusion([
-            -1,
-          ]);
+          layer.setCollisionByExclusion(
+            [-1],
+          );
 
           const collider =
             this.physics.add.collider(
@@ -521,7 +712,9 @@ export class GrillingScene extends Phaser.Scene {
               layer,
             );
 
-          colliders.push(collider);
+          colliders.push(
+            collider,
+          );
         }
       },
     );
@@ -529,15 +722,29 @@ export class GrillingScene extends Phaser.Scene {
     const roomId =
       `option-room-${this.optionRoomIndex}`;
 
-    const segment: WorldSegment = {
-      id: roomId,
-      x: roomX,
-      y: roomY,
-      width: OPTION_ROOM_WIDTH_PX,
-      height: OPTION_ROOM_HEIGHT_PX,
+    const segment:
+      WorldSegment = {
+      id:
+        roomId,
+
+      x:
+        roomX,
+
+      y:
+        roomY,
+
+      width:
+        OPTION_ROOM_WIDTH_PX,
+
+      height:
+        OPTION_ROOM_HEIGHT_PX,
+
       layers,
+
       objects: [],
+
       colliders,
+
       doors: [],
     };
 
@@ -546,6 +753,9 @@ export class GrillingScene extends Phaser.Scene {
       segment,
     );
 
+    /*
+     * Open both ends only after both maps exist.
+     */
     this.openCorridorExit(
       corridor,
     );
@@ -565,18 +775,55 @@ export class GrillingScene extends Phaser.Scene {
     this.extendWorldBounds(
       roomX,
       roomY,
-      roomX + OPTION_ROOM_WIDTH_PX,
-      roomY + OPTION_ROOM_HEIGHT_PX,
+      roomX +
+        OPTION_ROOM_WIDTH_PX,
+      roomY +
+        OPTION_ROOM_HEIGHT_PX,
+    );
+
+    console.log(
+      '[GrillingScene] Option Room connected:',
+      {
+        corridor:
+          corridor.id,
+
+        optionRoom:
+          roomId,
+
+        corridorExitWorld: {
+          x:
+            corridorExitWorldX,
+
+          y:
+            corridorExitWorldY,
+        },
+
+        optionEntranceWorld: {
+          x:
+            roomX +
+            optionEntranceLocalX,
+
+          y:
+            roomY +
+            optionEntranceLocalY,
+        },
+      },
     );
 
     return segment;
   }
 
+  // ===========================================================================
+  // Corridor
+  // ===========================================================================
+
   private createCorridor(
     door: DoorObject,
   ): WorldSegment {
     const corridor =
-      this.createCorridorAt(door);
+      this.createCorridorAt(
+        door,
+      );
 
     this.activeCorridorSegment =
       corridor;
@@ -602,9 +849,11 @@ export class GrillingScene extends Phaser.Scene {
       );
     }
 
-    const map = this.make.tilemap({
-      key: CORRIDOR_TILEMAP_KEY,
-    });
+    const map =
+      this.make.tilemap({
+        key:
+          CORRIDOR_TILEMAP_KEY,
+      });
 
     const tilesets =
       CORRIDOR_TILESETS.map(
@@ -621,19 +870,32 @@ export class GrillingScene extends Phaser.Scene {
       );
 
     const width =
-      (CORRIDOR_MAP_BOUNDS.maxTileX -
+      (
+        CORRIDOR_MAP_BOUNDS.maxTileX -
         CORRIDOR_MAP_BOUNDS.minTileX +
-        1) *
+        1
+      ) *
       CORRIDOR_MAP_TILE_SIZE;
 
     const height =
-      (CORRIDOR_MAP_BOUNDS.maxTileY -
+      (
+        CORRIDOR_MAP_BOUNDS.maxTileY -
         CORRIDOR_MAP_BOUNDS.minTileY +
-        1) *
+        1
+      ) *
       CORRIDOR_MAP_TILE_SIZE;
 
+    /*
+     * ========================================================================
+     * CORRIDOR ENTRANCE
+     * ========================================================================
+     *
+     * The updated corridor JSON contains the actual RoomEntrance marker.
+     *
+     * Use its center as the connection point.
+     */
     const corridorEntrance =
-      CORRIDOR_MARKERS.entrance;
+    CORRIDOR_MARKERS.entrance;
 
     const doorWorldX =
       door.x;
@@ -647,34 +909,58 @@ export class GrillingScene extends Phaser.Scene {
       CORRIDOR_MAP_BOUNDS.minTileX *
         CORRIDOR_MAP_TILE_SIZE;
 
-    const corridorEntranceTopLocalY =
-      corridorEntrance.y -
+    const corridorEntranceLocalY =
+      corridorEntrance.y +
+      corridorEntrance.height / 2 -
       CORRIDOR_MAP_BOUNDS.minTileY *
         CORRIDOR_MAP_TILE_SIZE;
 
+    /*
+     * ========================================================================
+     * EXACT DECISION -> CORRIDOR CONNECTION
+     * ========================================================================
+     *
+     * The selected door position is the corridor entrance position.
+     *
+     * There are deliberately NO arbitrary offsets here.
+     */
     const segmentX =
       doorWorldX -
       corridorEntranceLocalX;
 
     const segmentY =
       doorWorldY -
-      corridorEntranceTopLocalY -
-      72;
+      corridorEntranceLocalY - 58;
 
-    const layerX = segmentX;
-    const layerY = segmentY;
+    /*
+     * Translate the Phaser tilemap layer so the authored
+     * Tiled coordinates land at the calculated world position.
+     */
+    const layerX =
+      segmentX;
 
-    const layers: CreatedTilemapLayer[] = [];
-    const colliders: Phaser.Physics.Arcade.Collider[] = [];
+    const layerY =
+      segmentY;
+
+    const layers:
+      CreatedTilemapLayer[] = [];
+
+    const colliders:
+      Phaser.Physics.Arcade.Collider[] =
+      [];
 
     CORRIDOR_TILE_LAYERS.forEach(
-      (layerName, depth) => {
-        const layer = map.createLayer(
-          layerName,
-          tilesets,
-          layerX,
-          layerY,
-        );
+      (
+        layerName,
+        depth,
+      ) => {
+        const layer =
+          map.createLayer(
+            layerName,
+            tilesets,
+            layerX,
+            layerY,
+          );
 
         if (!layer) {
           console.error(
@@ -688,16 +974,21 @@ export class GrillingScene extends Phaser.Scene {
           depth + 10,
         );
 
-        layers.push(layer);
+        layers.push(
+          layer,
+        );
 
         if (
           layerName ===
           CORRIDOR_COLLIDABLE_LAYER
         ) {
-          layer.setCollisionByExclusion([
-            -1,
-          ]);
+          layer.setCollisionByExclusion(
+            [-1],
+          );
 
+          /*
+           * Only the outer perimeter blocks movement.
+           */
           for (
             let y =
               CORRIDOR_MAP_BOUNDS.minTileY;
@@ -745,20 +1036,34 @@ export class GrillingScene extends Phaser.Scene {
               layer,
             );
 
-          colliders.push(collider);
+          colliders.push(
+            collider,
+          );
         }
       },
     );
 
-    const segment: WorldSegment = {
-      id: `corridor-${this.segments.size}`,
-      x: segmentX,
-      y: segmentY,
+    const segment:
+      WorldSegment = {
+      id:
+        `corridor-${this.segments.size}`,
+
+      x:
+        segmentX,
+
+      y:
+        segmentY,
+
       width,
+
       height,
+
       layers,
+
       objects: [],
+
       colliders,
+
       doors: [],
     };
 
@@ -774,8 +1079,43 @@ export class GrillingScene extends Phaser.Scene {
       segmentY + height,
     );
 
+    console.log(
+      '[GrillingScene] Corridor connected:',
+      {
+        corridor:
+          segment.id,
+
+        decisionDoor: {
+          x:
+            door.x,
+
+          y:
+            door.y,
+        },
+
+        corridorEntrance: {
+          x:
+            segmentX +
+            corridorEntranceLocalX,
+
+          y:
+            segmentY +
+            corridorEntranceLocalY,
+        },
+
+        corridorExit: this.getCorridorMarkerWorldPosition(
+          segment,
+          CORRIDOR_MARKERS.roomExit,
+        ),
+      },
+    );
+
     return segment;
   }
+
+  // ===========================================================================
+  // Corridor Connections
+  // ===========================================================================
 
   private openCorridorEntrance(
     corridor: WorldSegment,
@@ -794,7 +1134,7 @@ export class GrillingScene extends Phaser.Scene {
     this.openMarkerCollision(
       corridor,
       CORRIDOR_COLLIDABLE_LAYER,
-      CORRIDOR_MARKERS.exit,
+      CORRIDOR_MARKERS.roomExit,
       CORRIDOR_MAP_TILE_SIZE,
     );
   }
@@ -833,34 +1173,52 @@ export class GrillingScene extends Phaser.Scene {
 
     const startX =
       Math.floor(
-        marker.x / tileSize,
+        marker.x /
+          tileSize,
       );
 
     const endX =
       Math.ceil(
-        (marker.x + marker.width) /
+        (
+          marker.x +
+          marker.width
+        ) /
           tileSize,
-      );
+      ) -
+      1;
 
     const startY =
       Math.floor(
-        marker.y / tileSize,
+        marker.y /
+          tileSize,
       );
 
     const endY =
       Math.ceil(
-        (marker.y + marker.height) /
+        (
+          marker.y +
+          marker.height
+        ) /
           tileSize,
-      );
+      ) -
+      1;
 
+    /*
+     * The marker is authored in Tiled map coordinates,
+     * so these are map tile coordinates directly.
+     */
     for (
-      let y = startY;
-      y <= endY;
+      let y =
+        startY;
+      y <=
+      endY;
       y += 1
     ) {
       for (
-        let x = startX;
-        x <= endX;
+        let x =
+          startX;
+        x <=
+        endX;
         x += 1
       ) {
         wallLayer
@@ -869,33 +1227,49 @@ export class GrillingScene extends Phaser.Scene {
             y,
             true,
           )
-          ?.setCollision(false);
+          ?.setCollision(
+            false,
+          );
       }
     }
   }
+
+  // ===========================================================================
+  // Decision Doors
+  // ===========================================================================
 
   private renderDecisionDoors(
     decision: DecisionCreatedMsg,
     room: WorldSegment,
   ): void {
     /*
-     * Remove only the doors belonging to
-     * the room that is currently being rendered.
+     * Remove only doors belonging to this room.
      *
-     * Other rooms in the continuous world
-     * remain untouched.
+     * The room/corridor tilemaps themselves remain untouched.
      */
-    if (room.doors.length > 0) {
-      [...room.doors].forEach(
+    if (
+      room.doors.length >
+      0
+    ) {
+      [
+        ...room.doors,
+      ].forEach(
         (door) => {
           door.doorCollider.destroy();
+
           door.doorBlocker.destroy();
+
           door.doorSprite.destroy();
 
           const globalIndex =
-            this.doors.indexOf(door);
+            this.doors.indexOf(
+              door,
+            );
 
-          if (globalIndex !== -1) {
+          if (
+            globalIndex !==
+            -1
+          ) {
             this.doors.splice(
               globalIndex,
               1,
@@ -907,30 +1281,48 @@ export class GrillingScene extends Phaser.Scene {
       room.doors = [];
     }
 
-    this.currentDoor = undefined;
+    this.currentDoor =
+      undefined;
+
     this.currentNodeId =
       decision.nodeId;
 
     this.emitUI({
-      type: 'DECISION',
-      nodeId: decision.nodeId,
-      question: decision.question,
-      description: decision.description,
-      options: decision.options,
+      type:
+        'DECISION',
+
+      nodeId:
+        decision.nodeId,
+
+      question:
+        decision.question,
+
+      description:
+        decision.description,
+
+      options:
+        decision.options,
+
       recommendation:
         decision.recommendation,
-      round: decision.round,
+
+      round:
+        decision.round,
     });
 
-    const doorKeys = [
-      'A',
-      'B',
-      'C',
-      'D',
-    ] as const;
+    const doorKeys =
+      [
+        'A',
+        'B',
+        'C',
+        'D',
+      ] as const;
 
     decision.options.forEach(
-      (option, index) => {
+      (
+        option,
+        index,
+      ) => {
         const key =
           doorKeys[index];
 
@@ -943,8 +1335,11 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         const marker =
-          room.id === INITIAL_ROOM_ID
-            ? DECISION_DOOR_EXITS[key]
+          room.id ===
+          INITIAL_ROOM_ID
+            ? DECISION_DOOR_EXITS[
+                key
+              ]
             : OPTION_ROOM_DOOR_EXITS[
                 key.toLowerCase() as
                   | 'a'
@@ -954,30 +1349,45 @@ export class GrillingScene extends Phaser.Scene {
               ];
 
         const roomMinTileX =
-          room.id === INITIAL_ROOM_ID
+          room.id ===
+          INITIAL_ROOM_ID
             ? DECISION_MAP_BOUNDS.minTileX
             : OPTION_ROOM_BOUNDS.minTileX;
 
         const roomMinTileY =
-          room.id === INITIAL_ROOM_ID
+          room.id ===
+          INITIAL_ROOM_ID
             ? DECISION_MAP_BOUNDS.minTileY
             : OPTION_ROOM_BOUNDS.minTileY;
 
         const tileSize =
-          room.id === INITIAL_ROOM_ID
+          room.id ===
+          INITIAL_ROOM_ID
             ? DECISION_MAP_TILE_SIZE
             : OPTION_ROOM_TILE_SIZE;
 
+        /*
+         * Door interaction point:
+         *
+         *   X = center of marker
+         *   Y = bottom edge of marker
+         *
+         * This preserves the existing visual door placement
+         * from master while making all room connections use
+         * the same world coordinate system.
+         */
         const doorX =
           room.x +
           marker.x -
-          roomMinTileX * tileSize +
+          roomMinTileX *
+            tileSize +
           marker.width / 2;
 
         const doorY =
           room.y +
           marker.y -
-          roomMinTileY * tileSize +
+          roomMinTileY *
+            tileSize +
           marker.height;
 
         const DOOR_VISUAL_OFFSET_X =
@@ -995,8 +1405,13 @@ export class GrillingScene extends Phaser.Scene {
                 DOOR_VISUAL_OFFSET_Y,
               'door-closed',
             )
-            .setOrigin(0.5, 1.42)
-            .setDepth(50)
+            .setOrigin(
+              0.5,
+              1.42,
+            )
+            .setDepth(
+              50,
+            )
             .setScale(
               DOOR_SCALE,
               DOOR_SCALE * 1.25,
@@ -1023,21 +1438,41 @@ export class GrillingScene extends Phaser.Scene {
             doorBlocker,
           );
 
-        const door: DoorObject = {
+        const door:
+          DoorObject = {
           option,
+
           key,
-          x: doorX,
-          y: doorY,
+
+          x:
+            doorX,
+
+          y:
+            doorY,
+
           doorSprite,
+
           doorBlocker,
+
           doorCollider,
-          isOpen: false,
-          roomId: room.id,
-          roomSegment: room,
+
+          isOpen:
+            false,
+
+          roomId:
+            room.id,
+
+          roomSegment:
+            room,
         };
 
-        this.doors.push(door);
-        room.doors.push(door);
+        this.doors.push(
+          door,
+        );
+
+        room.doors.push(
+          door,
+        );
 
         room.objects.push(
           doorSprite,
@@ -1050,7 +1485,8 @@ export class GrillingScene extends Phaser.Scene {
       GamePhase.EXPLORING_DOORS;
 
     this.emitUI({
-      type: 'EXPLORING_DOORS',
+      type:
+        'EXPLORING_DOORS',
     });
   }
 
@@ -1058,9 +1494,14 @@ export class GrillingScene extends Phaser.Scene {
     door: DoorObject,
   ): void {
     const globalIndex =
-      this.doors.indexOf(door);
+      this.doors.indexOf(
+        door,
+      );
 
-    if (globalIndex !== -1) {
+    if (
+      globalIndex !==
+      -1
+    ) {
       this.doors.splice(
         globalIndex,
         1,
@@ -1072,7 +1513,10 @@ export class GrillingScene extends Phaser.Scene {
         door,
       );
 
-    if (roomIndex !== -1) {
+    if (
+      roomIndex !==
+      -1
+    ) {
       door.roomSegment.doors.splice(
         roomIndex,
         1,
@@ -1091,7 +1535,10 @@ export class GrillingScene extends Phaser.Scene {
             object,
           );
 
-        if (objectIndex !== -1) {
+        if (
+          objectIndex !==
+          -1
+        ) {
           door.roomSegment.objects.splice(
             objectIndex,
             1,
@@ -1104,11 +1551,18 @@ export class GrillingScene extends Phaser.Scene {
 
     door.doorCollider.destroy();
 
-    if (this.currentDoor === door) {
+    if (
+      this.currentDoor ===
+      door
+    ) {
       this.currentDoor =
         undefined;
     }
   }
+
+  // ===========================================================================
+  // Door Collision
+  // ===========================================================================
 
   private openDoorwayCollision(
     door: DoorObject,
@@ -1139,7 +1593,8 @@ export class GrillingScene extends Phaser.Scene {
         | undefined;
 
     if (body) {
-      body.enable = enabled;
+      body.enable =
+        enabled;
     }
   }
 
@@ -1161,15 +1616,17 @@ export class GrillingScene extends Phaser.Scene {
         door.key
       ];
 
-    const tileX = Math.floor(
-      marker.x /
-        DECISION_MAP_TILE_SIZE,
-    );
+    const tileX =
+      Math.floor(
+        marker.x /
+          DECISION_MAP_TILE_SIZE,
+      );
 
-    const tileY = Math.floor(
-      marker.y /
-        DECISION_MAP_TILE_SIZE,
-    );
+    const tileY =
+      Math.floor(
+        marker.y /
+          DECISION_MAP_TILE_SIZE,
+      );
 
     this.clearVerticalWall(
       wallLayer,
@@ -1196,10 +1653,12 @@ export class GrillingScene extends Phaser.Scene {
       door.roomSegment;
 
     const localX =
-      door.x - room.x;
+      door.x -
+      room.x;
 
     const localY =
-      door.y - room.y;
+      door.y -
+      room.y;
 
     const tileX =
       Math.floor(
@@ -1236,7 +1695,8 @@ export class GrillingScene extends Phaser.Scene {
     for (
       let y =
         startTileY - 1;
-      y >= minTileY;
+      y >=
+      minTileY;
       y -= 1
     ) {
       const tile =
@@ -1248,15 +1708,19 @@ export class GrillingScene extends Phaser.Scene {
 
       if (
         tile &&
-        tile.index !== -1
+        tile.index !==
+          -1
       ) {
-        wallStartY = y;
+        wallStartY =
+          y;
+
         break;
       }
     }
 
     if (
-      wallStartY === undefined
+      wallStartY ===
+      undefined
     ) {
       return;
     }
@@ -1271,7 +1735,8 @@ export class GrillingScene extends Phaser.Scene {
       for (
         let y =
           wallStartY;
-        y >= minTileY;
+        y >=
+        minTileY;
         y -= 1
       ) {
         const tile =
@@ -1283,7 +1748,8 @@ export class GrillingScene extends Phaser.Scene {
 
         if (
           !tile ||
-          tile.index === -1
+          tile.index ===
+            -1
         ) {
           continue;
         }
@@ -1306,12 +1772,18 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
+  // ===========================================================================
+  // Door Proximity
+  // ===========================================================================
+
   private checkDoorProximity(): void {
     let nearest:
       | DoorObject
-      | null = null;
+      | null =
+      null;
 
-    let minDist = Infinity;
+    let minDist =
+      Infinity;
 
     const activeDoors =
       this.activeRoomSegment
@@ -1332,16 +1804,22 @@ export class GrillingScene extends Phaser.Scene {
         distance < 50 &&
         distance < minDist
       ) {
-        minDist = distance;
-        nearest = door;
+        minDist =
+          distance;
+
+        nearest =
+          door;
       }
     }
 
     if (
       nearest &&
-      nearest !== this.currentDoor
+      nearest !==
+        this.currentDoor
     ) {
-      if (this.currentDoor) {
+      if (
+        this.currentDoor
+      ) {
         this.currentDoor.doorSprite.clearTint();
       }
 
@@ -1373,6 +1851,10 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
+  // ===========================================================================
+  // Door Prompt
+  // ===========================================================================
+
   private showDoorPrompt(
     door: DoorObject,
   ): void {
@@ -1381,9 +1863,14 @@ export class GrillingScene extends Phaser.Scene {
     );
 
     this.emitUI({
-      type: 'DOOR_PROXIMITY',
-      visible: true,
-      option: door.option,
+      type:
+        'DOOR_PROXIMITY',
+
+      visible:
+        true,
+
+      option:
+        door.option,
     });
   }
 
@@ -1399,10 +1886,17 @@ export class GrillingScene extends Phaser.Scene {
     );
 
     this.emitUI({
-      type: 'DOOR_PROXIMITY',
-      visible: false,
+      type:
+        'DOOR_PROXIMITY',
+
+      visible:
+        false,
     });
   }
+
+  // ===========================================================================
+  // Door Interaction
+  // ===========================================================================
 
   private approachDoor(
     door: DoorObject,
@@ -1417,14 +1911,20 @@ export class GrillingScene extends Phaser.Scene {
 
     this.hideDoorPrompt();
 
-    if (!door.isOpen) {
-      door.isOpen = true;
+    if (
+      !door.isOpen
+    ) {
+      door.isOpen =
+        true;
 
       door.doorSprite
         .setTexture(
           'door-open',
         )
-        .setOrigin(0.5, 1.32)
+        .setOrigin(
+          0.5,
+          1.32,
+        )
         .setScale(
           DOOR_OPEN_SCALE,
         );
@@ -1440,16 +1940,27 @@ export class GrillingScene extends Phaser.Scene {
     );
 
     this.emitUI({
-      type: 'DOOR_CONTEXT',
-      visible: true,
-      option: door.option,
+      type:
+        'DOOR_CONTEXT',
+
+      visible:
+        true,
+
+      option:
+        door.option,
     });
   }
+
+  // ===========================================================================
+  // Context Confirmation
+  // ===========================================================================
 
   public confirmDoorSelection(
     context?: string,
   ): void {
-    if (!this.currentDoor) {
+    if (
+      !this.currentDoor
+    ) {
       return;
     }
 
@@ -1470,7 +1981,14 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.currentDoor) {
+    /*
+     * Preserve the master branch behaviour:
+     * cancelling closes the UI flow by selecting the
+     * current option without additional context.
+     */
+    if (
+      !this.currentDoor
+    ) {
       return;
     }
 
@@ -1501,18 +2019,16 @@ export class GrillingScene extends Phaser.Scene {
     this.store.updateCurrent({
       selectedOptionId:
         door.option.id,
+
       context,
     });
 
     /*
-     * IMPORTANT:
+     * Create exactly ONE corridor for the selected door.
      *
-     * Create the corridor BEFORE sending
-     * OPTION_SELECTED to the server.
-     *
-     * The next DECISION_CREATED event will
-     * use this exact corridor to build the
-     * next Option Room.
+     * This is intentionally done here rather than in
+     * approachDoor(), so the corridor is created only
+     * after confirmation.
      */
     const corridor =
       this.createCorridor(
@@ -1531,27 +2047,41 @@ export class GrillingScene extends Phaser.Scene {
     );
 
     this.emitUI({
-      type: 'AI_THINKING',
-      visible: true,
+      type:
+        'AI_THINKING',
+
+      visible:
+        true,
+
       message:
         'Generating the next decision...',
     });
 
     this.emitUI({
-      type: 'OBJECTIVE',
+      type:
+        'OBJECTIVE',
+
       objective:
         'Walk through the corridor',
     });
 
     this.ws.send({
-      type: 'OPTION_SELECTED',
+      type:
+        'OPTION_SELECTED',
+
       nodeId:
         this.currentNodeId,
+
       optionId:
         door.option.id,
+
       context,
     });
   }
+
+  // ===========================================================================
+  // Door UI Anchors
+  // ===========================================================================
 
   public getDoorOptionAnchors(): Array<{
     key: 'A' | 'B' | 'C' | 'D';
@@ -1565,16 +2095,28 @@ export class GrillingScene extends Phaser.Scene {
         ?.doors ?? []
     ).map(
       (door) => ({
-        key: door.key,
-        label: door.option.label,
-        x: door.x,
-        y: door.y - 33,
+        key:
+          door.key,
+
+        label:
+          door.option.label,
+
+        x:
+          door.x,
+
+        y:
+          door.y - 33,
+
         active:
           this.currentDoor ===
           door,
       }),
     );
   }
+
+  // ===========================================================================
+  // World Bounds
+  // ===========================================================================
 
   private extendWorldBounds(
     left: number,
@@ -1590,7 +2132,9 @@ export class GrillingScene extends Phaser.Scene {
         bottom - top,
       );
 
-    if (!this.worldBounds) {
+    if (
+      !this.worldBounds
+    ) {
       this.worldBounds =
         next;
     } else {
@@ -1600,19 +2144,60 @@ export class GrillingScene extends Phaser.Scene {
       );
     }
 
-    const padding = 32;
+    const padding =
+      32;
 
     this.physics.world.setBounds(
       this.worldBounds.x -
         padding,
+
       this.worldBounds.y -
         padding,
+
       this.worldBounds.width +
         padding * 2,
+
       this.worldBounds.height +
         padding * 2,
     );
   }
+
+  // ===========================================================================
+  // Marker Helpers
+  // ===========================================================================
+
+  private getCorridorMarkerWorldPosition(
+    segment: WorldSegment,
+    marker: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    },
+  ): {
+    x: number;
+    y: number;
+  } {
+    return {
+      x:
+        segment.x +
+        marker.x -
+        CORRIDOR_MAP_BOUNDS.minTileX *
+          CORRIDOR_MAP_TILE_SIZE +
+        marker.width / 2,
+
+      y:
+        segment.y +
+        marker.y -
+        CORRIDOR_MAP_BOUNDS.minTileY *
+          CORRIDOR_MAP_TILE_SIZE +
+        marker.height / 2,
+    };
+  }
+
+  // ===========================================================================
+  // Player
+  // ===========================================================================
 
   private createPlayer(): void {
     this.player =
@@ -1643,6 +2228,10 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
+  // ===========================================================================
+  // Keyboard
+  // ===========================================================================
+
   private setupInput(): void {
     this.cursors =
       this.input.keyboard!.createCursorKeys();
@@ -1652,6 +2241,10 @@ export class GrillingScene extends Phaser.Scene {
         Phaser.Input.Keyboard.KeyCodes.E,
       );
   }
+
+  // ===========================================================================
+  // UI
+  // ===========================================================================
 
   private emitUI(
     event: Parameters<
@@ -1664,9 +2257,17 @@ export class GrillingScene extends Phaser.Scene {
     );
   }
 
+  // ===========================================================================
+  // Decision History
+  // ===========================================================================
+
   private emitDecisionHistory(
-    record: DecisionRecord | undefined,
+    record:
+      | DecisionRecord
+      | undefined,
+
     explanationOverride?: string,
+
     recommendedOption?: string,
   ): void {
     if (
@@ -1682,7 +2283,9 @@ export class GrillingScene extends Phaser.Scene {
           record.selectedOptionId,
       );
 
-    if (!selectedOption) {
+    if (
+      !selectedOption
+    ) {
       return;
     }
 
@@ -1695,9 +2298,13 @@ export class GrillingScene extends Phaser.Scene {
           (
             value,
           ): value is string =>
-            Boolean(value?.trim()),
+            Boolean(
+              value?.trim(),
+            ),
         )
-        .join('\n\n');
+        .join(
+          '\n\n',
+        );
 
     const explanation =
       explanationOverride
@@ -1718,27 +2325,40 @@ export class GrillingScene extends Phaser.Scene {
     }
 
     this.emitUI({
-      type: 'DECISION_HISTORY',
+      type:
+        'DECISION_HISTORY',
+
       entry: {
         nodeId:
           record.nodeId,
+
         round:
           record.round,
+
         question:
           record.question,
+
         selectedOption,
+
         explanation,
+
         recommendedOption:
           finalRecommendedOption,
       },
     });
   }
 
+  // ===========================================================================
+  // Restore
+  // ===========================================================================
+
   private restoreCurrentPhase(): void {
     const decision =
       this.store.getCurrentDecision();
 
-    if (!decision) {
+    if (
+      !decision
+    ) {
       return;
     }
 
@@ -1760,14 +2380,25 @@ export class GrillingScene extends Phaser.Scene {
       GamePhase.EXPLORING_DOORS;
 
     this.emitUI({
-      type: 'EXPLORING_DOORS',
+      type:
+        'EXPLORING_DOORS',
     });
   }
+
+  // ===========================================================================
+  // Server Messages
+  // ===========================================================================
 
   private handleMessage(
     msg: ServerMessage,
   ): void {
-    switch (msg.type) {
+    switch (
+      msg.type
+    ) {
+      // -----------------------------------------------------------------------
+      // New Decision
+      // -----------------------------------------------------------------------
+
       case 'DECISION_CREATED': {
         const decision =
           msg as DecisionCreatedMsg;
@@ -1780,8 +2411,8 @@ export class GrillingScene extends Phaser.Scene {
         );
 
         /*
-         * Ignore duplicate DECISION_CREATED
-         * events for the currently displayed node.
+         * Ignore duplicate server events for the
+         * currently displayed decision.
          */
         if (
           decision.nodeId ===
@@ -1796,31 +2427,41 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         this.emitUI({
-          type: 'AI_THINKING',
-          visible: false,
+          type:
+            'AI_THINKING',
+
+          visible:
+            false,
         });
 
         this.store.addDecision({
           nodeId:
             decision.nodeId,
+
           question:
             decision.question,
+
           description:
             decision.description,
+
           options:
             decision.options,
+
           recommendation:
             decision.recommendation,
+
           round:
             decision.round,
         });
 
         /*
-         * Find the most recently selected decision
-         * for decision-history display.
+         * Locate the most recently selected decision
+         * for decision history.
          */
         const previousDecision =
-          [...this.store.decisions]
+          [
+            ...this.store.decisions,
+          ]
             .reverse()
             .find(
               (record) =>
@@ -1831,19 +2472,26 @@ export class GrillingScene extends Phaser.Scene {
                 ),
             );
 
-        if (previousDecision) {
+        if (
+          previousDecision
+        ) {
           this.emitDecisionHistory(
             previousDecision,
-            decision.recommendation?.why,
-            decision.recommendation?.option,
+
+            decision
+              .recommendation
+              ?.why,
+
+            decision
+              .recommendation
+              ?.option,
           );
         }
 
         /*
          * FIRST DECISION
          *
-         * This is the only decision that belongs
-         * in the original Decision Room.
+         * Round 1 stays in the original Decision Room.
          */
         if (
           decision.round === 1 &&
@@ -1873,13 +2521,16 @@ export class GrillingScene extends Phaser.Scene {
             GamePhase.EXPLORING_DOORS;
 
           this.emitUI({
-            type: 'OBJECTIVE',
+            type:
+              'OBJECTIVE',
+
             objective:
               'Choose a door',
           });
 
           this.emitUI({
-            type: 'EXPLORING_DOORS',
+            type:
+              'EXPLORING_DOORS',
           });
 
           break;
@@ -1888,14 +2539,16 @@ export class GrillingScene extends Phaser.Scene {
         /*
          * SUBSEQUENT DECISION
          *
-         * A corridor must already exist because
-         * the player selected a door before the
-         * server generated this decision.
+         * A corridor must exist because the player
+         * selected a door before the server generated
+         * this decision.
          */
         const corridor =
           this.activeCorridorSegment;
 
-        if (!corridor) {
+        if (
+          !corridor
+        ) {
           console.error(
             '[GrillingScene] Missing corridor for subsequent decision:',
             decision.nodeId,
@@ -1904,12 +2557,17 @@ export class GrillingScene extends Phaser.Scene {
           );
 
           this.emitUI({
-            type: 'AI_THINKING',
-            visible: false,
+            type:
+              'AI_THINKING',
+
+            visible:
+              false,
           });
 
           this.emitUI({
-            type: 'ERROR',
+            type:
+              'ERROR',
+
             message:
               'Unable to create the next option room because the corridor is missing.',
           });
@@ -1930,10 +2588,8 @@ export class GrillingScene extends Phaser.Scene {
         );
 
         /*
-         * The corridor has now been consumed.
-         *
-         * The newly created Option Room becomes
-         * activeRoomSegment.
+         * The corridor is now connected to the
+         * newly-created Option Room.
          */
         this.activeCorridorSegment =
           undefined;
@@ -1945,17 +2601,24 @@ export class GrillingScene extends Phaser.Scene {
           GamePhase.EXPLORING_DOORS;
 
         this.emitUI({
-          type: 'OBJECTIVE',
+          type:
+            'OBJECTIVE',
+
           objective:
             'Choose a door',
         });
 
         this.emitUI({
-          type: 'EXPLORING_DOORS',
+          type:
+            'EXPLORING_DOORS',
         });
 
         break;
       }
+
+      // -----------------------------------------------------------------------
+      // Session Complete
+      // -----------------------------------------------------------------------
 
       case 'SESSION_COMPLETE': {
         const complete =
@@ -1971,20 +2634,30 @@ export class GrillingScene extends Phaser.Scene {
         this.scene.start(
           'TrophyScene',
           {
-            store: this.store,
+            store:
+              this.store,
           },
         );
 
         break;
       }
 
+      // -----------------------------------------------------------------------
+      // Session Resumed
+      // -----------------------------------------------------------------------
+
       case 'SESSION_RESUMED': {
         this.emitUI({
-          type: 'SESSION_RESUMED',
+          type:
+            'SESSION_RESUMED',
         });
 
         break;
       }
+
+      // -----------------------------------------------------------------------
+      // Evaluation
+      // -----------------------------------------------------------------------
 
       case 'EVALUATION': {
         const evaluation =
@@ -1997,7 +2670,9 @@ export class GrillingScene extends Phaser.Scene {
               evaluation.nodeId,
           );
 
-        if (evaluatedDecision) {
+        if (
+          evaluatedDecision
+        ) {
           evaluatedDecision.feedback =
             evaluation.feedback;
 
@@ -2010,20 +2685,30 @@ export class GrillingScene extends Phaser.Scene {
         }
 
         this.emitUI({
-          type: 'AI_THINKING',
-          visible: false,
+          type:
+            'AI_THINKING',
+
+          visible:
+            false,
         });
 
         this.emitUI({
-          type: 'EVALUATION',
+          type:
+            'EVALUATION',
+
           feedback:
             evaluation.feedback,
+
           consequence:
             evaluation.consequence,
         });
 
         break;
       }
+
+      // -----------------------------------------------------------------------
+      // Error
+      // -----------------------------------------------------------------------
 
       case 'ERROR': {
         console.error(
@@ -2032,12 +2717,17 @@ export class GrillingScene extends Phaser.Scene {
         );
 
         this.emitUI({
-          type: 'AI_THINKING',
-          visible: false,
+          type:
+            'AI_THINKING',
+
+          visible:
+            false,
         });
 
         this.emitUI({
-          type: 'ERROR',
+          type:
+            'ERROR',
+
           message:
             msg.message,
         });
@@ -2046,6 +2736,10 @@ export class GrillingScene extends Phaser.Scene {
       }
     }
   }
+
+  // ===========================================================================
+  // Cleanup
+  // ===========================================================================
 
   private destroySegment(
     segment: WorldSegment,
