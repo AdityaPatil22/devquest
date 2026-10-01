@@ -8,6 +8,8 @@
  *
  *   Tile Layer 1
  *   Walls
+ *   furniture
+ *   computers
  *   markers
  *
  * Important positions are authored in Tiled using marker objects.
@@ -43,12 +45,21 @@ export const OPTION_ROOM_TILEMAP_PATHS: Record<OptionRoomKey, string> = {
 /**
  * Tile layers rendered from bottom -> top.
  *
- * The current Tiled maps use:
+ * These layers are present in the updated Tiled map.
  *
  *   Tile Layer 1
  *   Walls
+ *   furniture
+ *   computers
+ *
+ * The markers layer is an object layer and is handled separately.
  */
-export const OPTION_ROOM_TILE_LAYERS = ['Tile Layer 1', 'Walls'];
+export const OPTION_ROOM_TILE_LAYERS = [
+  'Tile Layer 1',
+  'Walls',
+  'furniture',
+  'computers',
+] as const;
 
 /**
  * Layer containing blocking wall tiles.
@@ -56,33 +67,42 @@ export const OPTION_ROOM_TILE_LAYERS = ['Tile Layer 1', 'Walls'];
 export const OPTION_ROOM_COLLIDABLE_LAYER = 'Walls';
 
 /**
- * Actual tile bounds of the authored room geometry.
+ * Layer containing authored marker objects.
+ */
+export const OPTION_ROOM_MARKER_LAYER = 'markers';
+
+/**
+ * The updated option-room maps are infinite/chunked.
  *
- * The current map layers cover:
+ * The authored room geometry in the collision layer covers:
  *
  *   X: 0 -> 63
  *   Y: 0 -> 47
  *
  * These are map/tile coordinates, not marker coordinates.
+ *
+ * The Walls layer is 64 tiles wide and 48 tiles high.
  */
 export const OPTION_ROOM_BOUNDS = {
   minTileX: 0,
   maxTileX: 63,
   minTileY: 0,
   maxTileY: 47,
-};
+} as const;
 
 /**
  * Width of the playable room in pixels.
  */
 export const OPTION_ROOM_WIDTH_PX =
-  (OPTION_ROOM_BOUNDS.maxTileX - OPTION_ROOM_BOUNDS.minTileX + 1) * OPTION_ROOM_TILE_SIZE;
+  (OPTION_ROOM_BOUNDS.maxTileX - OPTION_ROOM_BOUNDS.minTileX + 1) *
+  OPTION_ROOM_TILE_SIZE;
 
 /**
  * Height of the playable room in pixels.
  */
 export const OPTION_ROOM_HEIGHT_PX =
-  (OPTION_ROOM_BOUNDS.maxTileY - OPTION_ROOM_BOUNDS.minTileY + 1) * OPTION_ROOM_TILE_SIZE;
+  (OPTION_ROOM_BOUNDS.maxTileY - OPTION_ROOM_BOUNDS.minTileY + 1) *
+  OPTION_ROOM_TILE_SIZE;
 
 /**
  * Marker coordinates authored in Tiled.
@@ -183,7 +203,8 @@ export const OPTION_ROOM_DOOR_EXITS = OPTION_ROOM_MARKERS.doorExits;
 /**
  * Door interaction markers.
  */
-export const OPTION_ROOM_DOOR_INTERACTIONS = OPTION_ROOM_MARKERS.doorInteractions;
+export const OPTION_ROOM_DOOR_INTERACTIONS =
+  OPTION_ROOM_MARKERS.doorInteractions;
 
 /**
  * Replace Tiled's external tileset references with
@@ -192,6 +213,8 @@ export const OPTION_ROOM_DOOR_INTERACTIONS = OPTION_ROOM_MARKERS.doorInteraction
  * The option-room maps are infinite/chunked maps, so
  * preserve the authored chunk coordinates and tile data.
  */
-export function patchOptionRoomTilesets(rawMapJson: { tilesets: unknown[] }): void {
+export function patchOptionRoomTilesets(rawMapJson: {
+  tilesets: unknown[];
+}): void {
   patchDecisionRoomTilesets(rawMapJson);
 }
