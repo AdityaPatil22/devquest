@@ -633,7 +633,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
       case 'DECISION_CREATED': {
         const decision = msg as DecisionCreatedMsg;
-
+      
         this.store.addDecision({
           nodeId: decision.nodeId,
           question: decision.question,
@@ -642,37 +642,28 @@ export class CommonRoomScene extends Phaser.Scene {
           recommendation: decision.recommendation,
           round: decision.round,
         });
-
-        /**
-         * Stop showing the elevator
-         * React UI.
-         */
+      
         this.gateOpen = false;
-
         this.gateWaiting = false;
-
         this.gateSubmitted = false;
-
-        /**
-         * Close elevator.
-         */
+      
         this.elevator?.setFrame(0);
-
         this.elevatorAnimating = false;
-
+      
         this.emitUI({
           type: 'ELEVATOR_CLOSED',
         });
-
-        /**
-         * Start DecisionRoom.
-         */
+      
+        this.unsubscribeWs?.();
+        this.unsubscribeWs = undefined;
+      
         this.scene.start('GrillingScene', {
           ws: this.ws,
           store: this.store,
           decision,
+          restored: false,
         });
-
+      
         break;
       }
 
