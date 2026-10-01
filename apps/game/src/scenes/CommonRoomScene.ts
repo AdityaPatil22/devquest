@@ -17,7 +17,7 @@ import { SessionStore } from '../state/SessionStore';
 
 import type { ServerMessage, DecisionCreatedMsg } from '../net/protocol';
 
-import { emitUIEvent } from '../game/GameBridge';
+import { emitUI } from './support/sceneUi';
 
 interface SceneData {
   ws: WebSocketClient;
@@ -51,84 +51,26 @@ const ELEVATOR_SCALE = 0.35;
 const ELEVATOR_FRAME_DELAY = 150;
 
 export class CommonRoomScene extends Phaser.Scene {
-  // ─────────────────────────────────────────────
-  // Player
-  // ─────────────────────────────────────────────
-
   private player!: Player;
-
-  // ─────────────────────────────────────────────
-  // Map
-  // ─────────────────────────────────────────────
-
   private map!: Phaser.Tilemaps.Tilemap;
-
   private groundLayer?: ReturnType<Phaser.Tilemaps.Tilemap['createLayer']>;
-
   private walls!: Phaser.Physics.Arcade.StaticGroup;
-
-  // ─────────────────────────────────────────────
-  // Input
-  // ─────────────────────────────────────────────
-
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-
   private interactKey!: Phaser.Input.Keyboard.Key;
-
   private escapeKey!: Phaser.Input.Keyboard.Key;
-
-  // ─────────────────────────────────────────────
-  // Network / state
-  // ─────────────────────────────────────────────
-
   private ws!: WebSocketClient;
-
   private store!: SessionStore;
-
   private unsubscribeWs?: () => void;
-
-  // ─────────────────────────────────────────────
-  // Elevator
-  // ─────────────────────────────────────────────
-
   private elevator?: Phaser.GameObjects.Sprite;
-
   private elevatorAnimating = false;
-
   private elevatorInteractionX = 0;
-
   private elevatorInteractionY = 0;
-
-  // ─────────────────────────────────────────────
-  // Gate state
-  // ─────────────────────────────────────────────
-
-  /**
-   * Whether the React elevator modal is open.
-   */
   private gateOpen = false;
-
-  /**
-   * Whether the server is currently generating
-   * the first decision.
-   */
   private gateWaiting = false;
-
-  /**
-   * Prevent duplicate problem submissions.
-   */
   private gateSubmitted = false;
-
-  /**
-   * Whether the player is close enough to
-   * interact with the elevator.
-   */
   private nearGate = false;
-
   private gateX = 0;
   private gateY = 0;
-
-  // ─────────────────────────────────────────────
 
   constructor() {
     super({
@@ -142,17 +84,11 @@ export class CommonRoomScene extends Phaser.Scene {
 
   init(data: SceneData): void {
     this.ws = data.ws;
-
     this.store = data.store;
-
     this.gateWaiting = data.gateWaiting ?? false;
-
     this.gateOpen = false;
-
     this.gateSubmitted = false;
-
     this.elevatorAnimating = false;
-
     this.nearGate = false;
   }
 
@@ -162,11 +98,8 @@ export class CommonRoomScene extends Phaser.Scene {
 
   create(): void {
     this.walls = this.physics.add.staticGroup();
-
     this.buildRoom();
-
     this.createPlayer();
-
     this.physics.add.collider(this.player.sprite, this.walls);
 
     if (this.groundLayer) {
@@ -174,14 +107,13 @@ export class CommonRoomScene extends Phaser.Scene {
     }
 
     this.setupInput();
-
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
     /**
      * Tell React that the common room
      * has been loaded.
      */
-    this.emitUI({
+    emitUI(this, {
       type: 'COMMON_ROOM_READY',
     });
 
@@ -221,17 +153,6 @@ export class CommonRoomScene extends Phaser.Scene {
     this.player.handleMovement(this.cursors);
 
     this.checkGateProximity();
-  }
-
-  // ─────────────────────────────────────────────
-  // React bridge
-  // ─────────────────────────────────────────────
-
-  /**
-   * Send events from Phaser → React.
-   */
-  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
-    emitUIEvent(this.game, event);
   }
 
   // ─────────────────────────────────────────────
@@ -438,7 +359,7 @@ export class CommonRoomScene extends Phaser.Scene {
          *
          * "Press E to enter elevator"
          */
-        this.emitUI({
+        emitUI(this, {
           type: 'ELEVATOR_PROXIMITY',
           visible: true,
         });
@@ -450,7 +371,7 @@ export class CommonRoomScene extends Phaser.Scene {
     } else if (this.nearGate) {
       this.nearGate = false;
 
-      this.emitUI({
+      emitUI(this, {
         type: 'ELEVATOR_PROXIMITY',
         visible: false,
       });
@@ -470,7 +391,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.nearGate = false;
 
-    this.emitUI({
+    emitUI(this, {
       type: 'ELEVATOR_PROXIMITY',
       visible: false,
     });
@@ -484,7 +405,7 @@ export class CommonRoomScene extends Phaser.Scene {
      * React now displays the problem
      * statement modal.
      */
-    this.emitUI({
+    emitUI(this, {
       type: 'ELEVATOR_OPEN',
       waiting: false,
     });
@@ -513,7 +434,7 @@ export class CommonRoomScene extends Phaser.Scene {
     /**
      * React owns the waiting UI.
      */
-    this.emitUI({
+    emitUI(this, {
       type: 'ELEVATOR_OPEN',
       waiting: true,
       message: 'Waiting for the next decision...',
@@ -549,7 +470,7 @@ export class CommonRoomScene extends Phaser.Scene {
      * React switches the modal into
      * its loading/waiting state.
      */
-    this.emitUI({
+    emitUI(this, {
       type: 'ELEVATOR_SUBMITTING',
       message: 'Entering the elevator...',
     });
@@ -583,7 +504,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
     this.elevatorAnimating = false;
 
-    this.emitUI({
+    emitUI(this, {
       type: 'ELEVATOR_CLOSED',
     });
   }
@@ -603,7 +524,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
         this.store.setSession(msg.sessionId);
 
-        this.emitUI({
+        emitUI(this, {
           type: 'SESSION_STARTED',
           sessionId: msg.sessionId,
         });
@@ -620,7 +541,7 @@ export class CommonRoomScene extends Phaser.Scene {
 
         this.store.hydrate(msg.snapshot);
 
-        this.emitUI({
+        emitUI(this, {
           type: 'SESSION_RESUMED',
         });
 
@@ -650,7 +571,7 @@ export class CommonRoomScene extends Phaser.Scene {
         this.elevator?.setFrame(0);
         this.elevatorAnimating = false;
 
-        this.emitUI({
+        emitUI(this, {
           type: 'ELEVATOR_CLOSED',
         });
 
@@ -682,7 +603,7 @@ export class CommonRoomScene extends Phaser.Scene {
          * Keep the elevator modal open
          * and let React display the error.
          */
-        this.emitUI({
+        emitUI(this, {
           type: 'ERROR',
           message: msg.message,
         });
@@ -703,19 +624,12 @@ export class CommonRoomScene extends Phaser.Scene {
 
   shutdown(): void {
     this.unsubscribeWs?.();
-
     this.unsubscribeWs = undefined;
-
     this.elevator = undefined;
-
     this.player?.stop();
-
     this.gateOpen = false;
-
     this.gateWaiting = false;
-
     this.gateSubmitted = false;
-
     this.nearGate = false;
   }
 }

@@ -1,0 +1,326 @@
+/**
+ * Owns the Grilling run's world: every segment built so far, which room the
+ * active decision lives in, and the combined physics bounds.
+ *
+ * It knows how to place segments relative to one another and nothing about
+ * decisions, doors, the WebSocket, or the React UI — GrillingScene owns those
+ * and asks this class for geometry.
+ */
+
+import Phaser from 'phaser';
+
+import {
+  DECISION_TILEMAP_KEY,
+  DECISION_TILESETS,
+  DECISION_MAP_TILE_SIZE,
+  DECISION_TILE_LAYERS,
+  DECISION_COLLIDABLE_LAYER,
+  DECISION_MAP_BOUNDS,
+} from '../../tilemaps/decisionRoomTilemap';
+
+import {
+  CORRIDOR_TILEMAP_KEY,
+  CORRIDOR_TILESETS,
+  CORRIDOR_TILE_LAYERS,
+  CORRIDOR_COLLIDABLE_LAYER,
+  CORRIDOR_MAP_TILE_SIZE,
+  CORRIDOR_MAP_BOUNDS,
+  CORRIDOR_MARKERS,
+  patchCorridorTilesets,
+} from '../../tilemaps/corridorTilemap';
+
+import {
+  OPTION_ROOM_TILEMAP_KEYS,
+  OPTION_ROOM_TILE_LAYERS,
+  OPTION_ROOM_COLLIDABLE_LAYER,
+  OPTION_ROOM_TILESETS,
+  OPTION_ROOM_TILE_SIZE,
+  OPTION_ROOM_BOUNDS,
+  OPTION_ROOM_MARKERS,
+} from '../../tilemaps/optionRoomTilemap';
+
+import type { TilesetDef } from '../../tilemaps/patchTilesets';
+import { addTileLayers, loadTilemap, type CreatedTilemapLayer } from '../support/tilemap';
+import { mapOriginPx, mapSizePx, markerCenter, openMarkerCollision, type Marker } from './geometry';
+import { destroySegment, INITIAL_ROOM_ID, type DoorObject, type WorldSegment } from './segment';
+
+/** Padding added around the merged segment bounds, in pixels. */
+const WORLD_BOUNDS_PADDING = 32;
+
+/** Layer depth each segment type stacks from, so later segments draw on top. */
+const DEPTH = {
+  decisionRoom: 0,
+  corridor: 10,
+  optionRoom: 20,
+} as const;
+
+export class GrillingWorld {
+  private readonly segments = new Map<string, WorldSegment>();
+
+  private bounds?: Phaser.Geom.Rectangle;
+
+  /** Sequentially cycles the available option-room maps. */
+  private optionRoomIndex = 0;
+
+  /** Room containing the currently active decision. */
+  activeRoom?: WorldSegment;
+
+  /** Corridor waiting for the next decision to be generated. */
+  activeCorridor?: WorldSegment;
+
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private playerSprite: Phaser.Physics.Arcade.Sprite,
+  ) {}
+
+  /**
+   * The world outlives the scene's `create()`, which builds a fresh player
+   * each time, so later segments must collide with the current sprite.
+   */
+  setPlayer(sprite: Phaser.Physics.Arcade.Sprite): void {
+    this.playerSprite = sprite;
+  }
+
+  get isEmpty(): boolean {
+    return this.segments.size === 0;
+  }
+
+  get initialRoom(): WorldSegment | undefined {
+    return this.segments.get(INITIAL_ROOM_ID);
+  }
+
+  // ===========================================================================
+  // Decision Room
+  // ===========================================================================
+
+  /** The hand-authored room the run starts in. Built once per run. */
+  buildDecisionRoom(): WorldSegment {
+    const { map, tilesets } = this.loadSegment(
+      DECISION_TILEMAP_KEY,
+      DECISION_TILESETS,
+      DECISION_MAP_TILE_SIZE,
+    );
+
+    const { layers, colliders } = this.addLayers({
+      layerNames: DECISION_TILE_LAYERS,
+      collidableLayer: DECISION_COLLIDABLE_LAYER,
+      depthOffset: DEPTH.decisionRoom,
+      create: (layerName) => map.createLayer(layerName, tilesets),
+    });
+
+    const origin = mapOriginPx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
+
+    const size = mapSizePx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
+
+    const segment = this.register({
+      id: INITIAL_ROOM_ID,
+      ...origin,
+      ...size,
+      layers,
+      colliders,
+    });
+
+    this.activeRoom = segment;
+
+    return segment;
+  }
+
+  // ===========================================================================
+  // Corridor
+  // ===========================================================================
+
+  /**
+   * Attach a corridor to the door the player just walked through, so the
+   * corridor's entrance marker lands exactly on the doorway. No offsets.
+   */
+  createCorridor(door: DoorObject): WorldSegment {
+    const { map, tilesets } = this.loadSegment(
+      CORRIDOR_TILEMAP_KEY,
+      CORRIDOR_TILESETS,
+      CORRIDOR_MAP_TILE_SIZE,
+      patchCorridorTilesets,
+    );
+
+    const entrance = markerCenter(
+      CORRIDOR_MARKERS.entrance,
+      CORRIDOR_MAP_BOUNDS,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
+
+    const x = door.x - entrance.x;
+
+    const y = door.y - entrance.y;
+
+    const { layers, colliders } = this.addLayers({
+      layerNames: CORRIDOR_TILE_LAYERS,
+      collidableLayer: CORRIDOR_COLLIDABLE_LAYER,
+      depthOffset: DEPTH.corridor,
+      create: (layerName) => map.createLayer(layerName, tilesets),
+      /*
+       * The corridor map is chunked with a non-zero authored origin, so this
+       * translates relative to layer.x/y rather than setting an absolute
+       * position via createLayer.
+       */
+      position: (layer) => layer.setPosition(layer.x + x, layer.y + y),
+    });
+
+    const corridor = this.register({
+      id: `corridor-${this.segments.size}`,
+      x,
+      y,
+      ...mapSizePx(CORRIDOR_MAP_BOUNDS, CORRIDOR_MAP_TILE_SIZE),
+      layers,
+      colliders,
+    });
+
+    this.activeCorridor = corridor;
+
+    this.openCorridorMarker(corridor, CORRIDOR_MARKERS.entrance);
+
+    return corridor;
+  }
+
+  // ===========================================================================
+  // Option Room
+  // ===========================================================================
+
+  /**
+   * Attach the next option room to the far end of `corridor`, lining the
+   * room's entrance marker up with the corridor's exit marker, then open
+   * both ends now that the two maps exist.
+   */
+  buildOptionRoom(corridor: WorldSegment): WorldSegment {
+    const roomKey =
+      OPTION_ROOM_TILEMAP_KEYS[this.optionRoomIndex % OPTION_ROOM_TILEMAP_KEYS.length];
+
+    this.optionRoomIndex += 1;
+
+    const { map, tilesets } = this.loadSegment(
+      roomKey,
+      OPTION_ROOM_TILESETS,
+      OPTION_ROOM_TILE_SIZE,
+    );
+
+    const corridorExit = markerCenter(
+      CORRIDOR_MARKERS.roomExit,
+      CORRIDOR_MAP_BOUNDS,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
+
+    const roomEntrance = markerCenter(
+      OPTION_ROOM_MARKERS.corridorEntrance,
+      OPTION_ROOM_BOUNDS,
+      OPTION_ROOM_TILE_SIZE,
+    );
+
+    /* The corridor exit's center becomes exactly the room entrance's center. */
+    const x = corridor.x + corridorExit.x - roomEntrance.x;
+
+    const y = corridor.y + corridorExit.y - roomEntrance.y;
+
+    const layerOrigin = mapOriginPx(OPTION_ROOM_BOUNDS, OPTION_ROOM_TILE_SIZE);
+
+    const { layers, colliders } = this.addLayers({
+      layerNames: OPTION_ROOM_TILE_LAYERS,
+      collidableLayer: OPTION_ROOM_COLLIDABLE_LAYER,
+      depthOffset: DEPTH.optionRoom,
+      create: (layerName) =>
+        map.createLayer(layerName, tilesets, x - layerOrigin.x, y - layerOrigin.y),
+    });
+
+    const room = this.register({
+      id: `option-room-${this.optionRoomIndex}`,
+      x,
+      y,
+      ...mapSizePx(OPTION_ROOM_BOUNDS, OPTION_ROOM_TILE_SIZE),
+      layers,
+      colliders,
+    });
+
+    this.openCorridorMarker(corridor, CORRIDOR_MARKERS.roomExit);
+
+    openMarkerCollision(
+      room,
+      OPTION_ROOM_COLLIDABLE_LAYER,
+      OPTION_ROOM_MARKERS.corridorEntrance,
+      OPTION_ROOM_TILE_SIZE,
+    );
+
+    this.activeRoom = room;
+
+    this.activeCorridor = undefined;
+
+    return room;
+  }
+
+  // ===========================================================================
+  // Teardown
+  // ===========================================================================
+
+  destroyAll(): void {
+    this.segments.forEach(destroySegment);
+
+    this.segments.clear();
+
+    this.activeRoom = undefined;
+
+    this.activeCorridor = undefined;
+
+    this.bounds = undefined;
+  }
+
+  // ===========================================================================
+  // Internals
+  // ===========================================================================
+
+  private loadSegment(
+    tilemapKey: string,
+    tilesetDefs: readonly TilesetDef[],
+    tileSize: number,
+    patch?: (raw: { tilesets: unknown[] }) => void,
+  ): { map: Phaser.Tilemaps.Tilemap; tilesets: Phaser.Tilemaps.Tileset[] } {
+    return loadTilemap(this.scene, tilemapKey, tilesetDefs, tileSize, patch);
+  }
+
+  private addLayers(options: {
+    layerNames: readonly string[];
+    collidableLayer: string;
+    depthOffset: number;
+    create: (layerName: string) => CreatedTilemapLayer | null;
+    position?: (layer: CreatedTilemapLayer) => void;
+  }): { layers: CreatedTilemapLayer[]; colliders: Phaser.Physics.Arcade.Collider[] } {
+    return addTileLayers(this.scene, { ...options, collideWith: this.playerSprite });
+  }
+
+  private openCorridorMarker(corridor: WorldSegment, marker: Marker): void {
+    openMarkerCollision(corridor, CORRIDOR_COLLIDABLE_LAYER, marker, CORRIDOR_MAP_TILE_SIZE);
+  }
+
+  private register(segment: Omit<WorldSegment, 'objects' | 'doors'>): WorldSegment {
+    const full: WorldSegment = { ...segment, objects: [], doors: [] };
+
+    this.segments.set(full.id, full);
+
+    this.extendBounds(full);
+
+    return full;
+  }
+
+  /** Grow the physics world to cover every segment built so far. */
+  private extendBounds(segment: WorldSegment): void {
+    const next = new Phaser.Geom.Rectangle(segment.x, segment.y, segment.width, segment.height);
+
+    if (!this.bounds) {
+      this.bounds = next;
+    } else {
+      Phaser.Geom.Rectangle.MergeRect(this.bounds, next);
+    }
+
+    this.scene.physics.world.setBounds(
+      this.bounds.x - WORLD_BOUNDS_PADDING,
+      this.bounds.y - WORLD_BOUNDS_PADDING,
+      this.bounds.width + WORLD_BOUNDS_PADDING * 2,
+      this.bounds.height + WORLD_BOUNDS_PADDING * 2,
+    );
+  }
+}

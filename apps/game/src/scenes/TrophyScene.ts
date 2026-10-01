@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 
 import { Player } from '../entities/Player';
 import { SessionStore } from '../state/SessionStore';
-import { emitUIEvent } from '../game/GameBridge';
 
 import {
   TROPHY_TILEMAP_KEY,
@@ -14,7 +13,8 @@ import {
   TROPHY_SPAWN_TILE,
 } from '../tilemaps/trophyRoomTilemap';
 
-import { patchTilesets } from '../tilemaps/patchTilesets';
+import { addTileLayers, findLayer, loadTilemap } from './support/tilemap';
+import { createSceneKeys, emitUI } from './support/sceneUi';
 
 interface SceneData {
   store: SessionStore;
@@ -78,37 +78,23 @@ export class TrophyScene extends Phaser.Scene {
   }
 
   private buildRoom(): void {
-    const cached = this.cache.tilemap.get(TROPHY_TILEMAP_KEY);
+    const { map, tilesets } = loadTilemap(
+      this,
+      TROPHY_TILEMAP_KEY,
+      TROPHY_TILESETS,
+      TROPHY_MAP_TILE_SIZE,
+    );
 
-    if (cached?.data) {
-      patchTilesets(cached.data, TROPHY_TILESETS, TROPHY_MAP_TILE_SIZE);
-    }
+    this.map = map;
 
-    this.map = this.make.tilemap({
-      key: TROPHY_TILEMAP_KEY,
+    const { layers } = addTileLayers(this, {
+      layerNames: TROPHY_TILE_LAYERS,
+      collidableLayer: TROPHY_COLLIDABLE_LAYER,
+      create: (layerName) => map.createLayer(layerName, tilesets),
     });
 
-    const tilesets = TROPHY_TILESETS.map((tileset) =>
-      this.map.addTilesetImage(tileset.name, tileset.key),
-    ).filter((tileset): tileset is Phaser.Tilemaps.Tileset => tileset !== null);
-
-    TROPHY_TILE_LAYERS.forEach((layerName, depth) => {
-      const layer = this.map.createLayer(layerName, tilesets);
-
-      if (!layer) {
-        console.warn(`TrophyScene: unable to create layer "${layerName}"`);
-
-        return;
-      }
-
-      layer.setDepth(depth);
-
-      if (layerName === TROPHY_COLLIDABLE_LAYER) {
-        layer.setCollisionByExclusion([-1]);
-
-        this.wallsLayer = layer;
-      }
-    });
+    /* The collider is wired in createPlayer, once the player exists. */
+    this.wallsLayer = findLayer(layers, TROPHY_COLLIDABLE_LAYER);
 
     const { minTileX, maxTileX, minTileY, maxTileY } = TROPHY_MAP_BOUNDS;
 
@@ -171,9 +157,7 @@ export class TrophyScene extends Phaser.Scene {
       return;
     }
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-
-    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    ({ cursors: this.cursors, interact: this.interactKey } = createSceneKeys(this));
   }
 
   update(): void {
@@ -216,7 +200,7 @@ export class TrophyScene extends Phaser.Scene {
     if (isNear && !this.nearTrophy) {
       this.nearTrophy = true;
 
-      emitUIEvent(this.game, {
+      emitUI(this, {
         type: 'TROPHY_PROXIMITY',
         visible: true,
       });
@@ -228,7 +212,7 @@ export class TrophyScene extends Phaser.Scene {
     if (!isNear && this.nearTrophy) {
       this.nearTrophy = false;
 
-      emitUIEvent(this.game, {
+      emitUI(this, {
         type: 'TROPHY_PROXIMITY',
         visible: false,
       });
@@ -251,7 +235,7 @@ export class TrophyScene extends Phaser.Scene {
 
     this.player.stop();
 
-    emitUIEvent(this.game, {
+    emitUI(this, {
       type: 'TROPHY_INTERACTED',
       problem: this.store.problem,
       summary: this.store.summary,
@@ -281,7 +265,7 @@ export class TrophyScene extends Phaser.Scene {
 
     this.nearTrophy = isNear;
 
-    emitUIEvent(this.game, {
+    emitUI(this, {
       type: 'TROPHY_PROXIMITY',
       visible: isNear,
     });
@@ -292,7 +276,7 @@ export class TrophyScene extends Phaser.Scene {
 
     this.summaryOpen = false;
 
-    emitUIEvent(this.game, {
+    emitUI(this, {
       type: 'TROPHY_PROXIMITY',
       visible: false,
     });

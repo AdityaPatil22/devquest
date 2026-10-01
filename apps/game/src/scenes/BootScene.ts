@@ -27,7 +27,7 @@ import { SessionStore } from '../state/SessionStore';
 
 import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
 
-import { emitUIEvent } from '../game/GameBridge';
+import { emitUI } from './support/sceneUi';
 
 export class BootScene extends Phaser.Scene {
   private ws!: WebSocketClient;
@@ -48,12 +48,8 @@ export class BootScene extends Phaser.Scene {
     this.unsubscribeWs = undefined;
   }
 
-  private emitUI(event: Parameters<typeof emitUIEvent>[1]): void {
-    emitUIEvent(this.game, event);
-  }
-
   preload(): void {
-    this.emitUI({
+    emitUI(this, {
       type: 'GAME_LOADING',
       loading: true,
       progress: 0,
@@ -131,7 +127,7 @@ export class BootScene extends Phaser.Scene {
     Player.preload(this);
 
     this.load.on('progress', (value: number) => {
-      this.emitUI({
+      emitUI(this, {
         type: 'GAME_LOADING',
         loading: true,
         progress: value,
@@ -139,7 +135,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     this.load.once('complete', () => {
-      this.emitUI({
+      emitUI(this, {
         type: 'GAME_LOADING',
         loading: false,
         progress: 1,
@@ -166,7 +162,7 @@ export class BootScene extends Phaser.Scene {
 
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
 
-    this.emitUI({
+    emitUI(this, {
       type: 'GAME_READY',
     });
 
@@ -185,7 +181,7 @@ export class BootScene extends Phaser.Scene {
 
       this.restoring = false;
 
-      this.emitUI({
+      emitUI(this, {
         type: 'SESSION_STARTED',
         sessionId: msg.sessionId,
       });
@@ -239,7 +235,7 @@ export class BootScene extends Phaser.Scene {
 
     this.store.hydrate(msg.snapshot);
 
-    this.emitUI({
+    emitUI(this, {
       type: 'SESSION_RESUMED',
       sessionId: msg.sessionId,
     });
