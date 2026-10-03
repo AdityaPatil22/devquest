@@ -65,7 +65,7 @@ export function TrophySummary({ open, problem, summary, docContent, onClose }: P
         )}
 
         <div className="trophy-summary-footer">
-          Press <strong>E</strong> or <strong>ESC</strong> to close
+          Press <strong>ESC</strong> to close
         </div>
       </div>
     </div>

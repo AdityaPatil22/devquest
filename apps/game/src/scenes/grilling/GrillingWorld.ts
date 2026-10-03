@@ -100,7 +100,6 @@ export class GrillingWorld {
       DECISION_TILESETS,
       DECISION_MAP_TILE_SIZE,
     );
-
     const { layers, colliders } = this.addLayers({
       layerNames: DECISION_TILE_LAYERS,
       collidableLayer: DECISION_COLLIDABLE_LAYER,
@@ -108,9 +107,15 @@ export class GrillingWorld {
       create: (layerName) => map.createLayer(layerName, tilesets),
     });
 
-    const origin = mapOriginPx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
+    const origin = mapOriginPx(
+      DECISION_MAP_BOUNDS,
+      DECISION_MAP_TILE_SIZE,
+    );
 
-    const size = mapSizePx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
+    const size = mapSizePx(
+      DECISION_MAP_BOUNDS,
+      DECISION_MAP_TILE_SIZE,
+    );
 
     const segment = this.register({
       id: INITIAL_ROOM_ID,
@@ -129,10 +134,6 @@ export class GrillingWorld {
   // Corridor
   // ===========================================================================
 
-  /**
-   * Attach a corridor to the door the player just walked through, so the
-   * corridor's entrance marker lands exactly on the doorway. No offsets.
-   */
   createCorridor(door: DoorObject): WorldSegment {
     const { map, tilesets } = this.loadSegment(
       CORRIDOR_TILEMAP_KEY,
@@ -148,20 +149,25 @@ export class GrillingWorld {
     );
 
     const x = door.x - entrance.x;
+    const y = door.y - entrance.y - 57;
 
-    const y = door.y - entrance.y;
+    const mapOrigin = mapOriginPx(
+      CORRIDOR_MAP_BOUNDS,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
 
     const { layers, colliders } = this.addLayers({
       layerNames: CORRIDOR_TILE_LAYERS,
       collidableLayer: CORRIDOR_COLLIDABLE_LAYER,
       depthOffset: DEPTH.corridor,
       create: (layerName) => map.createLayer(layerName, tilesets),
-      /*
-       * The corridor map is chunked with a non-zero authored origin, so this
-       * translates relative to layer.x/y rather than setting an absolute
-       * position via createLayer.
-       */
-      position: (layer) => layer.setPosition(layer.x + x, layer.y + y),
+      
+      position: (layer) => {
+        layer.setPosition(
+          layer.x + x - mapOrigin.x,
+          layer.y + y - mapOrigin.y,
+        );
+      },
     });
 
     const corridor = this.register({
@@ -184,11 +190,6 @@ export class GrillingWorld {
   // Option Room
   // ===========================================================================
 
-  /**
-   * Attach the next option room to the far end of `corridor`, lining the
-   * room's entrance marker up with the corridor's exit marker, then open
-   * both ends now that the two maps exist.
-   */
   buildOptionRoom(corridor: WorldSegment): WorldSegment {
     const roomKey =
       OPTION_ROOM_TILEMAP_KEYS[this.optionRoomIndex % OPTION_ROOM_TILEMAP_KEYS.length];
@@ -213,19 +214,42 @@ export class GrillingWorld {
       OPTION_ROOM_TILE_SIZE,
     );
 
-    /* The corridor exit's center becomes exactly the room entrance's center. */
+    const corridorOrigin = mapOriginPx(
+      CORRIDOR_MAP_BOUNDS,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
+
+    const roomOrigin = mapOriginPx(
+      OPTION_ROOM_BOUNDS,
+      OPTION_ROOM_TILE_SIZE,
+    );
     const x = corridor.x + corridorExit.x - roomEntrance.x;
 
-    const y = corridor.y + corridorExit.y - roomEntrance.y;
+    const corridorExitTop =
+      CORRIDOR_MARKERS.roomExit.y - corridorOrigin.y;
 
-    const layerOrigin = mapOriginPx(OPTION_ROOM_BOUNDS, OPTION_ROOM_TILE_SIZE);
+    const roomEntranceBottom =
+      OPTION_ROOM_MARKERS.corridorEntrance.y +
+      OPTION_ROOM_MARKERS.corridorEntrance.height -
+      roomOrigin.y;
+
+    const y =
+      corridor.y +
+      corridorExitTop -
+      roomEntranceBottom + 45;
 
     const { layers, colliders } = this.addLayers({
       layerNames: OPTION_ROOM_TILE_LAYERS,
       collidableLayer: OPTION_ROOM_COLLIDABLE_LAYER,
       depthOffset: DEPTH.optionRoom,
-      create: (layerName) =>
-        map.createLayer(layerName, tilesets, x - layerOrigin.x, y - layerOrigin.y),
+      create: (layerName) => map.createLayer(layerName, tilesets),
+
+      position: (layer) => {
+        layer.setPosition(
+          layer.x + x - roomOrigin.x,
+          layer.y + y - roomOrigin.y,
+        );
+      },
     });
 
     const room = this.register({
@@ -288,16 +312,39 @@ export class GrillingWorld {
     depthOffset: number;
     create: (layerName: string) => CreatedTilemapLayer | null;
     position?: (layer: CreatedTilemapLayer) => void;
-  }): { layers: CreatedTilemapLayer[]; colliders: Phaser.Physics.Arcade.Collider[] } {
-    return addTileLayers(this.scene, { ...options, collideWith: this.playerSprite });
+  }): {
+    layers: CreatedTilemapLayer[];
+    colliders: Phaser.Physics.Arcade.Collider[];
+  } {
+    return addTileLayers(
+      this.scene,
+      {
+        ...options,
+        collideWith: this.playerSprite,
+      },
+    );
   }
 
-  private openCorridorMarker(corridor: WorldSegment, marker: Marker): void {
-    openMarkerCollision(corridor, CORRIDOR_COLLIDABLE_LAYER, marker, CORRIDOR_MAP_TILE_SIZE);
+  private openCorridorMarker(
+    corridor: WorldSegment,
+    marker: Marker,
+  ): void {
+    openMarkerCollision(
+      corridor,
+      CORRIDOR_COLLIDABLE_LAYER,
+      marker,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
   }
 
-  private register(segment: Omit<WorldSegment, 'objects' | 'doors'>): WorldSegment {
-    const full: WorldSegment = { ...segment, objects: [], doors: [] };
+  private register(
+    segment: Omit<WorldSegment, 'objects' | 'doors'>,
+  ): WorldSegment {
+    const full: WorldSegment = {
+      ...segment,
+      objects: [],
+      doors: [],
+    };
 
     this.segments.set(full.id, full);
 
