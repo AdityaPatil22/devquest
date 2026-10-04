@@ -69,11 +69,8 @@ export class TrophyScene extends Phaser.Scene {
 
   create(): void {
     this.buildRoom();
-
     this.createPlayer();
-
     this.createTrophy();
-
     this.createInput();
   }
 
@@ -125,6 +122,9 @@ export class TrophyScene extends Phaser.Scene {
     this.player = new Player(this, spawnX, spawnY);
 
     this.player.sprite.setCollideWorldBounds(true);
+    this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    this.cameras.main.setZoom(1.2);
+
 
     if (this.wallsLayer) {
       this.physics.add.collider(this.player.sprite, this.wallsLayer);
