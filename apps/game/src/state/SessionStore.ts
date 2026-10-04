@@ -110,8 +110,4 @@ export class SessionStore {
 
     this.docContent = snapshot.docContent;
   }
-
-  get phase(): string | undefined {
-    return undefined;
-  }
 }

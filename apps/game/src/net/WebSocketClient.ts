@@ -13,6 +13,7 @@ export class WebSocketClient {
   private maxReconnectAttempts = 10;
   private baseUrl: string;
   private _sessionId?: string;
+  private outboundQueue: ClientMessage[] = [];
 
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
@@ -49,9 +50,14 @@ export class WebSocketClient {
       this.ws.onopen = () => {
         console.log(
           '[WS] Connected',
-          this._sessionId ? `(session ${this._sessionId})` : '(new session)',
+          this._sessionId
+            ? `(session ${this._sessionId})`
+            : '(new session)',
         );
+      
         this.reconnectAttempts = 0;
+      
+        this.flushQueue();
       };
 
       this.ws.onmessage = (event) => {
@@ -79,10 +85,19 @@ export class WebSocketClient {
 
   send(msg: ClientMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(msg));
-    } else {
-      console.warn('[WS] Message dropped because socket is not connected:', msg.type);
+      try {
+        this.ws.send(JSON.stringify(msg));
+      } catch (error) {
+        console.error(
+          '[WS] Failed to send message, queued for retry:',
+          error,
+        );
+        this.outboundQueue.push(msg);
+      }
+      return;
     }
+    console.log('[WS] Socket not open, queueing message:', msg.type,);
+    this.outboundQueue.push(msg);
   }
 
   onMessage(handler: MessageHandler): () => void {
@@ -121,6 +136,31 @@ export class WebSocketClient {
 
   get connected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+  private flushQueue(): void {
+    while (
+      this.ws?.readyState === WebSocket.OPEN &&
+      this.outboundQueue.length > 0
+    ) {
+      const msg = this.outboundQueue.shift();
+  
+      if (!msg) {
+        return;
+      }
+  
+      try {
+        this.ws.send(JSON.stringify(msg));
+      } catch (error) {
+        console.error(
+          '[WS] Failed to flush queued message:',
+          error,
+        );
+  
+        this.outboundQueue.unshift(msg);
+  
+        return;
+      }
+    }
   }
 
   private scheduleReconnect(): void {
