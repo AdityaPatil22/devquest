@@ -21,15 +21,11 @@ export type GameUIEvent =
       type: 'GAME_READY';
     }
   | {
-      type: 'DECISION_ROOM_READY';
+      type: 'START_SCREEN_READY';
     }
   | {
       type: 'SESSION_STARTED';
       sessionId: string;
-    }
-
-  | {
-      type: 'START_SCREEN_READY';
     }
   | {
       type: 'SESSION_RESUMED';
@@ -38,6 +34,9 @@ export type GameUIEvent =
   | {
       type: 'PROBLEM_SUBMITTING';
       message: string;
+    }
+  | {
+      type: 'DECISION_ROOM_READY';
     }
   | {
       type: 'DECISION';
@@ -105,6 +104,9 @@ export type GameUIEvent =
       message: string;
     };
 
-export function emitUIEvent(game: Phaser.Game, event: GameUIEvent): void {
+export function emitUIEvent(
+  game: Phaser.Game,
+  event: GameUIEvent,
+): void {
   game.events.emit('devquest:ui', event);
 }

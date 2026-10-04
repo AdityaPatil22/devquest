@@ -5,14 +5,18 @@ import './ProblemInput.css';
 interface Props {
   open: boolean;
   waiting: boolean;
-
+  message?: string;
   error?: string;
-
   onSubmit: (problem: string) => void;
-
 }
 
-export function ProblemInput({ open, waiting, error, onSubmit }: Props) {
+export function ProblemInput({
+  open,
+  waiting,
+  message,
+  error,
+  onSubmit,
+}: Props) {
   const [problem, setProblem] = useState('');
 
   useEffect(() => {
@@ -26,44 +30,56 @@ export function ProblemInput({ open, waiting, error, onSubmit }: Props) {
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="problem-input-backdrop">
       <section className="problem-input">
-        <div className="modal-eyebrow">THE PROBLEM</div>
+        <div className="problem-input__eyebrow">
+          DEVQUEST
+        </div>
 
         <h1>What do you want to be grilled on?</h1>
 
-        <p>Describe the engineering decision you want DevQuest to challenge.</p>
+        <p>
+          Describe the engineering decision you want DevQuest
+          to challenge.
+        </p>
 
         {waiting ? (
-          <div className="modal-waiting">
-            <div className="spinner" />
+          <div className="problem-input__waiting">
+            <div className="problem-input__spinner" />
 
-            <span>Generating your decision...</span>
+            <span>
+              {message || 'Generating your first decision...'}
+            </span>
           </div>
         ) : (
           <>
             <textarea
               value={problem}
-              onChange={(event) => setProblem(event.target.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-              }}
-              placeholder={'e.g. "Should I rewrite the auth service in Go?"'}
+              onChange={(event) =>
+                setProblem(event.target.value)
+              }
+              placeholder='e.g. "Should I rewrite the auth service in Go?"'
               autoFocus
             />
 
-            {error && <div className="modal-error">{error}</div>}
+            {error && (
+              <div className="problem-input__error">
+                {error}
+              </div>
+            )}
 
-            <div className="actions">
-              <button type="button" onClick={onClose}>
-                CANCEL
-              </button>
-
+            <div className="problem-input__actions">
               <button
                 type="button"
                 disabled={!problem.trim()}
                 onClick={() => {
-                  onSubmit(problem.trim());
+                  const trimmed = problem.trim();
+
+                  if (!trimmed) {
+                    return;
+                  }
+
+                  onSubmit(trimmed);
                 }}
               >
                 START GRILLING

@@ -1,4 +1,4 @@
-.modal-backdrop {
+.problem-input-backdrop {
   position: absolute;
   inset: 0;
 
@@ -13,9 +13,11 @@
   backdrop-filter: blur(6px);
 
   pointer-events: auto;
+
+  z-index: 1000;
 }
 
-.elevator-modal {
+.problem-input {
   width: min(680px, 100%);
 
   padding: 32px;
@@ -29,7 +31,7 @@
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
-.modal-eyebrow {
+.problem-input__eyebrow {
   margin-bottom: 12px;
 
   color: #8d8dff;
@@ -40,14 +42,14 @@
   letter-spacing: 0.14em;
 }
 
-.elevator-modal h1 {
+.problem-input h1 {
   margin: 0;
 
   font-size: 30px;
   line-height: 1.15;
 }
 
-.elevator-modal p {
+.problem-input p {
   margin: 14px 0 22px;
 
   color: rgba(255, 255, 255, 0.62);
@@ -55,9 +57,11 @@
   line-height: 1.6;
 }
 
-.elevator-modal textarea {
+.problem-input textarea {
   width: 100%;
   min-height: 140px;
+
+  box-sizing: border-box;
 
   resize: vertical;
 
@@ -70,61 +74,62 @@
   outline: none;
 
   color: white;
+
   background: #080812;
 
   line-height: 1.5;
+
+  font: inherit;
 }
 
-.elevator-modal textarea:focus {
+.problem-input textarea:focus {
   border-color: #7777ff;
 }
 
-.actions {
+.problem-input__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
 
   margin-top: 18px;
 }
 
-.actions button {
+.problem-input__actions button {
   padding: 11px 16px;
 
   border: 0;
+
   border-radius: 8px;
 
   cursor: pointer;
 
+  color: #080812;
+
+  background: white;
+
   font-weight: 800;
 }
 
-.actions button:first-child {
-  color: white;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.actions button:last-child {
-  color: #080812;
-  background: white;
-}
-
-.actions button:disabled {
+.problem-input__actions button:disabled {
   opacity: 0.4;
+
   cursor: not-allowed;
 }
 
-.modal-waiting {
+.problem-input__waiting {
   min-height: 150px;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
   gap: 14px;
 
   color: rgba(255, 255, 255, 0.75);
 }
 
-.spinner {
+.problem-input__spinner {
   width: 20px;
   height: 20px;
 
@@ -137,7 +142,7 @@
   animation: devquest-spin 0.8s linear infinite;
 }
 
-.modal-error {
+.problem-input__error {
   margin-top: 12px;
 
   padding: 10px 12px;

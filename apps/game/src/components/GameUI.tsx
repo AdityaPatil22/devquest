@@ -44,18 +44,42 @@ export function GameUI() {
           }));
           break;
 
-          case 'START_SCREEN_READY':
-            setState((previous) => ({
-              ...previous,
-              screen: 'start',
-              modal: 'problem-input',
-              loading: false,
-              objective: '',
-              aiThinking: false,
-              aiThinkingMessage: undefined,
-              error: undefined,
-            }));
-            break;
+        case 'START_SCREEN_READY':
+          setState((previous) => ({
+            ...previous,
+            screen: 'start',
+            modal: null,
+            loading: false,
+            waitingMessage: undefined,
+            objective: '',
+            aiThinking: false,
+            aiThinkingMessage: undefined,
+            error: undefined,
+          }));
+          break;
+
+        case 'SESSION_STARTED':
+          setState((previous) => ({
+            ...previous,
+            screen: 'start',
+            modal: null,
+            loading: false,
+            decisionHistory: [],
+            waitingMessage: undefined,
+            objective: '',
+            aiThinking: false,
+            aiThinkingMessage: undefined,
+            error: undefined,
+          }));
+          break;
+
+        case 'SESSION_RESUMED':
+          setState((previous) => ({
+            ...previous,
+            loading: false,
+            error: undefined,
+          }));
+          break;
 
         case 'DECISION_ROOM_READY':
           setState((previous) => ({
@@ -66,73 +90,24 @@ export function GameUI() {
           }));
           break;
 
-        case 'ELEVATOR_PROXIMITY':
-          setState((previous) => ({
-            ...previous,
-            elevatorNear: Boolean(event.visible),
-            objective: event.visible ? 'Press E to enter the elevator' : previous.objective,
-          }));
-          break;
-
-        case 'ELEVATOR_CLOSED':
-          setState((previous) => ({
-            ...previous,
-            modal: null,
-            elevatorNear: false,
-            elevatorWaiting: false,
-          }));
-          break;
-
-          case 'SESSION_STARTED':
-            setState((previous) => ({
-              ...previous,
-              screen: 'start',
-              modal: 'problem-input',
-              loading: false,
-              decisionHistory: [],
-              objective: '',
-              aiThinking: false,
-              aiThinkingMessage: undefined,
-              error: undefined,
-            }));
-            break;
-
-        case 'SESSION_RESUMED':
-          setState((previous) => ({
-            ...previous,
-            loading: false,
-            error: undefined,
-          }));
-          break;
-
         case 'DECISION':
           setState((previous) => ({
             ...previous,
-
             screen: 'decision',
-
             modal: null,
-
             question: typeof event.question === 'string' ? event.question : undefined,
-
             description: typeof event.description === 'string' ? event.description : undefined,
-
-            options: Array.isArray(event.options) ? (event.options as DecisionOption[]) : [],
-
-            recommendation: event.recommendation as typeof previous.recommendation | undefined,
-
+            options: Array.isArray(event.options)
+              ? (event.options as DecisionOption[])
+              : [],
+            recommendation:
+              event.recommendation as typeof previous.recommendation | undefined,
             round: typeof event.round === 'number' ? event.round : undefined,
-
             selectedOption: undefined,
-
             waitingMessage: undefined,
-
             aiThinking: false,
-
             aiThinkingMessage: undefined,
-
             objective: 'Choose a door',
-
             error: undefined,
           }));
           break;
@@ -173,7 +148,7 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             screen: 'start',
-            modal: 'problem-input',
+            modal: null,
             waitingMessage:
               typeof event.message === 'string'
                 ? event.message
@@ -200,7 +175,6 @@ export function GameUI() {
             ...previous,
             doorNear: Boolean(event.visible),
             nearDoorOption: event.option as DecisionOption | undefined,
-            elevatorNear: false,
           }));
           break;
 
@@ -217,8 +191,12 @@ export function GameUI() {
             ...previous,
             aiThinking: Boolean(event.visible),
             aiThinkingMessage:
-              typeof event.message === 'string' ? event.message : 'Preparing the next decision...',
-            objective: event.visible ? 'Walk through the corridor' : previous.objective,
+              typeof event.message === 'string'
+                ? event.message
+                : 'Preparing the next decision...',
+            objective: event.visible
+              ? 'Walk through the corridor'
+              : previous.objective,
             modal: event.visible ? null : previous.modal,
           }));
           break;
@@ -226,7 +204,10 @@ export function GameUI() {
         case 'OBJECTIVE':
           setState((previous) => ({
             ...previous,
-            objective: typeof event.objective === 'string' ? event.objective : previous.objective,
+            objective:
+              typeof event.objective === 'string'
+                ? event.objective
+                : previous.objective,
           }));
           break;
 
@@ -234,7 +215,10 @@ export function GameUI() {
           setState((previous) => ({
             ...previous,
             modal: 'waiting',
-            waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
+            waitingMessage:
+              typeof event.message === 'string'
+                ? event.message
+                : 'Waiting...',
           }));
           break;
 
@@ -251,8 +235,14 @@ export function GameUI() {
             ...previous,
             screen: 'complete',
             modal: null,
-            summary: typeof event.summary === 'string' ? event.summary : undefined,
-            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
+            summary:
+              typeof event.summary === 'string'
+                ? event.summary
+                : undefined,
+            docContent:
+              typeof event.docContent === 'string'
+                ? event.docContent
+                : undefined,
             waitingMessage: undefined,
             aiThinking: false,
             aiThinkingMessage: undefined,
@@ -264,8 +254,10 @@ export function GameUI() {
         case 'ERROR':
           setState((previous) => ({
             ...previous,
-            error: typeof event.message === 'string' ? event.message : 'Something went wrong.',
-            elevatorWaiting: false,
+            error:
+              typeof event.message === 'string'
+                ? event.message
+                : 'Something went wrong.',
             aiThinking: false,
             aiThinkingMessage: undefined,
           }));
@@ -283,10 +275,22 @@ export function GameUI() {
             ...previous,
             trophyNear: false,
             trophySummaryOpen: true,
-            trophyProblem: typeof event.problem === 'string' ? event.problem : undefined,
-            summary: typeof event.summary === 'string' ? event.summary : undefined,
-            docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
+            trophyProblem:
+              typeof event.problem === 'string'
+                ? event.problem
+                : undefined,
+            summary:
+              typeof event.summary === 'string'
+                ? event.summary
+                : undefined,
+            docContent:
+              typeof event.docContent === 'string'
+                ? event.docContent
+                : undefined,
           }));
+          break;
+
+        default:
           break;
       }
     };
@@ -351,7 +355,15 @@ export function GameUI() {
     }));
   }, [game, setState]);
 
-  const showDecisionUI = state.screen === 'decision' && state.modal === null && !state.aiThinking;
+  const showStartScreen = state.screen === 'start';
+
+  const showDecisionUI =
+    state.screen === 'decision' &&
+    state.modal === null &&
+    !state.aiThinking;
+
+  const initialProblemWaiting =
+    showStartScreen && Boolean(state.waitingMessage);
 
   const latestDecisionHistory = state.decisionHistory;
 
@@ -359,10 +371,20 @@ export function GameUI() {
     <>
       <HUD round={state.screen === 'decision' ? state.round : undefined} />
 
+      <ProblemInput
+        open={showStartScreen}
+        waiting={initialProblemWaiting}
+        message={state.waitingMessage}
+        onSubmit={submitProblem}
+        error={state.error}
+      />
+
       <div className="objective-indicator">
         <div className="objective-indicator__eyebrow">OBJECTIVE</div>
 
-        <div className="objective-indicator__text">{state.objective || 'Explore the room'}</div>
+        <div className="objective-indicator__text">
+          {state.objective || 'Explore the room'}
+        </div>
       </div>
 
       <DecisionBriefPanel
@@ -376,7 +398,10 @@ export function GameUI() {
         aiThinkingMessage={state.aiThinkingMessage}
       />
 
-      <DoorOptionsOverlay game={game} visible={showDecisionUI} />
+      <DoorOptionsOverlay
+        game={game}
+        visible={showDecisionUI}
+      />
 
       <InteractionPrompt
         visible={state.doorNear && state.modal === null}
@@ -390,13 +415,6 @@ export function GameUI() {
       <InteractionPrompt
         visible={state.trophyNear && !state.trophySummaryOpen}
         text="Press E to view summary"
-      />
-
-      <ProblemInput
-        open={state.screen === 'start'}
-        waiting={state.modal === 'problem-input' && Boolean(state.waitingMessage)}
-        onSubmit={submitProblem}
-        error={state.error}
       />
 
       <DoorContextModal
@@ -419,7 +437,9 @@ export function GameUI() {
         onClose={closeTrophySummary}
       />
 
-      {state.error && <div className="game-error">{state.error}</div>}
+      {state.error && (
+        <div className="game-error">{state.error}</div>
+      )}
     </>
   );
 }

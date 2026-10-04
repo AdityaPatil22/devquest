@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 
-import { TILEMAP_KEY, TILEMAP_PATH, MAP_TILESETS } from '../tilemaps/commonRoomTilemap';
-
 import {
   DECISION_TILEMAP_KEY,
   DECISION_TILEMAP_PATH,
@@ -16,21 +14,32 @@ import {
   TROPHY_MAP_TILE_SIZE,
 } from '../tilemaps/trophyRoomTilemap';
 
-import { CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH } from '../tilemaps/corridorTilemap';
+import {
+  CORRIDOR_TILEMAP_KEY,
+  CORRIDOR_TILEMAP_PATH,
+} from '../tilemaps/corridorTilemap';
 
-import { OPTION_ROOM_TILEMAP_KEYS, OPTION_ROOM_TILEMAP_PATHS } from '../tilemaps/optionRoomTilemap';
+import {
+  OPTION_ROOM_TILEMAP_KEYS,
+  OPTION_ROOM_TILEMAP_PATHS,
+} from '../tilemaps/optionRoomTilemap';
 
 import { Player } from '../entities/Player';
 
 import { WebSocketClient } from '../net/WebSocketClient';
 import { SessionStore } from '../state/SessionStore';
 
-import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
+import type {
+  ServerMessage,
+  SessionResumedMsg,
+  DecisionCreatedMsg,
+} from '../net/protocol';
 
 import { emitUI } from './support/sceneUi';
 
 export class BootScene extends Phaser.Scene {
   private ws!: WebSocketClient;
+
   private store!: SessionStore;
 
   private unsubscribeWs?: () => void;
@@ -45,6 +54,7 @@ export class BootScene extends Phaser.Scene {
 
   private leaveBoot(): void {
     this.unsubscribeWs?.();
+
     this.unsubscribeWs = undefined;
   }
 
@@ -55,84 +65,100 @@ export class BootScene extends Phaser.Scene {
       progress: 0,
     });
 
-    // Elevator
-    this.load.spritesheet('elevator', 'assets/items/elevator.png', {
-      frameWidth: 280,
-      frameHeight: 285,
-    });
+    /*
+     * Decision Room
+     */
+    this.load.tilemapTiledJSON(
+      DECISION_TILEMAP_KEY,
+      DECISION_TILEMAP_PATH,
+    );
 
-    // Common Room
-    this.load.tilemapTiledJSON(TILEMAP_KEY, TILEMAP_PATH);
+    const decisionSeenKeys = new Set<string>();
 
-    MAP_TILESETS.forEach(({ key, path, frameWidth, frameHeight }) => {
-      this.load.spritesheet(key, path, {
-        frameWidth,
-        frameHeight,
-        margin: 0,
-        spacing: 0,
-      });
-    });
+    DECISION_TILESETS.forEach(
+      ({ key, path }) => {
+        if (decisionSeenKeys.has(key)) {
+          return;
+        }
 
-    // Decision Room
-    this.load.tilemapTiledJSON(DECISION_TILEMAP_KEY, DECISION_TILEMAP_PATH);
+        decisionSeenKeys.add(key);
 
-    const seenKeys = new Set<string>();
+        this.load.spritesheet(key, path, {
+          frameWidth: DECISION_MAP_TILE_SIZE,
+          frameHeight: DECISION_MAP_TILE_SIZE,
+          margin: 0,
+          spacing: 0,
+        });
+      },
+    );
 
-    DECISION_TILESETS.forEach(({ key, path }) => {
-      if (seenKeys.has(key)) {
-        return;
-      }
+    /*
+     * Corridor
+     */
+    this.load.tilemapTiledJSON(
+      CORRIDOR_TILEMAP_KEY,
+      CORRIDOR_TILEMAP_PATH,
+    );
 
-      seenKeys.add(key);
+    /*
+     * Option Rooms
+     */
+    OPTION_ROOM_TILEMAP_KEYS.forEach(
+      (key) => {
+        this.load.tilemapTiledJSON(
+          key,
+          OPTION_ROOM_TILEMAP_PATHS[key],
+        );
+      },
+    );
 
-      this.load.spritesheet(key, path, {
-        frameWidth: DECISION_MAP_TILE_SIZE,
-        frameHeight: DECISION_MAP_TILE_SIZE,
-        margin: 0,
-        spacing: 0,
-      });
-    });
+    /*
+     * Trophy Room
+     */
+    this.load.image(
+      'trophy',
+      'assets/items/trophy.png',
+    );
 
-    // Corridor
-    this.load.tilemapTiledJSON(CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH);
-
-    // Option Rooms
-    OPTION_ROOM_TILEMAP_KEYS.forEach((key) => {
-      this.load.tilemapTiledJSON(key, OPTION_ROOM_TILEMAP_PATHS[key]);
-    });
-
-    // Trophy Room
-    this.load.image('trophy', 'assets/items/trophy.png');
-
-    this.load.tilemapTiledJSON(TROPHY_TILEMAP_KEY, TROPHY_TILEMAP_PATH);
+    this.load.tilemapTiledJSON(
+      TROPHY_TILEMAP_KEY,
+      TROPHY_TILEMAP_PATH,
+    );
 
     const trophySeenKeys = new Set<string>();
 
-    TROPHY_TILESETS.forEach(({ key, path }) => {
-      if (trophySeenKeys.has(key)) {
-        return;
-      }
+    TROPHY_TILESETS.forEach(
+      ({ key, path }) => {
+        if (trophySeenKeys.has(key)) {
+          return;
+        }
 
-      trophySeenKeys.add(key);
+        trophySeenKeys.add(key);
 
-      this.load.spritesheet(key, path, {
-        frameWidth: TROPHY_MAP_TILE_SIZE,
-        frameHeight: TROPHY_MAP_TILE_SIZE,
-        margin: 0,
-        spacing: 0,
-      });
-    });
+        this.load.spritesheet(key, path, {
+          frameWidth: TROPHY_MAP_TILE_SIZE,
+          frameHeight: TROPHY_MAP_TILE_SIZE,
+          margin: 0,
+          spacing: 0,
+        });
+      },
+    );
 
-    // Player
+    /*
+     * Player
+     */
     Player.preload(this);
 
-    this.load.on('progress', (value: number) => {
-      emitUI(this, {
-        type: 'GAME_LOADING',
-        loading: true,
-        progress: value,
-      });
-    });
+    this.load.on(
+      'progress',
+      (value: number) => {
+        emitUI(this, {
+          type: 'GAME_LOADING',
+          loading: true,
+          progress: value,
+        });
+      },
+    );
 
     this.load.once('complete', () => {
       emitUI(this, {
@@ -146,28 +172,17 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     Player.createAnimations(this);
 
-    this.anims.create({
-      key: 'elevator-opening',
-      frames: this.anims.generateFrameNumbers('elevator', {
-        start: 0,
-        end: 2,
-      }),
-      frameRate: 6,
-      repeat: 0,
-    });
-
     this.store = new SessionStore();
 
     this.ws = new WebSocketClient();
 
-    this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
+    this.unsubscribeWs =
+      this.ws.onMessage(
+        this.handleMessage.bind(this),
+      );
 
     emitUI(this, {
       type: 'GAME_READY',
-    });
-
-    emitUI(this, {
-      type: 'START_SCREEN_READY',
     });
 
     this.ws.connect();
@@ -175,29 +190,28 @@ export class BootScene extends Phaser.Scene {
 
   public submitProblem(problem: string): void {
     const trimmed = problem.trim();
-  
+
     if (!trimmed) {
       return;
     }
-  
+
     this.store.setProblem(trimmed);
-  
+
     emitUI(this, {
       type: 'PROBLEM_SUBMITTING',
-      message: 'Generating your first decision...',
+      message:
+        'Generating your first decision...',
     });
-  
+
     this.ws.send({
       type: 'PROBLEM_SUBMITTED',
       problem: trimmed,
     });
   }
 
-  private handleMessage(msg: ServerMessage): void {
-    // -------------------------------------------------------
-    // New session
-    // -------------------------------------------------------
-
+  private handleMessage(
+    msg: ServerMessage,
+  ): void {
     if (msg.type === 'SESSION_STARTED') {
       this.ws.setSessionId(msg.sessionId);
 
@@ -210,12 +224,12 @@ export class BootScene extends Phaser.Scene {
         sessionId: msg.sessionId,
       });
 
+      emitUI(this, {
+        type: 'START_SCREEN_READY',
+      });
+
       return;
     }
-
-    // -------------------------------------------------------
-    // Existing session
-    // -------------------------------------------------------
 
     if (msg.type === 'SESSION_RESUMED') {
       this.restoreSession(msg);
@@ -223,25 +237,14 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    /*
-     * IMPORTANT
-     *
-     * BootScene must NOT start GrillingScene for every
-     * DECISION_CREATED event.
-     *
-     * Once GrillingScene owns the session, it owns all
-     * subsequent DECISION_CREATED messages.
-     *
-     * This branch only exists for the case where the
-     * first decision arrives before the gameplay scene
-     * has taken ownership.
-     */
     if (msg.type === 'DECISION_CREATED') {
       this.restoreDecision(msg);
     }
   }
 
-  private restoreSession(msg: SessionResumedMsg): void {
+  private restoreSession(
+    msg: SessionResumedMsg,
+  ): void {
     if (this.restoring) {
       return;
     }
@@ -259,26 +262,41 @@ export class BootScene extends Phaser.Scene {
 
     const phase = msg.snapshot.phase;
 
-    // No problem yet
-    if (phase === 'idle' || phase === 'awaiting_problem') {
+    /*
+     * No problem has been submitted yet.
+     */
+    if (
+      phase === 'idle' ||
+      phase === 'awaiting_problem'
+    ) {
       emitUI(this, {
         type: 'START_SCREEN_READY',
       });
-    
+
+      this.restoring = false;
+
       return;
     }
 
-    // Waiting for first decision
+    /*
+     * Problem submitted, first decision is still
+     * being generated.
+     */
     if (phase === 'awaiting_question') {
       emitUI(this, {
         type: 'PROBLEM_SUBMITTING',
-        message: 'Generating your first decision...',
+        message:
+          'Generating your first decision...',
       });
-    
+
+      this.restoring = false;
+
       return;
     }
 
-    // Completed
+    /*
+     * Session finished.
+     */
     if (phase === 'complete') {
       this.leaveBoot();
 
@@ -289,25 +307,45 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    const currentDecision = this.store.getCurrentDecision();
+    /*
+     * Active decision.
+     */
+    const currentDecision =
+      this.store.getCurrentDecision();
+
     if (!currentDecision) {
       emitUI(this, {
         type: 'START_SCREEN_READY',
       });
-    
+
+      this.restoring = false;
+
       return;
     }
 
     const decision: DecisionCreatedMsg = {
       type: 'DECISION_CREATED',
+
       nodeId: currentDecision.nodeId,
+
       question: currentDecision.question,
-      description: currentDecision.description,
+
+      description:
+        currentDecision.description,
+
       options: currentDecision.options,
-      recommendation: currentDecision.recommendation,
+
+      recommendation:
+        currentDecision.recommendation,
+
       round: currentDecision.round,
-      dependsOn: msg.snapshot.decisions.find((item) => item.id === currentDecision.nodeId)
-        ?.dependsOn,
+
+      dependsOn:
+        msg.snapshot.decisions.find(
+          (item) =>
+            item.id ===
+            currentDecision.nodeId,
+        )?.dependsOn,
     };
 
     this.leaveBoot();
@@ -320,7 +358,9 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  private restoreDecision(decision: DecisionCreatedMsg): void {
+  private restoreDecision(
+    decision: DecisionCreatedMsg,
+  ): void {
     this.store.addDecision({
       nodeId: decision.nodeId,
       question: decision.question,
@@ -342,6 +382,7 @@ export class BootScene extends Phaser.Scene {
 
   shutdown(): void {
     this.unsubscribeWs?.();
+
     this.unsubscribeWs = undefined;
   }
 }
