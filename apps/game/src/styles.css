@@ -8,8 +8,6 @@
     sans-serif;
 
   color: #ffffff;
-
-  background: #4c515b;
 }
 
 * {
@@ -27,8 +25,6 @@ body,
 
 body {
   overflow: hidden;
-
-  background: #4c515b;
 }
 
 button,
@@ -49,13 +45,7 @@ button {
 
   overflow: hidden;
 
-  background:
-    radial-gradient(
-      circle at 50% 15%,
-      rgba(100, 100, 170, 0.12),
-      transparent 42%
-    ),
-    #151622;
+  background-color: #4c515b;
 
   background-image:
     linear-gradient(
@@ -74,10 +64,47 @@ button {
     28px 28px;
 }
 
+.devquest-app--boot {
+  background-color: #151622;
+
+  background-image:
+    linear-gradient(
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px
+    );
+
+  background-size: 28px 28px;
+}
+
+.devquest-app--game {
+  background-color: #4c515b;
+
+  background-image:
+    linear-gradient(
+      rgba(30, 34, 42, 0.18) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(30, 34, 42, 0.18) 1px,
+      transparent 1px
+    );
+
+  background-size: 28px 28px;
+}
+
 .phaser-layer {
   position: absolute;
 
   inset: 0;
+
+  width: 100%;
+  height: 100%;
 
   z-index: 1;
 

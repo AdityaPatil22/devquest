@@ -864,16 +864,7 @@ export function GameUI() {
 
   return (
     <>
-      {showGameplayUI && (
-        <HUD
-          round={
-            state.screen ===
-            'decision'
-              ? state.round
-              : undefined
-          }
-        />
-      )}
+      <HUD />
 
       {showGameplayUI && (
         <div className="objective-indicator">
