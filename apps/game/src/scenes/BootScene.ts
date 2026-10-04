@@ -166,7 +166,31 @@ export class BootScene extends Phaser.Scene {
       type: 'GAME_READY',
     });
 
+    emitUI(this, {
+      type: 'START_SCREEN_READY',
+    });
+
     this.ws.connect();
+  }
+
+  public submitProblem(problem: string): void {
+    const trimmed = problem.trim();
+  
+    if (!trimmed) {
+      return;
+    }
+  
+    this.store.setProblem(trimmed);
+  
+    emitUI(this, {
+      type: 'PROBLEM_SUBMITTING',
+      message: 'Generating your first decision...',
+    });
+  
+    this.ws.send({
+      type: 'PROBLEM_SUBMITTED',
+      problem: trimmed,
+    });
   }
 
   private handleMessage(msg: ServerMessage): void {
@@ -184,13 +208,6 @@ export class BootScene extends Phaser.Scene {
       emitUI(this, {
         type: 'SESSION_STARTED',
         sessionId: msg.sessionId,
-      });
-
-      this.leaveBoot();
-
-      this.scene.start('CommonRoomScene', {
-        ws: this.ws,
-        store: this.store,
       });
 
       return;
@@ -244,26 +261,20 @@ export class BootScene extends Phaser.Scene {
 
     // No problem yet
     if (phase === 'idle' || phase === 'awaiting_problem') {
-      this.leaveBoot();
-
-      this.scene.start('CommonRoomScene', {
-        ws: this.ws,
-        store: this.store,
+      emitUI(this, {
+        type: 'START_SCREEN_READY',
       });
-
+    
       return;
     }
 
     // Waiting for first decision
     if (phase === 'awaiting_question') {
-      this.leaveBoot();
-
-      this.scene.start('CommonRoomScene', {
-        ws: this.ws,
-        store: this.store,
-        gateWaiting: true,
+      emitUI(this, {
+        type: 'PROBLEM_SUBMITTING',
+        message: 'Generating your first decision...',
       });
-
+    
       return;
     }
 
@@ -279,15 +290,11 @@ export class BootScene extends Phaser.Scene {
     }
 
     const currentDecision = this.store.getCurrentDecision();
-
     if (!currentDecision) {
-      this.leaveBoot();
-
-      this.scene.start('CommonRoomScene', {
-        ws: this.ws,
-        store: this.store,
+      emitUI(this, {
+        type: 'START_SCREEN_READY',
       });
-
+    
       return;
     }
 

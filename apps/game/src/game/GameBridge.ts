@@ -21,34 +21,23 @@ export type GameUIEvent =
       type: 'GAME_READY';
     }
   | {
-      type: 'COMMON_ROOM_READY';
-    }
-  | {
       type: 'DECISION_ROOM_READY';
-    }
-  | {
-      type: 'ELEVATOR_PROXIMITY';
-      visible: boolean;
-    }
-  | {
-      type: 'ELEVATOR_OPEN';
-      waiting: boolean;
-      message?: string;
-    }
-  | {
-      type: 'ELEVATOR_SUBMITTING';
-      message?: string;
-    }
-  | {
-      type: 'ELEVATOR_CLOSED';
     }
   | {
       type: 'SESSION_STARTED';
       sessionId: string;
     }
+
+  | {
+      type: 'START_SCREEN_READY';
+    }
   | {
       type: 'SESSION_RESUMED';
       sessionId?: string;
+    }
+  | {
+      type: 'PROBLEM_SUBMITTING';
+      message: string;
     }
   | {
       type: 'DECISION';

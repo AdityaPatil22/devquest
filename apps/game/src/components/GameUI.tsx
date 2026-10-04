@@ -6,7 +6,7 @@ import { useGameUI } from '../state/GameUIContext';
 
 import { HUD } from './HUD/HUD';
 import { InteractionPrompt } from './InteractionPrompt/InteractionPrompt';
-import { ElevatorModal } from './ElevatorModal/ElevatorModal';
+import { ProblemInput } from './ProblemInput/ProblemInput';
 import { DoorContextModal } from './DecisionPanel/DoorContextModal';
 import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
@@ -44,15 +44,18 @@ export function GameUI() {
           }));
           break;
 
-        case 'COMMON_ROOM_READY':
-          setState((previous) => ({
-            ...previous,
-            screen: 'common',
-            loading: false,
-            objective: 'Walk to the elevator',
-            aiThinking: false,
-          }));
-          break;
+          case 'START_SCREEN_READY':
+            setState((previous) => ({
+              ...previous,
+              screen: 'start',
+              modal: 'problem-input',
+              loading: false,
+              objective: '',
+              aiThinking: false,
+              aiThinkingMessage: undefined,
+              error: undefined,
+            }));
+            break;
 
         case 'DECISION_ROOM_READY':
           setState((previous) => ({
@@ -71,28 +74,6 @@ export function GameUI() {
           }));
           break;
 
-        case 'ELEVATOR_OPEN':
-          setState((previous) => ({
-            ...previous,
-            screen: 'common',
-            modal: 'elevator',
-            elevatorWaiting: Boolean(event.waiting),
-            waitingMessage: typeof event.message === 'string' ? event.message : undefined,
-            error: undefined,
-          }));
-          break;
-
-        case 'ELEVATOR_SUBMITTING':
-          setState((previous) => ({
-            ...previous,
-            modal: 'elevator',
-            elevatorWaiting: true,
-            waitingMessage:
-              typeof event.message === 'string' ? event.message : 'Entering the elevator...',
-            error: undefined,
-          }));
-          break;
-
         case 'ELEVATOR_CLOSED':
           setState((previous) => ({
             ...previous,
@@ -102,18 +83,19 @@ export function GameUI() {
           }));
           break;
 
-        case 'SESSION_STARTED':
-          setState((previous) => ({
-            ...previous,
-            screen: 'common',
-            loading: false,
-            decisionHistory: [],
-            objective: 'Walk to the elevator',
-            aiThinking: false,
-            aiThinkingMessage: undefined,
-            error: undefined,
-          }));
-          break;
+          case 'SESSION_STARTED':
+            setState((previous) => ({
+              ...previous,
+              screen: 'start',
+              modal: 'problem-input',
+              loading: false,
+              decisionHistory: [],
+              objective: '',
+              aiThinking: false,
+              aiThinkingMessage: undefined,
+              error: undefined,
+            }));
+            break;
 
         case 'SESSION_RESUMED':
           setState((previous) => ({
@@ -186,6 +168,19 @@ export function GameUI() {
 
           break;
         }
+
+        case 'PROBLEM_SUBMITTING':
+          setState((previous) => ({
+            ...previous,
+            screen: 'start',
+            modal: 'problem-input',
+            waitingMessage:
+              typeof event.message === 'string'
+                ? event.message
+                : 'Generating your first decision...',
+            error: undefined,
+          }));
+          break;
 
         case 'EXPLORING_DOORS':
           setState((previous) => ({
@@ -305,7 +300,7 @@ export function GameUI() {
 
   const submitProblem = useCallback(
     (problem: string) => {
-      const scene = game?.scene.getScene('CommonRoomScene') as
+      const scene = game?.scene.getScene('BootScene') as
         | {
             submitProblem?: (value: string) => void;
           }
@@ -315,16 +310,6 @@ export function GameUI() {
     },
     [game],
   );
-
-  const closeElevator = useCallback(() => {
-    const scene = game?.scene.getScene('CommonRoomScene') as
-      | {
-          closeGate?: () => void;
-        }
-      | undefined;
-
-    scene?.closeGate?.();
-  }, [game]);
 
   const submitDoorContext = useCallback(
     (context?: string) => {
@@ -366,9 +351,6 @@ export function GameUI() {
     }));
   }, [game, setState]);
 
-  const showElevatorGuide =
-    state.screen === 'common' && state.modal === null && !state.elevatorNear;
-
   const showDecisionUI = state.screen === 'decision' && state.modal === null && !state.aiThinking;
 
   const latestDecisionHistory = state.decisionHistory;
@@ -376,16 +358,6 @@ export function GameUI() {
   return (
     <>
       <HUD round={state.screen === 'decision' ? state.round : undefined} />
-
-      {showElevatorGuide && (
-        <div className="elevator-guide" aria-live="polite">
-          <div className="elevator-guide__eyebrow">START GRILLING</div>
-
-          <div className="elevator-guide__title">Walk to the elevator</div>
-
-          <div className="elevator-guide__hint">Press E when you get close</div>
-        </div>
-      )}
 
       <div className="objective-indicator">
         <div className="objective-indicator__eyebrow">OBJECTIVE</div>
@@ -407,11 +379,6 @@ export function GameUI() {
       <DoorOptionsOverlay game={game} visible={showDecisionUI} />
 
       <InteractionPrompt
-        visible={state.elevatorNear && state.modal === null}
-        text="Press E to enter the elevator"
-      />
-
-      <InteractionPrompt
         visible={state.doorNear && state.modal === null}
         text={
           state.nearDoorOption
@@ -425,11 +392,10 @@ export function GameUI() {
         text="Press E to view summary"
       />
 
-      <ElevatorModal
-        open={state.modal === 'elevator'}
-        waiting={state.elevatorWaiting}
+      <ProblemInput
+        open={state.screen === 'start'}
+        waiting={state.modal === 'problem-input' && Boolean(state.waitingMessage)}
         onSubmit={submitProblem}
-        onClose={closeElevator}
         error={state.error}
       />
 

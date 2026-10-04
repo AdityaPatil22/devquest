@@ -1,14 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-
 import type Phaser from 'phaser';
-
 import type { DecisionOption, Recommendation } from '../net/protocol';
-
 import type { DecisionHistoryEntry } from '../game/GameBridge';
 
-export type UIScreen = 'loading' | 'common' | 'decision' | 'complete';
-
-export type UIModal = null | 'elevator' | 'door-context' | 'waiting';
+export type UIScreen = 'loading' | 'start' | 'decision' | 'complete';
+export type UIModal = null | 'problem-input' | 'door-context' | 'waiting';
 
 export interface UIState {
   screen: UIScreen;
@@ -17,9 +13,6 @@ export interface UIState {
   gameReady: boolean;
   loading: boolean;
   loadingProgress: number;
-
-  elevatorNear: boolean;
-  elevatorWaiting: boolean;
 
   doorNear: boolean;
   nearDoorOption?: DecisionOption;
@@ -73,9 +66,6 @@ const initialState: UIState = {
   gameReady: false,
   loading: true,
   loadingProgress: 0,
-
-  elevatorNear: false,
-  elevatorWaiting: false,
 
   doorNear: false,
   nearDoorOption: undefined,

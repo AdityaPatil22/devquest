@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import './ElevatorModal.css';
+import './ProblemInput.css';
 
 interface Props {
   open: boolean;
@@ -10,10 +10,9 @@ interface Props {
 
   onSubmit: (problem: string) => void;
 
-  onClose: () => void;
 }
 
-export function ElevatorModal({ open, waiting, error, onSubmit, onClose }: Props) {
+export function ProblemInput({ open, waiting, error, onSubmit }: Props) {
   const [problem, setProblem] = useState('');
 
   useEffect(() => {
@@ -28,8 +27,8 @@ export function ElevatorModal({ open, waiting, error, onSubmit, onClose }: Props
 
   return (
     <div className="modal-backdrop">
-      <section className="elevator-modal">
-        <div className="modal-eyebrow">THE ELEVATOR</div>
+      <section className="problem-input">
+        <div className="modal-eyebrow">THE PROBLEM</div>
 
         <h1>What do you want to be grilled on?</h1>
 
@@ -67,7 +66,7 @@ export function ElevatorModal({ open, waiting, error, onSubmit, onClose }: Props
                   onSubmit(problem.trim());
                 }}
               >
-                ENTER THE ELEVATOR
+                START GRILLING
               </button>
             </div>
           </>
