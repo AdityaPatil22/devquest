@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────────
-// Client → Server Messages
-// ─────────────────────────────────────────────
-
 export interface StartSessionMsg {
   type: 'START_SESSION';
 }
@@ -19,10 +15,6 @@ export interface OptionSelectedMsg {
 }
 
 export type ClientMessage = StartSessionMsg | SubmitProblemMsg | OptionSelectedMsg;
-
-// ─────────────────────────────────────────────
-// Decision types
-// ─────────────────────────────────────────────
 
 export interface DecisionOption {
   id: string;
@@ -46,16 +38,11 @@ export interface DecisionSnapshot {
   parentId?: string;
   dependsOn?: string;
   status: string;
-
   decision?: {
     optionId: string;
     context?: string;
   };
 }
-
-// ─────────────────────────────────────────────
-// Complete server-side session snapshot
-// ─────────────────────────────────────────────
 
 export interface SessionSnapshot {
   sessionId: string;
@@ -63,16 +50,10 @@ export interface SessionSnapshot {
   phase: string;
   round: number;
   currentNodeId?: string;
-
   decisions: DecisionSnapshot[];
-
   summary?: string;
   docContent?: string;
 }
-
-// ─────────────────────────────────────────────
-// Server → Client Messages
-// ─────────────────────────────────────────────
 
 export interface SessionStartedMsg {
   type: 'SESSION_STARTED';
@@ -111,4 +92,8 @@ export interface ErrorMsg {
 }
 
 export type ServerMessage =
-  SessionStartedMsg | SessionResumedMsg | DecisionCreatedMsg | SessionCompleteMsg | ErrorMsg;
+  | SessionStartedMsg
+  | SessionResumedMsg
+  | DecisionCreatedMsg
+  | SessionCompleteMsg
+  | ErrorMsg;

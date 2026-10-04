@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-
 import type { DecisionOption } from '../net/protocol';
-
 import type { DecisionHistoryEntry } from '../game/GameBridge';
-
 import type { WebSocketStatus } from '../net/WebSocketClient';
-
 import { useGameUI } from '../state/GameUIContext';
-
 import { HUD } from './HUD/HUD';
 import { InteractionPrompt } from './InteractionPrompt/InteractionPrompt';
 import { ProblemInput } from './ProblemInput/ProblemInput';
@@ -16,12 +11,12 @@ import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
 import { DecisionBriefPanel } from './DecisionBriefPanel/DecisionBriefPanel';
+import { AIWorkstation } from './AIWorkstation/AIWorkstation';
 
 type BackendStatus = 'checking' | 'online' | 'offline';
 
 function StatusDot({ status }: { status: BackendStatus | WebSocketStatus | 'ready' }) {
   const healthy = status === 'online' || status === 'connected' || status === 'ready';
-
   const warning = status === 'checking' || status === 'connecting';
 
   return (
@@ -52,7 +47,6 @@ function StatusRow({
         <StatusDot status={status} />
         <span>{label}</span>
       </div>
-
       <span className="system-status__value">{value}</span>
     </div>
   );
@@ -65,9 +59,7 @@ interface GameUIEvent {
 
 export function GameUI() {
   const { game, state, setState } = useGameUI();
-
   const [websocketStatus, setWebsocketStatus] = useState<WebSocketStatus>('disconnected');
-
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking');
 
   useEffect(() => {
@@ -75,24 +67,17 @@ export function GameUI() {
 
     const checkBackend = async () => {
       try {
-        const response = await fetch('/api/health', {
-          method: 'GET',
-          cache: 'no-store',
-        });
+        const response = await fetch('/api/health', { method: 'GET', cache: 'no-store' });
 
         if (!response.ok) {
           throw new Error(`Backend returned ${response.status}`);
         }
 
-        const body = (await response.json()) as {
-          status?: string;
-        };
+        const body = (await response.json()) as { status?: string };
 
-        if (!active) {
-          return;
+        if (active) {
+          setBackendStatus(body.status === 'ok' ? 'online' : 'offline');
         }
-
-        setBackendStatus(body.status === 'ok' ? 'online' : 'offline');
       } catch {
         if (active) {
           setBackendStatus('offline');
@@ -101,10 +86,7 @@ export function GameUI() {
     };
 
     void checkBackend();
-
-    const interval = window.setInterval(() => {
-      void checkBackend();
-    }, 5000);
+    const interval = window.setInterval(() => void checkBackend(), 5000);
 
     return () => {
       active = false;
@@ -126,19 +108,12 @@ export function GameUI() {
             loadingProgress: Number(event.progress ?? 0),
           }));
           break;
-
         case 'GAME_READY':
-          setState((previous) => ({
-            ...previous,
-            gameReady: true,
-            loading: false,
-          }));
+          setState((previous) => ({ ...previous, gameReady: true, loading: false }));
           break;
-
         case 'WEBSOCKET_STATUS':
           setWebsocketStatus(event.status as WebSocketStatus);
           break;
-
         case 'START_SCREEN_READY':
           setState((previous) => ({
             ...previous,
@@ -149,10 +124,15 @@ export function GameUI() {
             objective: '',
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            corridorProcessingStage: 'processing',
+            corridorProcessingMessage: undefined,
+            workstationNear: false,
+            workstationType: undefined,
+            workstationOpen: false,
             error: undefined,
           }));
           break;
-
         case 'SESSION_STARTED':
           setState((previous) => ({
             ...previous,
@@ -164,31 +144,28 @@ export function GameUI() {
             objective: '',
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            corridorProcessingStage: 'processing',
+            corridorProcessingMessage: undefined,
+            workstationNear: false,
+            workstationType: undefined,
+            workstationOpen: false,
             error: undefined,
           }));
           break;
-
         case 'SESSION_RESUMED':
-          setState((previous) => ({
-            ...previous,
-            loading: false,
-            error: undefined,
-          }));
+          setState((previous) => ({ ...previous, loading: false, error: undefined }));
           break;
-
         case 'PROBLEM_SUBMITTING':
           setState((previous) => ({
             ...previous,
             screen: 'start',
             modal: null,
             waitingMessage:
-              typeof event.message === 'string'
-                ? event.message
-                : 'Generating your first decision...',
+              typeof event.message === 'string' ? event.message : 'Generating your first decision...',
             error: undefined,
           }));
           break;
-
         case 'DECISION_ROOM_READY':
           setState((previous) => ({
             ...previous,
@@ -197,7 +174,6 @@ export function GameUI() {
             objective: 'Choose a door',
           }));
           break;
-
         case 'DECISION':
           setState((previous) => ({
             ...previous,
@@ -212,11 +188,16 @@ export function GameUI() {
             waitingMessage: undefined,
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            corridorProcessingStage: 'processing',
+            corridorProcessingMessage: undefined,
+            workstationNear: false,
+            workstationType: undefined,
+            workstationOpen: false,
             objective: 'Choose a door',
             error: undefined,
           }));
           break;
-
         case 'DECISION_HISTORY': {
           const entry = event.entry as DecisionHistoryEntry;
 
@@ -230,25 +211,15 @@ export function GameUI() {
             );
 
             if (existingIndex === -1) {
-              return {
-                ...previous,
-                decisionHistory: [...previous.decisionHistory, entry],
-              };
+              return { ...previous, decisionHistory: [...previous.decisionHistory, entry] };
             }
 
             const decisionHistory = [...previous.decisionHistory];
-
             decisionHistory[existingIndex] = entry;
-
-            return {
-              ...previous,
-              decisionHistory,
-            };
+            return { ...previous, decisionHistory };
           });
-
           break;
         }
-
         case 'EXPLORING_DOORS':
           setState((previous) => ({
             ...previous,
@@ -258,10 +229,15 @@ export function GameUI() {
             objective: 'Choose a door',
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            corridorProcessingStage: 'processing',
+            corridorProcessingMessage: undefined,
+            workstationNear: false,
+            workstationType: undefined,
+            workstationOpen: false,
             error: undefined,
           }));
           break;
-
         case 'DOOR_PROXIMITY':
           setState((previous) => ({
             ...previous,
@@ -269,7 +245,6 @@ export function GameUI() {
             nearDoorOption: event.option as DecisionOption | undefined,
           }));
           break;
-
         case 'DOOR_CONTEXT':
           setState((previous) => ({
             ...previous,
@@ -277,7 +252,6 @@ export function GameUI() {
             selectedOption: event.option as DecisionOption | undefined,
           }));
           break;
-
         case 'AI_THINKING':
           setState((previous) => ({
             ...previous,
@@ -288,14 +262,47 @@ export function GameUI() {
             modal: event.visible ? null : previous.modal,
           }));
           break;
-
+        case 'CORRIDOR_PROCESSING':
+          setState((previous) => ({
+            ...previous,
+            corridorProcessing: Boolean(event.visible),
+            corridorProcessingStage:
+              event.stage === 'ready' ? 'ready' : event.stage === 'received' ? 'received' : 'processing',
+            corridorProcessingMessage:
+              typeof event.message === 'string' ? event.message : undefined,
+            workstationNear: Boolean(event.visible) ? previous.workstationNear : false,
+            workstationType: Boolean(event.visible) ? previous.workstationType : undefined,
+            workstationOpen: Boolean(event.visible) ? previous.workstationOpen : false,
+          }));
+          break;
+        case 'WORKSTATION_PROXIMITY':
+          setState((previous) => ({
+            ...previous,
+            workstationNear: Boolean(event.visible),
+            workstationType:
+              event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
+                ? event.workstation
+                : undefined,
+          }));
+          break;
+        case 'WORKSTATION_OPEN':
+          setState((previous) => ({
+            ...previous,
+            workstationOpen: Boolean(event.visible),
+            workstationType:
+              event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
+                ? event.workstation
+                : previous.workstationType,
+          }));
+          break;
+        case 'PLAYER_MOVING':
+          break;
         case 'OBJECTIVE':
           setState((previous) => ({
             ...previous,
             objective: typeof event.objective === 'string' ? event.objective : previous.objective,
           }));
           break;
-
         case 'WAITING':
           setState((previous) => ({
             ...previous,
@@ -303,7 +310,6 @@ export function GameUI() {
             waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
           }));
           break;
-
         case 'NEXT_DECISION_LOADING':
           setState((previous) => ({
             ...previous,
@@ -311,7 +317,6 @@ export function GameUI() {
             waitingMessage: 'Preparing the next decision...',
           }));
           break;
-
         case 'SESSION_COMPLETE':
           setState((previous) => ({
             ...previous,
@@ -322,11 +327,13 @@ export function GameUI() {
             waitingMessage: undefined,
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            workstationNear: false,
+            workstationOpen: false,
             objective: 'Session complete',
             error: undefined,
           }));
           break;
-
         case 'ERROR':
           setState((previous) => ({
             ...previous,
@@ -334,16 +341,14 @@ export function GameUI() {
             waitingMessage: undefined,
             aiThinking: false,
             aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            workstationNear: false,
+            workstationOpen: false,
           }));
           break;
-
         case 'TROPHY_PROXIMITY':
-          setState((previous) => ({
-            ...previous,
-            trophyNear: Boolean(event.visible),
-          }));
+          setState((previous) => ({ ...previous, trophyNear: Boolean(event.visible) }));
           break;
-
         case 'TROPHY_INTERACTED':
           setState((previous) => ({
             ...previous,
@@ -354,14 +359,12 @@ export function GameUI() {
             docContent: typeof event.docContent === 'string' ? event.docContent : undefined,
           }));
           break;
-
         default:
           break;
       }
     };
 
     game.events.on('devquest:ui', handler);
-
     return () => {
       game.events.off('devquest:ui', handler);
     };
@@ -370,11 +373,8 @@ export function GameUI() {
   const submitProblem = useCallback(
     (problem: string) => {
       const scene = game?.scene.getScene('BootScene') as
-        | {
-            submitProblem?: (value: string) => void;
-          }
+        | { submitProblem?: (value: string) => void }
         | undefined;
-
       scene?.submitProblem?.(problem);
     },
     [game],
@@ -383,11 +383,8 @@ export function GameUI() {
   const submitDoorContext = useCallback(
     (context?: string) => {
       const scene = game?.scene.getScene('GrillingScene') as
-        | {
-            confirmDoorSelection?: (value?: string) => void;
-          }
+        | { confirmDoorSelection?: (value?: string) => void }
         | undefined;
-
       scene?.confirmDoorSelection?.(context);
     },
     [game],
@@ -395,38 +392,43 @@ export function GameUI() {
 
   const cancelDoorContext = useCallback(() => {
     const scene = game?.scene.getScene('GrillingScene') as
-      | {
-          cancelDoorSelection?: () => void;
-        }
+      | { cancelDoorSelection?: () => void }
       | undefined;
-
     scene?.cancelDoorSelection?.();
+  }, [game]);
+
+  const closeWorkstation = useCallback(() => {
+    const scene = game?.scene.getScene('GrillingScene') as
+      | { closeWorkstation?: () => void }
+      | undefined;
+    scene?.closeWorkstation?.();
   }, [game]);
 
   const closeTrophySummary = useCallback(() => {
     const scene = game?.scene.getScene('TrophyScene');
 
     if (scene) {
-      const trophyScene = scene as unknown as {
-        closeSummary?: () => void;
-      };
-
+      const trophyScene = scene as unknown as { closeSummary?: () => void };
       trophyScene.closeSummary?.();
     }
 
-    setState((previous) => ({
-      ...previous,
-      trophySummaryOpen: false,
-    }));
+    setState((previous) => ({ ...previous, trophySummaryOpen: false }));
   }, [game, setState]);
 
   const showStartScreen = state.screen === 'start';
-
-  const showDecisionUI = state.screen === 'decision' && state.modal === null && !state.aiThinking;
-
+  const showDecisionUI =
+    state.screen === 'decision' &&
+    state.modal === null &&
+    !state.aiThinking &&
+    !state.corridorProcessing;
   const showGameplayUI = state.screen === 'decision' || state.screen === 'complete';
-
   const initialProblemWaiting = showStartScreen && Boolean(state.waitingMessage);
+  const processingLabel =
+    state.corridorProcessingStage === 'ready'
+      ? 'NEXT DECISION READY'
+      : state.corridorProcessingStage === 'received'
+        ? 'REQUEST RECEIVED'
+        : 'AI PROCESSING';
 
   if (showStartScreen) {
     return (
@@ -434,76 +436,52 @@ export function GameUI() {
         <header className="start-screen__header">
           <div className="start-screen__brand">DEVQUEST</div>
         </header>
-
         <main className="start-screen__content">
           <section className="start-screen__intro">
             <div className="start-screen__eyebrow">AI ENGINEERING DECISION SIMULATOR</div>
-
             <h1>
               Think it through.
               <br />
               Then get grilled.
             </h1>
-
             <p className="start-screen__description">
               DevQuest takes an engineering decision, challenges your assumptions, and makes you
               navigate the trade-offs one decision at a time.
             </p>
-
             <div className="start-screen__instructions">
               <div className="start-screen__section-title">HOW IT WORKS</div>
-
               <div className="instruction-list">
                 <div className="instruction">
                   <span>01</span>
                   <div>
                     <strong>Enter your problem</strong>
-
                     <p>Describe the engineering decision you are facing.</p>
                   </div>
                 </div>
-
                 <div className="instruction">
                   <span>02</span>
                   <div>
                     <strong>Choose a door</strong>
-
                     <p>Each door represents a different path or trade-off.</p>
                   </div>
                 </div>
-
                 <div className="instruction">
                   <span>03</span>
                   <div>
                     <strong>Get challenged</strong>
-
                     <p>Keep making decisions until the final recommendation.</p>
                   </div>
                 </div>
               </div>
             </div>
-
             <div className="system-status">
               <div className="start-screen__section-title">SYSTEM STATUS</div>
-
-              <StatusRow
-                label="Frontend"
-                status={state.gameReady ? 'ready' : 'checking'}
-                value={state.gameReady ? 'Ready' : 'Loading'}
-              />
-
+              <StatusRow label="Frontend" status={state.gameReady ? 'ready' : 'checking'} value={state.gameReady ? 'Ready' : 'Loading'} />
               <StatusRow
                 label="Backend"
                 status={backendStatus}
-                value={
-                  backendStatus === 'online'
-                    ? 'Healthy'
-                    : backendStatus === 'checking'
-                      ? 'Checking'
-                      : 'Offline'
-                }
+                value={backendStatus === 'online' ? 'Healthy' : backendStatus === 'checking' ? 'Checking' : 'Offline'}
               />
-
               <StatusRow
                 label="WebSocket"
                 status={websocketStatus}
@@ -519,7 +497,6 @@ export function GameUI() {
               />
             </div>
           </section>
-
           <section className="start-screen__input">
             <ProblemInput
               waiting={initialProblemWaiting}
@@ -527,10 +504,7 @@ export function GameUI() {
               error={state.error}
               onSubmit={submitProblem}
             />
-
-            <div className="start-screen__note">
-              No account required. Your session is kept locally while you play.
-            </div>
+            <div className="start-screen__note">No account required. Your session is kept locally while you play.</div>
           </section>
         </main>
       </div>
@@ -540,54 +514,67 @@ export function GameUI() {
   return (
     <>
       <HUD />
-
       {showGameplayUI && (
         <div className="objective-indicator">
           <div className="objective-indicator__eyebrow">OBJECTIVE</div>
-
           <div className="objective-indicator__text">{state.objective || 'Explore the room'}</div>
         </div>
       )}
-
-      <DecisionBriefPanel
-        question={state.question}
-        description={state.description}
-        options={state.options}
-        recommendation={state.recommendation}
-        round={state.round}
-        decisionHistory={state.decisionHistory}
-        aiThinking={state.aiThinking}
-        aiThinkingMessage={state.aiThinkingMessage}
-      />
-
+      {state.corridorProcessing && !state.workstationOpen && (
+        <div className="corridor-processing-indicator">
+          <span className="corridor-processing-indicator__dot" />
+          <span className="corridor-processing-indicator__label">
+            {processingLabel}
+            {state.corridorProcessingMessage ? ` — ${state.corridorProcessingMessage}` : ''}
+          </span>
+        </div>
+      )}
+      {((state.screen === 'decision' && !state.corridorProcessing) || state.screen === 'complete') && (
+        <DecisionBriefPanel
+          question={state.question}
+          description={state.description}
+          options={state.options}
+          recommendation={state.recommendation}
+          round={state.round}
+          decisionHistory={state.decisionHistory}
+          aiThinking={state.aiThinking}
+          aiThinkingMessage={state.aiThinkingMessage}
+        />
+      )}
       <DoorOptionsOverlay game={game} visible={showDecisionUI} />
-
       <InteractionPrompt
-        visible={state.doorNear && state.modal === null}
+        visible={state.doorNear && state.modal === null && !state.corridorProcessing}
         text={
           state.nearDoorOption
             ? `Press E to enter ${state.nearDoorOption.label}`
             : 'Press E to enter the door'
         }
       />
-
+      <InteractionPrompt
+        visible={state.workstationNear && state.corridorProcessing && !state.workstationOpen}
+        text={state.workstationType === 'ai-terminal' ? 'Press E to inspect terminal' : 'Press E to inspect workstation'}
+      />
+      <AIWorkstation
+        open={state.workstationOpen}
+        type={state.workstationType}
+        stage={state.corridorProcessingStage}
+        message={state.corridorProcessingMessage}
+        onClose={closeWorkstation}
+      />
       <InteractionPrompt
         visible={state.trophyNear && !state.trophySummaryOpen}
         text="Press E to view summary"
       />
-
       <DoorContextModal
         open={state.modal === 'door-context'}
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}
       />
-
       <WaitingOverlay
         open={state.modal === 'waiting' && !state.aiThinking}
         message={state.waitingMessage}
       />
-
       <TrophySummary
         open={state.trophySummaryOpen}
         problem={state.trophyProblem}
@@ -595,7 +582,6 @@ export function GameUI() {
         docContent={state.docContent}
         onClose={closeTrophySummary}
       />
-
       {state.error && <div className="game-error">{state.error}</div>}
     </>
   );
