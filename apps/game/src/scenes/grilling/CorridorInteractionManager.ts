@@ -1,18 +1,19 @@
 import Phaser from 'phaser';
-
 import { emitUI } from '../support/sceneUi';
 import type { WorldSegment } from './segment';
 
+export type CorridorInteractableType = 'ai-workstation' | 'ai-terminal';
+
 export interface CorridorInteractable {
   id: number;
-  type: 'ai-workstation' | 'ai-terminal';
+  type: CorridorInteractableType;
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-const INTERACT_DISTANCE = 50;
+const INTERACT_DISTANCE = 56;
 
 export class CorridorInteractionManager {
   private current?: CorridorInteractable;
@@ -28,23 +29,15 @@ export class CorridorInteractionManager {
 
   reset(): void {
     this.current = undefined;
-    emitUI(this.scene, {
-      type: 'WORKSTATION_PROXIMITY',
-      visible: false,
-    });
-    emitUI(this.scene, {
-      type: 'WORKSTATION_OPEN',
-      visible: false,
-    });
+    emitUI(this.scene, { type: 'WORKSTATION_PROXIMITY', visible: false });
+    emitUI(this.scene, { type: 'WORKSTATION_OPEN', visible: false });
   }
 
   update(corridor: WorldSegment | undefined): CorridorInteractable | undefined {
-    const objects = corridor?.objects ?? [];
-
     let nearest: CorridorInteractable | undefined;
     let nearestDistance = INTERACT_DISTANCE;
 
-    for (const object of objects) {
+    for (const object of corridor?.objects ?? []) {
       const data = object.getData('corridorInteractable') as CorridorInteractable | undefined;
 
       if (!data) {
@@ -77,10 +70,7 @@ export class CorridorInteractionManager {
         workstation: nearest.type,
       });
     } else {
-      emitUI(this.scene, {
-        type: 'WORKSTATION_PROXIMITY',
-        visible: false,
-      });
+      emitUI(this.scene, { type: 'WORKSTATION_PROXIMITY', visible: false });
     }
 
     return nearest;
