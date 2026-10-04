@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 
-import type { DecisionOption, Recommendation } from '../net/protocol';
+import type {
+  DecisionOption,
+  Recommendation,
+} from '../net/protocol';
+
+import type {
+  WebSocketStatus,
+} from '../net/WebSocketClient';
 
 export interface DecisionHistoryEntry {
   nodeId: string;
@@ -34,6 +41,10 @@ export type GameUIEvent =
   | {
       type: 'PROBLEM_SUBMITTING';
       message: string;
+    }
+  | {
+      type: 'WEBSOCKET_STATUS';
+      status: WebSocketStatus;
     }
   | {
       type: 'DECISION_ROOM_READY';
@@ -108,5 +119,8 @@ export function emitUIEvent(
   game: Phaser.Game,
   event: GameUIEvent,
 ): void {
-  game.events.emit('devquest:ui', event);
+  game.events.emit(
+    'devquest:ui',
+    event,
+  );
 }

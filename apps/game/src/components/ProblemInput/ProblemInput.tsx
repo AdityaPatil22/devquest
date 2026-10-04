@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import './ProblemInput.css';
 
 interface Props {
-  open: boolean;
   waiting: boolean;
   message?: string;
   error?: string;
@@ -11,83 +10,125 @@ interface Props {
 }
 
 export function ProblemInput({
-  open,
   waiting,
   message,
   error,
   onSubmit,
 }: Props) {
-  const [problem, setProblem] = useState('');
+  const [problem, setProblem] =
+    useState('');
 
   useEffect(() => {
-    if (!open) {
-      setProblem('');
+    if (waiting) {
+      return;
     }
-  }, [open]);
 
-  if (!open) {
-    return null;
-  }
+    if (error) {
+      return;
+    }
+  }, [waiting, error]);
+
+  const handleSubmit = () => {
+    const trimmed =
+      problem.trim();
+
+    if (!trimmed || waiting) {
+      return;
+    }
+
+    onSubmit(trimmed);
+  };
 
   return (
-    <div className="problem-input-backdrop">
-      <section className="problem-input">
-        <div className="problem-input__eyebrow">
-          DEVQUEST
-        </div>
+    <section className="problem-input">
+      <div className="problem-input__eyebrow">
+        START A GRILLING
+      </div>
 
-        <h1>What do you want to be grilled on?</h1>
+      <h2>
+        What do you want to be
+        grilled on?
+      </h2>
 
-        <p>
-          Describe the engineering decision you want DevQuest
-          to challenge.
-        </p>
+      <p className="problem-input__description">
+        Describe the engineering
+        decision you want DevQuest
+        to challenge.
+      </p>
 
-        {waiting ? (
-          <div className="problem-input__waiting">
-            <div className="problem-input__spinner" />
+      {waiting ? (
+        <div className="problem-input__waiting">
+          <div className="problem-input__spinner" />
 
-            <span>
-              {message || 'Generating your first decision...'}
-            </span>
-          </div>
-        ) : (
-          <>
-            <textarea
-              value={problem}
-              onChange={(event) =>
-                setProblem(event.target.value)
-              }
-              placeholder='e.g. "Should I rewrite the auth service in Go?"'
-              autoFocus
-            />
-
-            {error && (
-              <div className="problem-input__error">
-                {error}
-              </div>
-            )}
-
-            <div className="problem-input__actions">
-              <button
-                type="button"
-                disabled={!problem.trim()}
-                onClick={() => {
-                  const trimmed = problem.trim();
-
-                  if (!trimmed) {
-                    return;
-                  }
-
-                  onSubmit(trimmed);
-                }}
-              >
-                START GRILLING
-              </button>
+          <div>
+            <div className="problem-input__waiting-title">
+              Generating your first
+              decision
             </div>
-          </>
-        )}
-      </section>
-    </div>
+
+            <div className="problem-input__waiting-message">
+              {message ||
+                'Claude is preparing your first question...'}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <label
+            className="problem-input__label"
+            htmlFor="devquest-problem"
+          >
+            ENGINEERING PROBLEM
+          </label>
+
+          <textarea
+            id="devquest-problem"
+            value={problem}
+            onChange={(event) =>
+              setProblem(
+                event.target.value,
+              )
+            }
+            placeholder="e.g. Should I rewrite the auth service in Go?"
+            rows={8}
+            autoFocus
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' &&
+                (event.metaKey ||
+                  event.ctrlKey)
+              ) {
+                event.preventDefault();
+
+                handleSubmit();
+              }
+            }}
+          />
+
+          {error && (
+            <div className="problem-input__error">
+              {error}
+            </div>
+          )}
+
+          <div className="problem-input__footer">
+            <span className="problem-input__shortcut">
+              ⌘ / Ctrl + Enter
+            </span>
+
+            <button
+              type="button"
+              disabled={!problem.trim()}
+              onClick={
+                handleSubmit
+              }
+            >
+              <span>▶</span>
+              START GRILLING
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

@@ -8,6 +8,8 @@
     sans-serif;
 
   color: #ffffff;
+
+  background: #4c515b;
 }
 
 * {
@@ -19,11 +21,14 @@ body,
 #root {
   width: 100%;
   height: 100%;
+
   margin: 0;
 }
 
 body {
   overflow: hidden;
+
+  background: #4c515b;
 }
 
 button,
@@ -38,29 +43,41 @@ button {
 
 .devquest-app {
   position: relative;
+
   width: 100vw;
   height: 100vh;
+
   overflow: hidden;
 
-  background-color: #4c515b;
+  background:
+    radial-gradient(
+      circle at 50% 15%,
+      rgba(100, 100, 170, 0.12),
+      transparent 42%
+    ),
+    #151622;
 
   background-image:
-    linear-gradient(rgba(30, 34, 42, 0.18) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30, 34, 42, 0.18) 1px, transparent 1px);
+    linear-gradient(
+      rgba(255, 255, 255, 0.025)
+        1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025)
+        1px,
+      transparent 1px
+    );
 
-  background-size: 28px 28px;
+  background-size:
+    28px 28px;
 }
 
 .phaser-layer {
   position: absolute;
 
-  top: 70px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  width: auto;
-  height: auto;
+  inset: 0;
 
   z-index: 1;
 
@@ -88,6 +105,348 @@ button {
   pointer-events: auto;
 }
 
+/* ─────────────────────────────────────────
+   START SCREEN
+   ───────────────────────────────────────── */
+
+.start-screen {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+
+  flex-direction: column;
+
+  padding:
+    42px
+    clamp(24px, 6vw, 120px)
+    48px;
+
+  overflow-y: auto;
+}
+
+.start-screen__header {
+  display: flex;
+
+  align-items: baseline;
+
+  justify-content: space-between;
+
+  gap: 24px;
+
+  width: 100%;
+
+  max-width: 1500px;
+
+  margin: 0 auto;
+}
+
+.start-screen__brand {
+  color: #e8d4a4;
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+
+  font-size: clamp(
+    24px,
+    3vw,
+    42px
+  );
+
+  letter-spacing: 0.04em;
+
+  text-shadow:
+    3px 3px 0
+      rgba(24, 24, 36, 0.9);
+}
+
+.start-screen__tagline {
+  color: rgba(
+    255,
+    255,
+    255,
+    0.45
+  );
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+
+  font-size: 8px;
+
+  letter-spacing: 0.04em;
+}
+
+.start-screen__content {
+  width: 100%;
+
+  max-width: 1500px;
+
+  margin: auto;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 0.9fr)
+    minmax(0, 1.1fr);
+
+  gap: clamp(
+    32px,
+    6vw,
+    96px
+  );
+
+  align-items: center;
+}
+
+.start-screen__intro {
+  max-width: 650px;
+}
+
+.start-screen__eyebrow {
+  margin-bottom: 16px;
+
+  color: #9d9dff;
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+
+  font-size: 8px;
+
+  line-height: 1.8;
+
+  letter-spacing: 0.08em;
+}
+
+.start-screen__intro h1 {
+  margin: 0;
+
+  color: white;
+
+  font-size: clamp(
+    42px,
+    6vw,
+    82px
+  );
+
+  line-height: 1.02;
+
+  letter-spacing: -0.05em;
+}
+
+.start-screen__description {
+  max-width: 580px;
+
+  margin: 24px 0 34px;
+
+  color: rgba(
+    255,
+    255,
+    255,
+    0.58
+  );
+
+  font-size: 16px;
+
+  line-height: 1.75;
+}
+
+.start-screen__section-title {
+  margin-bottom: 14px;
+
+  color: rgba(
+    255,
+    255,
+    255,
+    0.35
+  );
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+
+  font-size: 8px;
+
+  letter-spacing: 0.08em;
+}
+
+.start-screen__instructions {
+  margin-bottom: 30px;
+
+  padding-top: 20px;
+
+  border-top: 1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.instruction-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 15px;
+}
+
+.instruction {
+  display: grid;
+
+  grid-template-columns: 34px 1fr;
+
+  gap: 12px;
+}
+
+.instruction > span {
+  color: #8d8dff;
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+
+  font-size: 8px;
+
+  padding-top: 3px;
+}
+
+.instruction strong {
+  color: rgba(
+    255,
+    255,
+    255,
+    0.92
+  );
+
+  font-size: 14px;
+}
+
+.instruction p {
+  margin: 5px 0 0;
+
+  color: rgba(
+    255,
+    255,
+    255,
+    0.42
+  );
+
+  font-size: 12px;
+
+  line-height: 1.5;
+}
+
+.system-status {
+  max-width: 420px;
+
+  padding-top: 20px;
+
+  border-top: 1px solid
+    rgba(255, 255, 255, 0.08);
+}
+
+.system-status__row {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 9px 0;
+
+  border-bottom: 1px solid
+    rgba(255, 255, 255, 0.04);
+}
+
+.system-status__label {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  color: rgba(
+    255,
+    255,
+    255,
+    0.72
+  );
+
+  font-size: 12px;
+}
+
+.system-status__value {
+  color: rgba(
+    255,
+    255,
+    255,
+    0.44
+  );
+
+  font-size: 11px;
+
+  font-family:
+    'Press Start 2P',
+    monospace;
+}
+
+.system-status__dot {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #6d6d78;
+
+  box-shadow:
+    0 0 0 3px
+      rgba(255, 255, 255, 0.03);
+}
+
+.system-status__dot--healthy {
+  background: #a9d27f;
+
+  box-shadow:
+    0 0 10px
+      rgba(169, 210, 127, 0.35);
+}
+
+.system-status__dot--warning {
+  background: #dbc47b;
+
+  box-shadow:
+    0 0 10px
+      rgba(219, 196, 123, 0.28);
+}
+
+.start-screen__input {
+  width: 100%;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: stretch;
+}
+
+.start-screen__note {
+  margin-top: 12px;
+
+  text-align: center;
+
+  color: rgba(
+    255,
+    255,
+    255,
+    0.28
+  );
+
+  font-size: 10px;
+}
+
+/* ─────────────────────────────────────────
+   GAME UI
+   ───────────────────────────────────────── */
+
 .objective-indicator {
   position: absolute;
 
@@ -98,10 +457,17 @@ button {
 
   padding: 11px 14px;
 
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid
+    rgba(255, 255, 255, 0.1);
+
   border-radius: 10px;
 
-  background: rgba(10, 10, 22, 0.88);
+  background: rgba(
+    10,
+    10,
+    22,
+    0.88
+  );
 
   backdrop-filter: blur(10px);
 
@@ -114,62 +480,23 @@ button {
   color: #8d8dff;
 
   font-size: 9px;
+
   font-weight: 800;
+
   letter-spacing: 0.12em;
 }
 
 .objective-indicator__text {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(
+    255,
+    255,
+    255,
+    0.9
+  );
 
   font-size: 12px;
+
   font-weight: 700;
-}
-
-.react-ui-layer .elevator-guide {
-  position: absolute;
-
-  top: 94px;
-  left: 24px;
-
-  min-width: 250px;
-
-  padding: 16px 18px;
-
-  border: 1px solid rgba(141, 141, 255, 0.28);
-  border-radius: 12px;
-
-  background: rgba(10, 10, 22, 0.88);
-
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24);
-
-  backdrop-filter: blur(12px);
-
-  pointer-events: none;
-}
-
-.elevator-guide__eyebrow {
-  margin-bottom: 5px;
-
-  color: #8d8dff;
-
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-
-.elevator-guide__title {
-  color: rgba(255, 255, 255, 0.95);
-
-  font-size: 17px;
-  font-weight: 800;
-}
-
-.elevator-guide__hint {
-  margin-top: 5px;
-
-  color: rgba(255, 255, 255, 0.52);
-
-  font-size: 12px;
 }
 
 .game-error {
@@ -180,17 +507,24 @@ button {
 
   transform: translateX(-50%);
 
-  max-width: min(600px, calc(100vw - 40px));
+  max-width:
+    min(600px, calc(100vw - 40px));
 
   padding: 12px 16px;
 
-  border: 1px solid rgba(255, 70, 70, 0.25);
+  border: 1px solid
+    rgba(255, 70, 70, 0.25);
 
   border-radius: 8px;
 
   color: #ffb5b5;
 
-  background: rgba(100, 20, 20, 0.9);
+  background: rgba(
+    100,
+    20,
+    20,
+    0.9
+  );
 
   font-size: 13px;
 
@@ -199,22 +533,43 @@ button {
 
 .dev-toolbar {
   position: fixed;
+
   top: 16px;
-  left: 250px;
+  right: 50px;
+
   z-index: 1000;
+
   display: flex;
+
   align-items: center;
+
   gap: 8px;
+
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.2);
+
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.85);
-  font-family: Inter, system-ui, sans-serif;
+
+  background: rgba(
+    0,
+    0,
+    0,
+    0.85
+  );
+
+  font-family:
+    Inter,
+    system-ui,
+    sans-serif;
+
   font-size: 13px;
 }
 
 .dev-toolbar__title {
   font-weight: 700;
+
   letter-spacing: 0.05em;
 }
 
@@ -222,10 +577,13 @@ button {
 .dev-toolbar button {
   padding: 6px 10px;
 
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid
+    rgba(255, 255, 255, 0.2);
+
   border-radius: 5px;
 
   background: #222;
+
   color: #fff;
 
   font: inherit;
@@ -235,25 +593,84 @@ button {
   cursor: pointer;
 }
 
-.dev-toolbar button:hover:not(:disabled) {
+.dev-toolbar button:hover:not(
+    :disabled
+  ) {
   background: #333;
 }
 
 .dev-toolbar button:disabled {
   opacity: 0.5;
+
   cursor: not-allowed;
 }
 
 .dev-toolbar__desc {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(
+    255,
+    255,
+    255,
+    0.5
+  );
+
   font-size: 11px;
+
   max-width: 220px;
+
   white-space: nowrap;
+
   overflow: hidden;
+
   text-overflow: ellipsis;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
+  .start-screen {
+    padding: 28px 24px;
+  }
+
+  .start-screen__header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 10px;
+  }
+
+  .start-screen__content {
+    grid-template-columns: 1fr;
+
+    gap: 36px;
+
+    padding-top: 40px;
+  }
+
+  .start-screen__intro {
+    max-width: none;
+  }
+
+  .start-screen__intro h1 {
+    font-size: clamp(
+      38px,
+      8vw,
+      60px
+    );
+  }
+}
+
+@media (max-width: 650px) {
+  .start-screen {
+    padding: 22px 16px;
+  }
+
+  .start-screen__content {
+    padding-top: 26px;
+  }
+
+  .start-screen__description {
+    font-size: 14px;
+  }
+
   .objective-indicator {
     left: 14px;
     bottom: 14px;
@@ -261,12 +678,5 @@ button {
     min-width: 190px;
 
     padding: 9px 11px;
-  }
-
-  .elevator-guide {
-    left: 14px;
-    right: 14px;
-
-    min-width: 0;
   }
 }

@@ -26,7 +26,11 @@ import {
 
 import { Player } from '../entities/Player';
 
-import { WebSocketClient } from '../net/WebSocketClient';
+import {
+  WebSocketClient,
+  type WebSocketStatus,
+} from '../net/WebSocketClient';
+
 import { SessionStore } from '../state/SessionStore';
 
 import type {
@@ -44,7 +48,11 @@ export class BootScene extends Phaser.Scene {
 
   private unsubscribeWs?: () => void;
 
+  private unsubscribeWsStatus?: () => void;
+
   private restoring = false;
+
+  private submittingProblem = false;
 
   constructor() {
     super({
@@ -56,6 +64,11 @@ export class BootScene extends Phaser.Scene {
     this.unsubscribeWs?.();
 
     this.unsubscribeWs = undefined;
+
+    this.unsubscribeWsStatus?.();
+
+    this.unsubscribeWsStatus =
+      undefined;
   }
 
   preload(): void {
@@ -73,7 +86,8 @@ export class BootScene extends Phaser.Scene {
       DECISION_TILEMAP_PATH,
     );
 
-    const decisionSeenKeys = new Set<string>();
+    const decisionSeenKeys =
+      new Set<string>();
 
     DECISION_TILESETS.forEach(
       ({ key, path }) => {
@@ -83,12 +97,18 @@ export class BootScene extends Phaser.Scene {
 
         decisionSeenKeys.add(key);
 
-        this.load.spritesheet(key, path, {
-          frameWidth: DECISION_MAP_TILE_SIZE,
-          frameHeight: DECISION_MAP_TILE_SIZE,
-          margin: 0,
-          spacing: 0,
-        });
+        this.load.spritesheet(
+          key,
+          path,
+          {
+            frameWidth:
+              DECISION_MAP_TILE_SIZE,
+            frameHeight:
+              DECISION_MAP_TILE_SIZE,
+            margin: 0,
+            spacing: 0,
+          },
+        );
       },
     );
 
@@ -125,7 +145,8 @@ export class BootScene extends Phaser.Scene {
       TROPHY_TILEMAP_PATH,
     );
 
-    const trophySeenKeys = new Set<string>();
+    const trophySeenKeys =
+      new Set<string>();
 
     TROPHY_TILESETS.forEach(
       ({ key, path }) => {
@@ -135,12 +156,18 @@ export class BootScene extends Phaser.Scene {
 
         trophySeenKeys.add(key);
 
-        this.load.spritesheet(key, path, {
-          frameWidth: TROPHY_MAP_TILE_SIZE,
-          frameHeight: TROPHY_MAP_TILE_SIZE,
-          margin: 0,
-          spacing: 0,
-        });
+        this.load.spritesheet(
+          key,
+          path,
+          {
+            frameWidth:
+              TROPHY_MAP_TILE_SIZE,
+            frameHeight:
+              TROPHY_MAP_TILE_SIZE,
+            margin: 0,
+            spacing: 0,
+          },
+        );
       },
     );
 
@@ -160,13 +187,16 @@ export class BootScene extends Phaser.Scene {
       },
     );
 
-    this.load.once('complete', () => {
-      emitUI(this, {
-        type: 'GAME_LOADING',
-        loading: false,
-        progress: 1,
-      });
-    });
+    this.load.once(
+      'complete',
+      () => {
+        emitUI(this, {
+          type: 'GAME_LOADING',
+          loading: false,
+          progress: 1,
+        });
+      },
+    );
   }
 
   create(): void {
@@ -181,6 +211,16 @@ export class BootScene extends Phaser.Scene {
         this.handleMessage.bind(this),
       );
 
+    this.unsubscribeWsStatus =
+      this.ws.onStatus(
+        (status: WebSocketStatus) => {
+          emitUI(this, {
+            type: 'WEBSOCKET_STATUS',
+            status,
+          });
+        },
+      );
+
     emitUI(this, {
       type: 'GAME_READY',
     });
@@ -188,12 +228,20 @@ export class BootScene extends Phaser.Scene {
     this.ws.connect();
   }
 
-  public submitProblem(problem: string): void {
+  public submitProblem(
+    problem: string,
+  ): void {
+    if (this.submittingProblem) {
+      return;
+    }
+
     const trimmed = problem.trim();
 
     if (!trimmed) {
       return;
     }
+
+    this.submittingProblem = true;
 
     this.store.setProblem(trimmed);
 
@@ -212,16 +260,27 @@ export class BootScene extends Phaser.Scene {
   private handleMessage(
     msg: ServerMessage,
   ): void {
-    if (msg.type === 'SESSION_STARTED') {
-      this.ws.setSessionId(msg.sessionId);
+    if (
+      msg.type ===
+      'SESSION_STARTED'
+    ) {
+      this.ws.setSessionId(
+        msg.sessionId,
+      );
 
-      this.store.setSession(msg.sessionId);
+      this.store.setSession(
+        msg.sessionId,
+      );
 
       this.restoring = false;
 
+      this.submittingProblem =
+        false;
+
       emitUI(this, {
         type: 'SESSION_STARTED',
-        sessionId: msg.sessionId,
+        sessionId:
+          msg.sessionId,
       });
 
       emitUI(this, {
@@ -231,13 +290,19 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    if (msg.type === 'SESSION_RESUMED') {
+    if (
+      msg.type ===
+      'SESSION_RESUMED'
+    ) {
       this.restoreSession(msg);
 
       return;
     }
 
-    if (msg.type === 'DECISION_CREATED') {
+    if (
+      msg.type ===
+      'DECISION_CREATED'
+    ) {
       this.restoreDecision(msg);
     }
   }
@@ -251,24 +316,29 @@ export class BootScene extends Phaser.Scene {
 
     this.restoring = true;
 
-    this.ws.setSessionId(msg.sessionId);
+    this.ws.setSessionId(
+      msg.sessionId,
+    );
 
-    this.store.hydrate(msg.snapshot);
+    this.store.hydrate(
+      msg.snapshot,
+    );
 
     emitUI(this, {
       type: 'SESSION_RESUMED',
       sessionId: msg.sessionId,
     });
 
-    const phase = msg.snapshot.phase;
+    const phase =
+      msg.snapshot.phase;
 
-    /*
-     * No problem has been submitted yet.
-     */
     if (
       phase === 'idle' ||
       phase === 'awaiting_problem'
     ) {
+      this.submittingProblem =
+        false;
+
       emitUI(this, {
         type: 'START_SCREEN_READY',
       });
@@ -278,11 +348,13 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    /*
-     * Problem submitted, first decision is still
-     * being generated.
-     */
-    if (phase === 'awaiting_question') {
+    if (
+      phase ===
+      'awaiting_question'
+    ) {
+      this.submittingProblem =
+        true;
+
       emitUI(this, {
         type: 'PROBLEM_SUBMITTING',
         message:
@@ -294,26 +366,26 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    /*
-     * Session finished.
-     */
     if (phase === 'complete') {
       this.leaveBoot();
 
-      this.scene.start('TrophyScene', {
-        store: this.store,
-      });
+      this.scene.start(
+        'TrophyScene',
+        {
+          store: this.store,
+        },
+      );
 
       return;
     }
 
-    /*
-     * Active decision.
-     */
     const currentDecision =
       this.store.getCurrentDecision();
 
     if (!currentDecision) {
+      this.submittingProblem =
+        false;
+
       emitUI(this, {
         type: 'START_SCREEN_READY',
       });
@@ -323,22 +395,27 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    const decision: DecisionCreatedMsg = {
+    const decision:
+      DecisionCreatedMsg = {
       type: 'DECISION_CREATED',
 
-      nodeId: currentDecision.nodeId,
+      nodeId:
+        currentDecision.nodeId,
 
-      question: currentDecision.question,
+      question:
+        currentDecision.question,
 
       description:
         currentDecision.description,
 
-      options: currentDecision.options,
+      options:
+        currentDecision.options,
 
       recommendation:
         currentDecision.recommendation,
 
-      round: currentDecision.round,
+      round:
+        currentDecision.round,
 
       dependsOn:
         msg.snapshot.decisions.find(
@@ -350,39 +427,65 @@ export class BootScene extends Phaser.Scene {
 
     this.leaveBoot();
 
-    this.scene.start('GrillingScene', {
-      ws: this.ws,
-      store: this.store,
-      decision,
-      restored: true,
-    });
+    this.scene.start(
+      'GrillingScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        decision,
+        restored: true,
+      },
+    );
   }
 
   private restoreDecision(
     decision: DecisionCreatedMsg,
   ): void {
+    this.submittingProblem =
+      false;
+
     this.store.addDecision({
-      nodeId: decision.nodeId,
-      question: decision.question,
-      description: decision.description,
-      options: decision.options,
-      recommendation: decision.recommendation,
-      round: decision.round,
+      nodeId:
+        decision.nodeId,
+
+      question:
+        decision.question,
+
+      description:
+        decision.description,
+
+      options:
+        decision.options,
+
+      recommendation:
+        decision.recommendation,
+
+      round:
+        decision.round,
     });
 
     this.leaveBoot();
 
-    this.scene.start('GrillingScene', {
-      ws: this.ws,
-      store: this.store,
-      decision,
-      restored: false,
-    });
+    this.scene.start(
+      'GrillingScene',
+      {
+        ws: this.ws,
+        store: this.store,
+        decision,
+        restored: false,
+      },
+    );
   }
 
   shutdown(): void {
     this.unsubscribeWs?.();
 
-    this.unsubscribeWs = undefined;
+    this.unsubscribeWs =
+      undefined;
+
+    this.unsubscribeWsStatus?.();
+
+    this.unsubscribeWsStatus =
+      undefined;
   }
 }
