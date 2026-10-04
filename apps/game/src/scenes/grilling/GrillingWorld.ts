@@ -107,15 +107,9 @@ export class GrillingWorld {
       create: (layerName) => map.createLayer(layerName, tilesets),
     });
 
-    const origin = mapOriginPx(
-      DECISION_MAP_BOUNDS,
-      DECISION_MAP_TILE_SIZE,
-    );
+    const origin = mapOriginPx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
 
-    const size = mapSizePx(
-      DECISION_MAP_BOUNDS,
-      DECISION_MAP_TILE_SIZE,
-    );
+    const size = mapSizePx(DECISION_MAP_BOUNDS, DECISION_MAP_TILE_SIZE);
 
     const segment = this.register({
       id: INITIAL_ROOM_ID,
@@ -151,22 +145,16 @@ export class GrillingWorld {
     const x = door.x - entrance.x;
     const y = door.y - entrance.y - 57;
 
-    const mapOrigin = mapOriginPx(
-      CORRIDOR_MAP_BOUNDS,
-      CORRIDOR_MAP_TILE_SIZE,
-    );
+    const mapOrigin = mapOriginPx(CORRIDOR_MAP_BOUNDS, CORRIDOR_MAP_TILE_SIZE);
 
     const { layers, colliders } = this.addLayers({
       layerNames: CORRIDOR_TILE_LAYERS,
       collidableLayer: CORRIDOR_COLLIDABLE_LAYER,
       depthOffset: DEPTH.corridor,
       create: (layerName) => map.createLayer(layerName, tilesets),
-      
+
       position: (layer) => {
-        layer.setPosition(
-          layer.x + x - mapOrigin.x,
-          layer.y + y - mapOrigin.y,
-        );
+        layer.setPosition(layer.x + x - mapOrigin.x, layer.y + y - mapOrigin.y);
       },
     });
 
@@ -214,29 +202,19 @@ export class GrillingWorld {
       OPTION_ROOM_TILE_SIZE,
     );
 
-    const corridorOrigin = mapOriginPx(
-      CORRIDOR_MAP_BOUNDS,
-      CORRIDOR_MAP_TILE_SIZE,
-    );
+    const corridorOrigin = mapOriginPx(CORRIDOR_MAP_BOUNDS, CORRIDOR_MAP_TILE_SIZE);
 
-    const roomOrigin = mapOriginPx(
-      OPTION_ROOM_BOUNDS,
-      OPTION_ROOM_TILE_SIZE,
-    );
+    const roomOrigin = mapOriginPx(OPTION_ROOM_BOUNDS, OPTION_ROOM_TILE_SIZE);
     const x = corridor.x + corridorExit.x - roomEntrance.x;
 
-    const corridorExitTop =
-      CORRIDOR_MARKERS.roomExit.y - corridorOrigin.y;
+    const corridorExitTop = CORRIDOR_MARKERS.roomExit.y - corridorOrigin.y;
 
     const roomEntranceBottom =
       OPTION_ROOM_MARKERS.corridorEntrance.y +
       OPTION_ROOM_MARKERS.corridorEntrance.height -
       roomOrigin.y;
 
-    const y =
-      corridor.y +
-      corridorExitTop -
-      roomEntranceBottom + 45;
+    const y = corridor.y + corridorExitTop - roomEntranceBottom + 45;
 
     const { layers, colliders } = this.addLayers({
       layerNames: OPTION_ROOM_TILE_LAYERS,
@@ -245,10 +223,7 @@ export class GrillingWorld {
       create: (layerName) => map.createLayer(layerName, tilesets),
 
       position: (layer) => {
-        layer.setPosition(
-          layer.x + x - roomOrigin.x,
-          layer.y + y - roomOrigin.y,
-        );
+        layer.setPosition(layer.x + x - roomOrigin.x, layer.y + y - roomOrigin.y);
       },
     });
 
@@ -316,30 +291,17 @@ export class GrillingWorld {
     layers: CreatedTilemapLayer[];
     colliders: Phaser.Physics.Arcade.Collider[];
   } {
-    return addTileLayers(
-      this.scene,
-      {
-        ...options,
-        collideWith: this.playerSprite,
-      },
-    );
+    return addTileLayers(this.scene, {
+      ...options,
+      collideWith: this.playerSprite,
+    });
   }
 
-  private openCorridorMarker(
-    corridor: WorldSegment,
-    marker: Marker,
-  ): void {
-    openMarkerCollision(
-      corridor,
-      CORRIDOR_COLLIDABLE_LAYER,
-      marker,
-      CORRIDOR_MAP_TILE_SIZE,
-    );
+  private openCorridorMarker(corridor: WorldSegment, marker: Marker): void {
+    openMarkerCollision(corridor, CORRIDOR_COLLIDABLE_LAYER, marker, CORRIDOR_MAP_TILE_SIZE);
   }
 
-  private register(
-    segment: Omit<WorldSegment, 'objects' | 'doors'>,
-  ): WorldSegment {
+  private register(segment: Omit<WorldSegment, 'objects' | 'doors'>): WorldSegment {
     const full: WorldSegment = {
       ...segment,
       objects: [],

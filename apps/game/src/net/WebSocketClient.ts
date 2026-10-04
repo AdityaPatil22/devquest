@@ -3,11 +3,7 @@ import type { ClientMessage, ServerMessage } from './protocol';
 
 type MessageHandler = (msg: ServerMessage) => void;
 
-export type WebSocketStatus =
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'error';
+export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 type StatusHandler = (status: WebSocketStatus) => void;
 
@@ -37,8 +33,7 @@ export class WebSocketClient {
   constructor(url?: string) {
     this.baseUrl = url ?? WS_URL;
 
-    this._sessionId =
-      sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
+    this._sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY) ?? undefined;
   }
 
   get sessionId(): string | undefined {
@@ -52,25 +47,17 @@ export class WebSocketClient {
   setSessionId(id: string): void {
     this._sessionId = id;
 
-    sessionStorage.setItem(
-      SESSION_STORAGE_KEY,
-      id,
-    );
+    sessionStorage.setItem(SESSION_STORAGE_KEY, id);
   }
 
   clearSession(): void {
     this._sessionId = undefined;
 
-    sessionStorage.removeItem(
-      SESSION_STORAGE_KEY,
-    );
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
   connect(): void {
-    if (
-      this.ws &&
-      this.ws.readyState !== WebSocket.CLOSED
-    ) {
+    if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
       this.ws.onclose = null;
 
       this.ws.close();
@@ -80,9 +67,7 @@ export class WebSocketClient {
 
     try {
       const url = this._sessionId
-        ? `${this.baseUrl}?session_id=${encodeURIComponent(
-            this._sessionId,
-          )}`
+        ? `${this.baseUrl}?session_id=${encodeURIComponent(this._sessionId)}`
         : this.baseUrl;
 
       console.log('[WS] Connecting:', url);
@@ -92,9 +77,7 @@ export class WebSocketClient {
       this.ws.onopen = () => {
         console.log(
           '[WS] Connected',
-          this._sessionId
-            ? `(session ${this._sessionId})`
-            : '(new session)',
+          this._sessionId ? `(session ${this._sessionId})` : '(new session)',
         );
 
         this.reconnectAttempts = 0;
@@ -106,17 +89,11 @@ export class WebSocketClient {
 
       this.ws.onmessage = (event) => {
         try {
-          const msg =
-            JSON.parse(event.data) as ServerMessage;
+          const msg = JSON.parse(event.data) as ServerMessage;
 
-          this.handlers.forEach((handler) =>
-            handler(msg),
-          );
+          this.handlers.forEach((handler) => handler(msg));
         } catch (error) {
-          console.error(
-            '[WS] Failed to parse message:',
-            error,
-          );
+          console.error('[WS] Failed to parse message:', error);
         }
       };
 
@@ -134,10 +111,7 @@ export class WebSocketClient {
         this.setStatus('error');
       };
     } catch (error) {
-      console.error(
-        '[WS] Connection failed:',
-        error,
-      );
+      console.error('[WS] Connection failed:', error);
 
       this.setStatus('error');
 
@@ -146,17 +120,11 @@ export class WebSocketClient {
   }
 
   send(msg: ClientMessage): void {
-    if (
-      this.ws?.readyState ===
-      WebSocket.OPEN
-    ) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(msg));
       } catch (error) {
-        console.error(
-          '[WS] Failed to send message, queued for retry:',
-          error,
-        );
+        console.error('[WS] Failed to send message, queued for retry:', error);
 
         this.outboundQueue.push(msg);
       }
@@ -164,10 +132,7 @@ export class WebSocketClient {
       return;
     }
 
-    console.log(
-      '[WS] Socket not open, queueing message:',
-      msg.type,
-    );
+    console.log('[WS] Socket not open, queueing message:', msg.type);
 
     this.outboundQueue.push(msg);
   }
@@ -176,8 +141,7 @@ export class WebSocketClient {
     this.handlers.push(handler);
 
     return () => {
-      const index =
-        this.handlers.indexOf(handler);
+      const index = this.handlers.indexOf(handler);
 
       if (index !== -1) {
         this.handlers.splice(index, 1);
@@ -191,8 +155,7 @@ export class WebSocketClient {
     handler(this._status);
 
     return () => {
-      const index =
-        this.statusHandlers.indexOf(handler);
+      const index = this.statusHandlers.indexOf(handler);
 
       if (index !== -1) {
         this.statusHandlers.splice(index, 1);
@@ -201,16 +164,12 @@ export class WebSocketClient {
   }
 
   protected dispatch(msg: ServerMessage): void {
-    this.handlers.forEach((handler) =>
-      handler(msg),
-    );
+    this.handlers.forEach((handler) => handler(msg));
   }
 
   disconnect(): void {
     if (this.reconnectTimer) {
-      clearTimeout(
-        this.reconnectTimer,
-      );
+      clearTimeout(this.reconnectTimer);
 
       this.reconnectTimer = undefined;
     }
@@ -227,48 +186,31 @@ export class WebSocketClient {
   }
 
   get connected(): boolean {
-    return (
-      this.ws?.readyState ===
-      WebSocket.OPEN
-    );
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
-  private setStatus(
-    status: WebSocketStatus,
-  ): void {
+  private setStatus(status: WebSocketStatus): void {
     if (this._status === status) {
       return;
     }
 
     this._status = status;
 
-    this.statusHandlers.forEach((handler) =>
-      handler(status),
-    );
+    this.statusHandlers.forEach((handler) => handler(status));
   }
 
   private flushQueue(): void {
-    while (
-      this.ws?.readyState ===
-        WebSocket.OPEN &&
-      this.outboundQueue.length > 0
-    ) {
-      const msg =
-        this.outboundQueue.shift();
+    while (this.ws?.readyState === WebSocket.OPEN && this.outboundQueue.length > 0) {
+      const msg = this.outboundQueue.shift();
 
       if (!msg) {
         return;
       }
 
       try {
-        this.ws.send(
-          JSON.stringify(msg),
-        );
+        this.ws.send(JSON.stringify(msg));
       } catch (error) {
-        console.error(
-          '[WS] Failed to flush queued message:',
-          error,
-        );
+        console.error('[WS] Failed to flush queued message:', error);
 
         this.outboundQueue.unshift(msg);
 
@@ -278,34 +220,18 @@ export class WebSocketClient {
   }
 
   private scheduleReconnect(): void {
-    if (
-      this.reconnectAttempts >=
-      this.maxReconnectAttempts
-    ) {
-      console.error(
-        '[WS] Maximum reconnect attempts reached',
-      );
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('[WS] Maximum reconnect attempts reached');
 
       return;
     }
 
-    const delay = Math.min(
-      1000 *
-        2 **
-          this.reconnectAttempts,
-      30000,
-    );
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000);
 
     this.reconnectAttempts += 1;
 
-    console.log(
-      `[WS] Reconnecting in ${delay}ms`,
-    );
+    console.log(`[WS] Reconnecting in ${delay}ms`);
 
-    this.reconnectTimer =
-      setTimeout(
-        () => this.connect(),
-        delay,
-      );
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 }

@@ -48,35 +48,18 @@ button {
   background-color: #4c515b;
 
   background-image:
-    linear-gradient(
-      rgba(255, 255, 255, 0.025)
-        1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.025)
-        1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
 
-  background-size:
-    28px 28px;
+  background-size: 28px 28px;
 }
 
 .devquest-app--boot {
   background-color: #151622;
 
   background-image:
-    linear-gradient(
-      rgba(255, 255, 255, 0.025) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.025) 1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
 
   background-size: 28px 28px;
 }
@@ -85,15 +68,8 @@ button {
   background-color: #4c515b;
 
   background-image:
-    linear-gradient(
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgba(30, 34, 42, 0.18) 1px,
-      transparent 1px
-    );
+    linear-gradient(rgba(30, 34, 42, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 34, 42, 0.18) 1px, transparent 1px);
 
   background-size: 28px 28px;
 }
@@ -144,10 +120,7 @@ button {
 
   flex-direction: column;
 
-  padding:
-    42px
-    clamp(24px, 6vw, 120px)
-    48px;
+  padding: 42px clamp(24px, 6vw, 120px) 48px;
 
   overflow-y: auto;
 }
@@ -171,34 +144,19 @@ button {
 .start-screen__brand {
   color: #e8d4a4;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
-  font-size: clamp(
-    24px,
-    3vw,
-    42px
-  );
+  font-size: clamp(24px, 3vw, 42px);
 
   letter-spacing: 0.04em;
 
-  text-shadow:
-    3px 3px 0
-      rgba(24, 24, 36, 0.9);
+  text-shadow: 3px 3px 0 rgba(24, 24, 36, 0.9);
 }
 
 .start-screen__tagline {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.45
-  );
+  color: rgba(255, 255, 255, 0.45);
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 8px;
 
@@ -218,11 +176,7 @@ button {
     minmax(0, 0.9fr)
     minmax(0, 1.1fr);
 
-  gap: clamp(
-    32px,
-    6vw,
-    96px
-  );
+  gap: clamp(32px, 6vw, 96px);
 
   align-items: center;
 }
@@ -236,9 +190,7 @@ button {
 
   color: #9d9dff;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 8px;
 
@@ -252,11 +204,7 @@ button {
 
   color: white;
 
-  font-size: clamp(
-    42px,
-    6vw,
-    82px
-  );
+  font-size: clamp(42px, 6vw, 82px);
 
   line-height: 1.02;
 
@@ -268,12 +216,7 @@ button {
 
   margin: 24px 0 34px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.58
-  );
+  color: rgba(255, 255, 255, 0.58);
 
   font-size: 16px;
 
@@ -283,16 +226,9 @@ button {
 .start-screen__section-title {
   margin-bottom: 14px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.35
-  );
+  color: rgba(255, 255, 255, 0.35);
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 8px;
 
@@ -304,8 +240,7 @@ button {
 
   padding-top: 20px;
 
-  border-top: 1px solid
-    rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .instruction-list {
@@ -327,9 +262,7 @@ button {
 .instruction > span {
   color: #8d8dff;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 8px;
 
@@ -337,12 +270,7 @@ button {
 }
 
 .instruction strong {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.92
-  );
+  color: rgba(255, 255, 255, 0.92);
 
   font-size: 14px;
 }
@@ -350,12 +278,7 @@ button {
 .instruction p {
   margin: 5px 0 0;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.42
-  );
+  color: rgba(255, 255, 255, 0.42);
 
   font-size: 12px;
 
@@ -367,8 +290,7 @@ button {
 
   padding-top: 20px;
 
-  border-top: 1px solid
-    rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .system-status__row {
@@ -380,8 +302,7 @@ button {
 
   padding: 9px 0;
 
-  border-bottom: 1px solid
-    rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .system-status__label {
@@ -391,29 +312,17 @@ button {
 
   gap: 9px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.72
-  );
+  color: rgba(255, 255, 255, 0.72);
 
   font-size: 12px;
 }
 
 .system-status__value {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.44
-  );
+  color: rgba(255, 255, 255, 0.44);
 
   font-size: 11px;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 }
 
 .system-status__dot {
@@ -424,25 +333,19 @@ button {
 
   background: #6d6d78;
 
-  box-shadow:
-    0 0 0 3px
-      rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
 }
 
 .system-status__dot--healthy {
   background: #a9d27f;
 
-  box-shadow:
-    0 0 10px
-      rgba(169, 210, 127, 0.35);
+  box-shadow: 0 0 10px rgba(169, 210, 127, 0.35);
 }
 
 .system-status__dot--warning {
   background: #dbc47b;
 
-  box-shadow:
-    0 0 10px
-      rgba(219, 196, 123, 0.28);
+  box-shadow: 0 0 10px rgba(219, 196, 123, 0.28);
 }
 
 .start-screen__input {
@@ -460,12 +363,7 @@ button {
 
   text-align: center;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.28
-  );
+  color: rgba(255, 255, 255, 0.28);
 
   font-size: 10px;
 }
@@ -484,17 +382,11 @@ button {
 
   padding: 11px 14px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
   border-radius: 10px;
 
-  background: rgba(
-    10,
-    10,
-    22,
-    0.88
-  );
+  background: rgba(10, 10, 22, 0.88);
 
   backdrop-filter: blur(10px);
 
@@ -514,12 +406,7 @@ button {
 }
 
 .objective-indicator__text {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.9
-  );
+  color: rgba(255, 255, 255, 0.9);
 
   font-size: 12px;
 
@@ -534,24 +421,17 @@ button {
 
   transform: translateX(-50%);
 
-  max-width:
-    min(600px, calc(100vw - 40px));
+  max-width: min(600px, calc(100vw - 40px));
 
   padding: 12px 16px;
 
-  border: 1px solid
-    rgba(255, 70, 70, 0.25);
+  border: 1px solid rgba(255, 70, 70, 0.25);
 
   border-radius: 8px;
 
   color: #ffb5b5;
 
-  background: rgba(
-    100,
-    20,
-    20,
-    0.9
-  );
+  background: rgba(100, 20, 20, 0.9);
 
   font-size: 13px;
 
@@ -574,22 +454,13 @@ button {
 
   padding: 8px 12px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   border-radius: 8px;
 
-  background: rgba(
-    0,
-    0,
-    0,
-    0.85
-  );
+  background: rgba(0, 0, 0, 0.85);
 
-  font-family:
-    Inter,
-    system-ui,
-    sans-serif;
+  font-family: Inter, system-ui, sans-serif;
 
   font-size: 13px;
 }
@@ -604,8 +475,7 @@ button {
 .dev-toolbar button {
   padding: 6px 10px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   border-radius: 5px;
 
@@ -620,9 +490,7 @@ button {
   cursor: pointer;
 }
 
-.dev-toolbar button:hover:not(
-    :disabled
-  ) {
+.dev-toolbar button:hover:not(:disabled) {
   background: #333;
 }
 
@@ -633,12 +501,7 @@ button {
 }
 
 .dev-toolbar__desc {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.5
-  );
+  color: rgba(255, 255, 255, 0.5);
 
   font-size: 11px;
 
@@ -677,11 +540,7 @@ button {
   }
 
   .start-screen__intro h1 {
-    font-size: clamp(
-      38px,
-      8vw,
-      60px
-    );
+    font-size: clamp(38px, 8vw, 60px);
   }
 }
 

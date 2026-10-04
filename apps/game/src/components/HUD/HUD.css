@@ -12,25 +12,17 @@
 .hud-title {
   color: #e8d4a4;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
-  font-size: clamp(
-    18px,
-    2vw,
-    28px
-  );
+  font-size: clamp(18px, 2vw, 28px);
 
   line-height: 1;
 
   letter-spacing: 0.02em;
 
   text-shadow:
-    3px 3px 0
-      rgba(35, 35, 45, 0.95),
-    -1px -1px 0
-      rgba(255, 255, 255, 0.12);
+    3px 3px 0 rgba(35, 35, 45, 0.95),
+    -1px -1px 0 rgba(255, 255, 255, 0.12);
 }
 
 @media (max-width: 700px) {

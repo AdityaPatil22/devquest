@@ -4,23 +4,15 @@
 
   padding: 30px;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
   border-radius: 18px;
 
-  background:
-    linear-gradient(
-      180deg,
-      rgba(19, 19, 34, 0.98),
-      rgba(12, 12, 23, 0.98)
-    );
+  background: linear-gradient(180deg, rgba(19, 19, 34, 0.98), rgba(12, 12, 23, 0.98));
 
   box-shadow:
-    0 24px 70px
-      rgba(0, 0, 0, 0.35),
-    inset 0 1px 0
-      rgba(255, 255, 255, 0.04);
+    0 24px 70px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .problem-input__eyebrow {
@@ -28,9 +20,7 @@
 
   color: #9797ff;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 9px;
 
@@ -44,11 +34,7 @@
 
   color: #ffffff;
 
-  font-size: clamp(
-    28px,
-    3vw,
-    40px
-  );
+  font-size: clamp(28px, 3vw, 40px);
 
   line-height: 1.08;
 
@@ -60,12 +46,7 @@
 
   margin: 14px 0 24px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.58
-  );
+  color: rgba(255, 255, 255, 0.58);
 
   font-size: 14px;
 
@@ -77,16 +58,9 @@
 
   margin-bottom: 8px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.45
-  );
+  color: rgba(255, 255, 255, 0.45);
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 8px;
 
@@ -104,8 +78,7 @@
 
   resize: vertical;
 
-  border: 1px solid
-    rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 
   border-radius: 12px;
 
@@ -125,20 +98,13 @@
 }
 
 .problem-input textarea::placeholder {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.28
-  );
+  color: rgba(255, 255, 255, 0.28);
 }
 
 .problem-input textarea:focus {
   border-color: #8585ff;
 
-  box-shadow:
-    0 0 0 3px
-      rgba(133, 133, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(133, 133, 255, 0.12);
 }
 
 .problem-input__footer {
@@ -154,12 +120,7 @@
 }
 
 .problem-input__shortcut {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.34
-  );
+  color: rgba(255, 255, 255, 0.34);
 
   font-size: 11px;
 }
@@ -183,9 +144,7 @@
 
   background: #b8d48f;
 
-  font-family:
-    'Press Start 2P',
-    monospace;
+  font-family: 'Press Start 2P', monospace;
 
   font-size: 9px;
 
@@ -194,9 +153,7 @@
   cursor: pointer;
 }
 
-.problem-input__footer button:hover:not(
-    :disabled
-  ) {
+.problem-input__footer button:hover:not(:disabled) {
   filter: brightness(1.05);
 
   transform: translateY(-1px);
@@ -213,19 +170,13 @@
 
   padding: 11px 12px;
 
-  border: 1px solid
-    rgba(255, 80, 80, 0.2);
+  border: 1px solid rgba(255, 80, 80, 0.2);
 
   border-radius: 9px;
 
   color: #ffb5b5;
 
-  background: rgba(
-    100,
-    20,
-    20,
-    0.22
-  );
+  background: rgba(100, 20, 20, 0.22);
 
   font-size: 12px;
 
@@ -243,12 +194,7 @@
 
   padding: 10px 4px;
 
-  color: rgba(
-    255,
-    255,
-    255,
-    0.78
-  );
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .problem-input__spinner {
@@ -257,16 +203,13 @@
 
   flex: 0 0 auto;
 
-  border: 2px solid
-    rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.1);
 
   border-top-color: #9797ff;
 
   border-radius: 50%;
 
-  animation:
-    devquest-spin
-    0.8s linear infinite;
+  animation: devquest-spin 0.8s linear infinite;
 }
 
 .problem-input__waiting-title {
@@ -278,12 +221,7 @@
 }
 
 .problem-input__waiting-message {
-  color: rgba(
-    255,
-    255,
-    255,
-    0.45
-  );
+  color: rgba(255, 255, 255, 0.45);
 
   font-size: 12px;
 }

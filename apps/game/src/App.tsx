@@ -6,30 +6,21 @@ import { DevToolbar } from './dev/DevToolbar';
 function AppContent() {
   const { game, state } = useGameUI();
 
-  const showDevToolbar =
-    import.meta.env.DEV &&
-    import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
+  const showDevToolbar = import.meta.env.DEV && import.meta.env.VITE_SHOW_DEV_TOOLBAR === 'true';
 
   return (
     <main
       className={`devquest-app ${
-        state.screen === 'start'
-          ? 'devquest-app--boot'
-          : 'devquest-app--game'
+        state.screen === 'start' ? 'devquest-app--boot' : 'devquest-app--game'
       }`}
     >
       <PhaserGame />
 
-      <div
-        id="react-ui"
-        className="react-ui-layer"
-      >
+      <div id="react-ui" className="react-ui-layer">
         <GameUI />
       </div>
 
-      {showDevToolbar && (
-        <DevToolbar game={game} />
-      )}
+      {showDevToolbar && <DevToolbar game={game} />}
     </main>
   );
 }

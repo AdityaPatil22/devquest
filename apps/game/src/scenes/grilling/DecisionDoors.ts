@@ -257,10 +257,11 @@ export class DecisionDoors {
     if (!door.isOpen) {
       door.isOpen = true;
 
-      door.doorSprite.setTexture('door-open')
-      .setOrigin(0.4, 1.34)
-      .setDepth(50)
-      .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
+      door.doorSprite
+        .setTexture('door-open')
+        .setOrigin(0.4, 1.34)
+        .setDepth(50)
+        .setScale(DOOR_SCALE, DOOR_SCALE * 1.25);
     }
 
     const body = door.doorBlocker.body as Phaser.Physics.Arcade.StaticBody | undefined;
