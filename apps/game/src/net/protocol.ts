@@ -110,5 +110,15 @@ export interface ErrorMsg {
   message: string;
 }
 
+export interface CorridorStatusMsg {
+  type: 'CORRIDOR_STATUS';
+  status: 'processing' | 'ready';
+}
+
 export type ServerMessage =
-  SessionStartedMsg | SessionResumedMsg | DecisionCreatedMsg | SessionCompleteMsg | ErrorMsg;
+  | SessionStartedMsg
+  | SessionResumedMsg
+  | DecisionCreatedMsg
+  | SessionCompleteMsg
+  | CorridorStatusMsg
+  | ErrorMsg;

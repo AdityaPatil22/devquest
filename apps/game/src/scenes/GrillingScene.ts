@@ -22,6 +22,13 @@ import { createSceneKeys, emitUI, type SceneKeys } from './support/sceneUi';
 import { DecisionDoors } from './grilling/DecisionDoors';
 import { GrillingWorld } from './grilling/GrillingWorld';
 import type { DoorObject, WorldSegment } from './grilling/segment';
+import { CorridorInteractionManager } from './grilling/CorridorInteractionManager';
+
+import {
+  CORRIDOR_MAP_TILE_SIZE,
+  CORRIDOR_MAP_BOUNDS,
+  CORRIDOR_MARKERS,
+} from '../tilemaps/corridorTilemap';
 
 interface SceneData {
   ws: WebSocketClient;
@@ -46,6 +53,13 @@ export class GrillingScene extends Phaser.Scene {
   private phase = GamePhase.EXPLORING_DOORS;
 
   private currentNodeId = '';
+
+  private corridorInteractions!: CorridorInteractionManager;
+  private pendingDecision?: DecisionCreatedMsg;
+  private corridorExitReached = false;
+  private corridorProcessingTimer?: ReturnType<typeof setInterval>;
+  private corridorReady = false;
+  private corridorExitTrigger?: Phaser.GameObjects.Zone;
 
   private unsubscribeWs?: () => void;
 
@@ -110,6 +124,9 @@ export class GrillingScene extends Phaser.Scene {
 
     this.doors.setPlayer(this.player.sprite);
 
+    this.corridorInteractions ??= new CorridorInteractionManager(this, this.player.sprite);
+    this.corridorInteractions.setPlayer(this.player.sprite);
+
     const decision = this.data.get('decision') as DecisionCreatedMsg;
 
     if (this.world.isEmpty) {
@@ -137,30 +154,50 @@ export class GrillingScene extends Phaser.Scene {
 
   update(): void {
     const canMove =
-      this.phase === GamePhase.EXPLORING_DOORS || this.phase === GamePhase.TRAVERSING_OPTION;
-
+      this.phase === GamePhase.EXPLORING_DOORS ||
+      this.phase === GamePhase.TRAVERSING_OPTION ||
+      this.phase === GamePhase.CORRIDOR_PROCESSING ||
+      this.phase === GamePhase.WORKSTATION;
+  
     if (!canMove) {
       this.player.stop();
-
       this.setPlayerMoving(false);
-
       return;
     }
-
+  
     this.player.handleMovement(this.keys.cursors);
-
+  
     const body = this.player.sprite.body as Phaser.Physics.Arcade.Body | null;
-
+  
     this.setPlayerMoving(Boolean(body && body.velocity.lengthSq() > 0));
-
-    if (this.phase !== GamePhase.EXPLORING_DOORS) {
+  
+    if (this.phase === GamePhase.EXPLORING_DOORS) {
+      const nearest = this.doors.updateProximity(this.world.activeRoom);
+  
+      if (nearest && Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
+        this.approachDoor(nearest);
+      }
+  
       return;
     }
-
-    const nearest = this.doors.updateProximity(this.world.activeRoom);
-
-    if (nearest && Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
-      this.approachDoor(nearest);
+  
+    if (
+      this.phase === GamePhase.TRAVERSING_OPTION ||
+      this.phase === GamePhase.CORRIDOR_PROCESSING ||
+      this.phase === GamePhase.WORKSTATION
+    ) {
+      const nearest = this.corridorInteractions.update(this.world.activeCorridor);
+  
+      if (nearest && Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
+        this.corridorInteractions.interact();
+        this.phase = GamePhase.WORKSTATION;
+      }
+  
+      this.checkCorridorExit();
+  
+      if (this.corridorExitReached && this.pendingDecision) {
+        this.commitPendingDecision();
+      }
     }
   }
 
@@ -174,6 +211,17 @@ export class GrillingScene extends Phaser.Scene {
     this.doors?.reset();
 
     this.playerMoving = false;
+
+    this.corridorProcessingTimer &&
+  clearInterval(this.corridorProcessingTimer);
+
+this.corridorProcessingTimer = undefined;
+
+this.corridorInteractions?.reset();
+
+this.pendingDecision = undefined;
+this.corridorExitReached = false;
+this.corridorReady = false;
   }
 
   // ===========================================================================
@@ -232,35 +280,157 @@ export class GrillingScene extends Phaser.Scene {
     this.selectDoor();
   }
 
+  private startCorridorProcessing(): void {
+    this.corridorProcessingTimer &&
+      clearInterval(this.corridorProcessingTimer);
+  
+    const stages: Array<{
+      stage: 'received' | 'processing';
+      message: string;
+    }> = [
+      {
+        stage: 'received',
+        message: 'Request received',
+      },
+      {
+        stage: 'processing',
+        message: 'Processing selected option...',
+      },
+    ];
+  
+    let index = 0;
+  
+    emitUI(this, {
+      type: 'CORRIDOR_PROCESSING',
+      visible: true,
+      stage: stages[index].stage,
+      message: stages[index].message,
+    });
+  
+    this.corridorProcessingTimer = setInterval(() => {
+      index = Math.min(index + 1, stages.length - 1);
+  
+      emitUI(this, {
+        type: 'CORRIDOR_PROCESSING',
+        visible: true,
+        stage: stages[index].stage,
+        message: stages[index].message,
+      });
+    }, 2500);
+  }
+
+  private checkCorridorExit(): void {
+    const corridor = this.world.activeCorridor;
+  
+    if (!corridor || this.corridorExitReached) {
+      return;
+    }
+  
+    const marker = CORRIDOR_MARKERS.roomExit;
+  
+    const localX =
+      marker.x +
+      marker.width / 2 -
+      CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE;
+  
+    const localY =
+      marker.y +
+      marker.height / 2 -
+      CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE;
+  
+    const exitX = corridor.x + localX;
+    const exitY = corridor.y + localY;
+  
+    if (
+      Phaser.Math.Distance.Between(
+        this.player.sprite.x,
+        this.player.sprite.y,
+        exitX,
+        exitY,
+      ) <= 40
+    ) {
+      this.corridorExitReached = true;
+      this.tryCommitPendingDecision();
+    }
+  }
+
+  private tryCommitPendingDecision(): void {
+    if (!this.pendingDecision || !this.corridorExitReached || !this.corridorReady) {
+      return;
+    }
+  
+    this.commitPendingDecision();
+  }
+
+  private commitPendingDecision(): void {
+    const decision = this.pendingDecision;
+    const corridor = this.world.activeCorridor;
+  
+    if (!decision || !corridor) {
+      return;
+    }
+  
+    this.pendingDecision = undefined;
+  
+    this.world.setCorridorExitOpen(corridor, true);
+  
+    this.world.buildOptionRoom(corridor);
+  
+    emitUI(this, {
+      type: 'CORRIDOR_PROCESSING',
+      visible: false,
+      stage: 'ready',
+      message: 'Next decision ready',
+    });
+  
+    emitUI(this, {
+      type: 'OBJECTIVE',
+      objective: 'Choose a door',
+    });
+  
+    this.showDecision(decision, this.world.activeRoom!);
+  }
+
   private selectDoor(context?: string): void {
     const door = this.doors.currentDoor;
-
+  
     if (!door || this.phase !== GamePhase.DOOR_CONTEXT) {
       return;
     }
-
-    this.phase = GamePhase.TRAVERSING_OPTION;
-
+  
+    this.phase = GamePhase.CORRIDOR_PROCESSING;
+  
     this.player.stop();
-
-    this.store.updateCurrent({ selectedOptionId: door.option.id, context });
-
-    /*
-     * Exactly one corridor per selected door, created on confirmation rather
-     * than on approach so an abandoned door leaves no geometry behind.
-     */
-    this.world.createCorridor(door);
-
-    this.doors.remove(door);
-
-    emitUI(this, {
-      type: 'AI_THINKING',
-      visible: true,
-      message: 'Generating the next decision...',
+  
+    this.store.updateCurrent({
+      selectedOptionId: door.option.id,
+      context,
     });
-
-    emitUI(this, { type: 'OBJECTIVE', objective: 'Walk through the corridor' });
-
+  
+    const corridor = this.world.createCorridor(door);
+  
+    this.world.setCorridorExitOpen(corridor, false);
+  
+    this.doors.remove(door);
+  
+    this.pendingDecision = undefined;
+    this.corridorExitReached = false;
+    this.corridorReady = false;
+  
+    emitUI(this, {
+      type: 'CORRIDOR_PROCESSING',
+      visible: true,
+      stage: 'received',
+      message: 'Request received',
+    });
+  
+    emitUI(this, {
+      type: 'OBJECTIVE',
+      objective: 'Reach the green exit',
+    });
+  
+    this.startCorridorProcessing();
+  
     this.ws.send({
       type: 'OPTION_SELECTED',
       nodeId: this.currentNodeId,
@@ -315,13 +485,15 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private onDecisionCreated(decision: DecisionCreatedMsg): void {
-    /* The server can replay the decision already on screen. */
     if (decision.nodeId === this.currentNodeId) {
       return;
     }
-
-    emitUI(this, { type: 'AI_THINKING', visible: false });
-
+  
+    emitUI(this, {
+      type: 'AI_THINKING',
+      visible: false,
+    });
+  
     this.store.addDecision({
       nodeId: decision.nodeId,
       question: decision.question,
@@ -330,11 +502,15 @@ export class GrillingScene extends Phaser.Scene {
       recommendation: decision.recommendation,
       round: decision.round,
     });
-
+  
     const previousDecision = [...this.store.decisions]
       .reverse()
-      .find((record) => record.nodeId !== decision.nodeId && Boolean(record.selectedOptionId));
-
+      .find(
+        (record) =>
+          record.nodeId !== decision.nodeId &&
+          Boolean(record.selectedOptionId),
+      );
+  
     if (previousDecision) {
       this.emitDecisionHistory(
         previousDecision,
@@ -342,16 +518,42 @@ export class GrillingScene extends Phaser.Scene {
         decision.recommendation?.option,
       );
     }
-
+  
+    if (this.phase === GamePhase.CORRIDOR_PROCESSING) {
+      this.pendingDecision = decision;
+      this.corridorReady = true;
+  
+      emitUI(this, {
+        type: 'CORRIDOR_PROCESSING',
+        visible: true,
+        stage: 'ready',
+        message: 'Next decision ready',
+      });
+  
+      this.tryCommitPendingDecision();
+      return;
+    }
+  
     const room = this.roomFor(decision);
-
+  
     if (!room) {
       return;
     }
-
-    emitUI(this, { type: 'OBJECTIVE', objective: 'Choose a door' });
-
+  
+    emitUI(this, {
+      type: 'OBJECTIVE',
+      objective: 'Choose a door',
+    });
+  
     this.showDecision(decision, room);
+  }
+
+  private closeWorkstation(): void {
+    this.corridorInteractions.close();
+  
+    if (this.phase === GamePhase.WORKSTATION) {
+      this.phase = GamePhase.CORRIDOR_PROCESSING;
+    }
   }
 
   /**

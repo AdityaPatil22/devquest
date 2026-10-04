@@ -16,6 +16,7 @@ import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
 import { DecisionBriefPanel } from './DecisionBriefPanel/DecisionBriefPanel';
+import { AIWorkstation } from './AIWorkstation/AIWorkstation';
 
 type BackendStatus = 'checking' | 'online' | 'offline';
 
@@ -327,6 +328,42 @@ export function GameUI() {
           }));
           break;
 
+          case 'CORRIDOR_PROCESSING':
+            setState((previous) => ({
+              ...previous,
+              corridorProcessing: Boolean(event.visible),
+              corridorProcessingStage:
+                event.stage === 'ready'
+                  ? 'ready'
+                  : event.stage === 'received'
+                    ? 'received'
+                    : 'processing',
+              corridorProcessingMessage:
+                typeof event.message === 'string'
+                  ? event.message
+                  : undefined,
+            }));
+            break;
+          
+          case 'WORKSTATION_PROXIMITY':
+            setState((previous) => ({
+              ...previous,
+              workstationNear: Boolean(event.visible),
+              workstationType:
+                event.workstation === 'ai-terminal' ||
+                event.workstation === 'ai-workstation'
+                  ? event.workstation
+                  : undefined,
+            }));
+            break;
+          
+          case 'WORKSTATION_OPEN':
+            setState((previous) => ({
+              ...previous,
+              workstationOpen: Boolean(event.visible),
+            }));
+            break;
+
         case 'ERROR':
           setState((previous) => ({
             ...previous,
@@ -392,6 +429,21 @@ export function GameUI() {
     },
     [game],
   );
+
+  const closeWorkstation = useCallback(() => {
+    const scene = game?.scene.getScene('GrillingScene') as
+      | {
+          closeWorkstation?: () => void;
+        }
+      | undefined;
+  
+    scene?.closeWorkstation?.();
+  
+    setState((previous) => ({
+      ...previous,
+      workstationOpen: false,
+    }));
+  }, [game, setState]);
 
   const cancelDoorContext = useCallback(() => {
     const scene = game?.scene.getScene('GrillingScene') as
@@ -569,6 +621,18 @@ export function GameUI() {
             ? `Press E to enter ${state.nearDoorOption.label}`
             : 'Press E to enter the door'
         }
+      />
+
+      <InteractionPrompt
+        visible={state.workstationNear && !state.workstationOpen}
+        text="Press E to inspect workstation"
+      />
+
+      <AIWorkstation
+        open={state.workstationOpen}
+        stage={state.corridorProcessingStage}
+        message={state.corridorProcessingMessage}
+        onClose={closeWorkstation}
       />
 
       <InteractionPrompt

@@ -80,6 +80,22 @@ export type GameUIEvent =
       message?: string;
     }
   | {
+      type: 'CORRIDOR_PROCESSING';
+      visible: boolean;
+      stage: 'received' | 'processing' | 'ready';
+      message: string;
+    }
+  | {
+      type: 'WORKSTATION_PROXIMITY';
+      visible: boolean;
+      workstation?: 'ai-workstation' | 'ai-terminal';
+    }
+  | {
+      type: 'WORKSTATION_OPEN';
+      visible: boolean;
+      workstation?: 'ai-workstation' | 'ai-terminal';
+    }
+  | {
       type: 'PLAYER_MOVING';
       visible: boolean;
     }

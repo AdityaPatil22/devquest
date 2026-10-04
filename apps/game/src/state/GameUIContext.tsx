@@ -1,56 +1,43 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 import type Phaser from 'phaser';
-
 import type { DecisionOption, Recommendation } from '../net/protocol';
-
 import type { DecisionHistoryEntry } from '../game/GameBridge';
 
 export type UIScreen = 'loading' | 'start' | 'decision' | 'complete';
-
 export type UIModal = null | 'door-context' | 'waiting';
 
 export interface UIState {
   screen: UIScreen;
   modal: UIModal;
-
   gameReady: boolean;
   loading: boolean;
   loadingProgress: number;
-
   doorNear: boolean;
   nearDoorOption?: DecisionOption;
-
   trophyNear: boolean;
   trophySummaryOpen: boolean;
   trophyProblem?: string;
-
   problem?: string;
-
   round?: number;
-
   question?: string;
-
   description?: string;
-
   options: DecisionOption[];
-
   recommendation?: Recommendation;
-
   selectedOption?: DecisionOption;
-
   decisionHistory: DecisionHistoryEntry[];
-
   aiThinking: boolean;
   aiThinkingMessage?: string;
-
+  corridorProcessing: boolean;
+  corridorProcessingStage: 'received' | 'processing' | 'ready';
+  corridorProcessingMessage?: string;
+  workstationNear: boolean;
+  workstationType?: 'ai-workstation' | 'ai-terminal';
+  workstationOpen: boolean;
   objective: string;
-
   waitingMessage?: string;
-
   summary?: string;
   docContent?: string;
-
   error?: string;
 }
 
@@ -89,6 +76,13 @@ const initialState: UIState = {
   waitingMessage: undefined,
 
   error: undefined,
+
+  corridorProcessing: false,
+  corridorProcessingStage: 'processing',
+  corridorProcessingMessage: undefined,
+  workstationNear: false,
+  workstationType: undefined,
+  workstationOpen: false,
 };
 
 const GameUIContext = createContext<GameUIContextValue | undefined>(undefined);

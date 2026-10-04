@@ -167,6 +167,10 @@ export class GrillingWorld {
       colliders,
     });
 
+    
+
+    this.addCorridorInteractables(corridor, map);
+
     this.activeCorridor = corridor;
 
     this.openCorridorMarker(corridor, CORRIDOR_MARKERS.entrance);
@@ -174,6 +178,47 @@ export class GrillingWorld {
     return corridor;
   }
 
+
+  setCorridorExitOpen(corridor: WorldSegment | undefined, open: boolean): void {
+    if (!corridor) {
+      return;
+    }
+  
+    if (open) {
+      this.openCorridorMarker(corridor, CORRIDOR_MARKERS.roomExit);
+      return;
+    }
+  
+    const wallLayer = corridor.layers.find(
+      (layer) => layer.layer.name === CORRIDOR_COLLIDABLE_LAYER,
+    );
+  
+    if (!wallLayer) {
+      return;
+    }
+  
+    const marker = CORRIDOR_MARKERS.roomExit;
+  
+    const startX = Math.floor(marker.x / CORRIDOR_MAP_TILE_SIZE) -
+      Math.round(wallLayer.layer.x / CORRIDOR_MAP_TILE_SIZE);
+    const endX =
+      Math.ceil((marker.x + marker.width) / CORRIDOR_MAP_TILE_SIZE) -
+      1 -
+      Math.round(wallLayer.layer.x / CORRIDOR_MAP_TILE_SIZE);
+    const startY =
+      Math.floor(marker.y / CORRIDOR_MAP_TILE_SIZE) -
+      Math.round(wallLayer.layer.y / CORRIDOR_MAP_TILE_SIZE);
+    const endY =
+      Math.ceil((marker.y + marker.height) / CORRIDOR_MAP_TILE_SIZE) -
+      1 -
+      Math.round(wallLayer.layer.y / CORRIDOR_MAP_TILE_SIZE);
+  
+    for (let y = startY; y <= endY; y += 1) {
+      for (let x = startX; x <= endX; x += 1) {
+        wallLayer.getTileAt(x, y, true)?.setCollision(true);
+      }
+    }
+  }
   // ===========================================================================
   // Option Room
   // ===========================================================================
@@ -268,6 +313,59 @@ export class GrillingWorld {
     this.bounds = undefined;
   }
 
+  private addCorridorInteractables(
+    corridor: WorldSegment,
+    map: Phaser.Tilemaps.Tilemap,
+  ): void {
+    const layer = map.objects.find(
+      (objectLayer) => objectLayer.name === 'interactables',
+    );
+  
+    if (!layer) {
+      return;
+    }
+  
+    for (const object of layer.objects) {
+      if (object.type !== 'AIWorkstation' && object.type !== 'AITerminal') {
+        continue;
+      }
+  
+      const type =
+        object.type === 'AIWorkstation'
+          ? 'ai-workstation'
+          : 'ai-terminal';
+  
+      const x = object.x ?? 0;
+      const y = object.y ?? 0;
+      const width = Math.max(object.width ?? 1, 1);
+      const height = Math.max(object.height ?? 1, 1);
+  
+      const interactable = this.scene.add.rectangle(
+        corridor.x +
+          x -
+          CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE,
+        corridor.y +
+          y -
+          CORRIDOR_MAP_BOUNDS.minTileY * CORRIDOR_MAP_TILE_SIZE,
+        width,
+        height,
+        0x000000,
+        0,
+      );
+  
+      interactable.setData('corridorInteractable', {
+        id: object.id,
+        type,
+        x: interactable.x,
+        y: interactable.y,
+        width,
+        height,
+      });
+  
+      corridor.objects.push(interactable);
+    }
+  }
+
   // ===========================================================================
   // Internals
   // ===========================================================================
@@ -300,6 +398,8 @@ export class GrillingWorld {
   private openCorridorMarker(corridor: WorldSegment, marker: Marker): void {
     openMarkerCollision(corridor, CORRIDOR_COLLIDABLE_LAYER, marker, CORRIDOR_MAP_TILE_SIZE);
   }
+
+  
 
   private register(segment: Omit<WorldSegment, 'objects' | 'doors'>): WorldSegment {
     const full: WorldSegment = {
