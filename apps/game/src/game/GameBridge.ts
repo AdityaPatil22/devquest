@@ -1,6 +1,13 @@
 import Phaser from 'phaser';
 
-import type { DecisionOption, Recommendation } from '../net/protocol';
+import type {
+  DecisionOption,
+  Recommendation,
+} from '../net/protocol';
+
+import type {
+  WebSocketStatus,
+} from '../net/WebSocketClient';
 
 export interface DecisionHistoryEntry {
   nodeId: string;
@@ -21,26 +28,7 @@ export type GameUIEvent =
       type: 'GAME_READY';
     }
   | {
-      type: 'COMMON_ROOM_READY';
-    }
-  | {
-      type: 'DECISION_ROOM_READY';
-    }
-  | {
-      type: 'ELEVATOR_PROXIMITY';
-      visible: boolean;
-    }
-  | {
-      type: 'ELEVATOR_OPEN';
-      waiting: boolean;
-      message?: string;
-    }
-  | {
-      type: 'ELEVATOR_SUBMITTING';
-      message?: string;
-    }
-  | {
-      type: 'ELEVATOR_CLOSED';
+      type: 'START_SCREEN_READY';
     }
   | {
       type: 'SESSION_STARTED';
@@ -49,6 +37,17 @@ export type GameUIEvent =
   | {
       type: 'SESSION_RESUMED';
       sessionId?: string;
+    }
+  | {
+      type: 'PROBLEM_SUBMITTING';
+      message: string;
+    }
+  | {
+      type: 'WEBSOCKET_STATUS';
+      status: WebSocketStatus;
+    }
+  | {
+      type: 'DECISION_ROOM_READY';
     }
   | {
       type: 'DECISION';
@@ -116,6 +115,12 @@ export type GameUIEvent =
       message: string;
     };
 
-export function emitUIEvent(game: Phaser.Game, event: GameUIEvent): void {
-  game.events.emit('devquest:ui', event);
+export function emitUIEvent(
+  game: Phaser.Game,
+  event: GameUIEvent,
+): void {
+  game.events.emit(
+    'devquest:ui',
+    event,
+  );
 }
