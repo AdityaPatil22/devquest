@@ -318,7 +318,7 @@ export class DecisionDoors {
       key: door.key,
       label: door.option.label,
       x: door.x,
-      y: door.y - 33,
+      y: door.y - 28,
       active: this.current === door,
     }));
   }
