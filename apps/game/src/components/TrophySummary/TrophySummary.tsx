@@ -35,26 +35,12 @@ export function TrophySummary({ open, problem, summary, docContent, onClose }: P
     <div className="trophy-summary-backdrop">
       <div className="trophy-summary">
         <div className="trophy-summary-header">
-          <h1>SESSION SUMMARY</h1>
+          <h1>INVESTIGATION</h1>
 
           <button className="trophy-summary-close" onClick={onClose} aria-label="Close summary">
             ×
           </button>
         </div>
-
-        {problem && (
-          <section className="trophy-summary-section">
-            <h2>PROBLEM</h2>
-            <p>{problem}</p>
-          </section>
-        )}
-
-        {summary && (
-          <section className="trophy-summary-section">
-            <h2>SUMMARY</h2>
-            <p>{summary}</p>
-          </section>
-        )}
 
         {docContent && (
           <section className="trophy-summary-section">
