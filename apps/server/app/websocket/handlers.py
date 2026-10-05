@@ -160,6 +160,9 @@ async def websocket_endpoint(
                 {
                     "type": "ERROR",
                     "message": str(error),
+                    "sessionId": session_id,
+                    "phase": existing_session.phase.value if existing_session else None,
+                    "currentNodeId": existing_session.current_node_id if existing_session else None,
                 }
             )
         except Exception:

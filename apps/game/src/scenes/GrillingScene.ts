@@ -35,6 +35,7 @@ export class GrillingScene extends Phaser.Scene {
   private corridorReady = false;
   private unsubscribeWs?: () => void;
   private playerMoving = false;
+  private gameplayBlocked = false;
 
   constructor() {
     super({ key: 'GrillingScene' });
@@ -56,6 +57,7 @@ export class GrillingScene extends Phaser.Scene {
     this.pendingDecision = undefined;
     this.corridorExitReached = false;
     this.corridorReady = false;
+    this.gameplayBlocked = false;
     this.unsubscribeWs?.();
     this.unsubscribeWs = this.ws.onMessage(this.handleMessage.bind(this));
   }
@@ -91,9 +93,10 @@ export class GrillingScene extends Phaser.Scene {
 
   update(): void {
     const canMove =
-      this.phase === GamePhase.EXPLORING_DOORS ||
-      this.phase === GamePhase.TRAVERSING_OPTION ||
-      this.phase === GamePhase.CORRIDOR_PROCESSING;
+      !this.gameplayBlocked &&
+      (this.phase === GamePhase.EXPLORING_DOORS ||
+        this.phase === GamePhase.TRAVERSING_OPTION ||
+        this.phase === GamePhase.CORRIDOR_PROCESSING);
 
     if (!canMove) {
       this.player.stop();
@@ -141,6 +144,7 @@ export class GrillingScene extends Phaser.Scene {
 
   private showDecision(decision: DecisionCreatedMsg, room: WorldSegment): void {
     this.currentNodeId = decision.nodeId;
+    this.gameplayBlocked = false;
 
     emitUI(this, {
       type: 'DECISION',
@@ -256,11 +260,12 @@ export class GrillingScene extends Phaser.Scene {
 
   private selectDoor(context?: string): void {
     const door = this.doors.currentDoor;
-
+    
     if (!door || this.phase !== GamePhase.DOOR_CONTEXT) {
       return;
     }
-
+    
+    this.gameplayBlocked = false;
     this.phase = GamePhase.CORRIDOR_PROCESSING;
     this.player.stop();
     this.store.updateCurrent({ selectedOptionId: door.option.id, context });
@@ -338,18 +343,19 @@ export class GrillingScene extends Phaser.Scene {
       this.pendingDecision = undefined;
       this.corridorReady = false;
       this.corridorExitReached = false;
-  
+      this.gameplayBlocked = false;
+    
       if (this.world.activeCorridor) {
         this.world.lockCorridorExit(this.world.activeCorridor);
       }
-  
+    
       this.startCorridorProcessing();
-  
+    
       emitUI(this, {
         type: 'OBJECTIVE',
-        objective: 'Walk through the corridor',
+        objective: 'Claude is generating the next decision',
       });
-  
+    
       return;
     }
   
@@ -370,12 +376,13 @@ export class GrillingScene extends Phaser.Scene {
     const room = this.world.activeRoom ?? this.world.buildDecisionRoom();
   
     this.showDecision(restoredDecision, room);
+    this.gameplayBlocked = false;
   
     emitUI(this, { type: 'SESSION_RESUMED' });
   }
 
   private onDecisionCreated(decision: DecisionCreatedMsg): void {
-    if (decision.nodeId === this.currentNodeId) {
+    if (decision.nodeId === this.currentNodeId || decision.round <= this.store.totalRounds) {
       return;
     }
 
@@ -403,6 +410,7 @@ export class GrillingScene extends Phaser.Scene {
     if (this.phase === GamePhase.CORRIDOR_PROCESSING) {
       this.pendingDecision = decision;
       this.corridorReady = true;
+      this.gameplayBlocked = false;
       this.stopCorridorProcessing();
     
       if (this.world.activeCorridor) {
@@ -458,12 +466,12 @@ export class GrillingScene extends Phaser.Scene {
     this.pendingDecision = undefined;
     this.corridorReady = false;
     this.corridorExitReached = false;
+    this.gameplayBlocked = true;
+    this.player.stop();
   
     if (this.world.activeCorridor) {
       this.world.lockCorridorExit(this.world.activeCorridor);
     }
-  
-    this.phase = GamePhase.EXPLORING_DOORS;
   
     this.corridorInteractions?.reset();
   

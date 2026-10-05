@@ -216,14 +216,16 @@ export class GrillingWorld {
   
     this.scene.physics.add.existing(blocker, true);
   
-    corridor.exitBlocker = blocker;
-    corridor.exitCollider = this.scene.physics.add.collider(
+    const collider = this.scene.physics.add.collider(
       this.playerSprite,
       blocker,
     );
-  
+    
+    corridor.exitBlocker = blocker;
+    corridor.exitCollider = collider;
+    
     corridor.objects.push(blocker);
-    corridor.colliders.push(corridor.exitCollider);
+    corridor.colliders.push(collider);
   }
   
   unlockCorridorExit(corridor: WorldSegment): void {
