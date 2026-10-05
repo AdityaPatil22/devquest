@@ -86,7 +86,7 @@ export function DecisionBriefPanel({
           Scrollable panel body
           ───────────────────────────── */}
 
-      <div className="decision-brief-panel__body">
+      <div className="decision-brief-panel__body" onWheel={(event) => event.stopPropagation()}>
         <section className="decision-brief-panel__question">
           <h2>{question}</h2>
 
