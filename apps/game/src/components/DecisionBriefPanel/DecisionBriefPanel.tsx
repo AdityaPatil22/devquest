@@ -179,10 +179,6 @@ export function DecisionBriefPanel({
                   </div>
 
                   {option.description && <p>{option.description}</p>}
-
-                  {isRecommended && (
-                    <span className="decision-brief-panel__recommended-label">RECOMMENDED</span>
-                  )}
                 </article>
               );
             })}

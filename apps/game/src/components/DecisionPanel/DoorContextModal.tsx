@@ -101,16 +101,17 @@ export function DoorContextModal({ option, open, onSubmit, onCancel }: Props) {
 
       <div className="door-context-panel__footer">
         <div className="door-context-panel__hint">
-          <span>⌘ / CTRL + ENTER</span>
-          <span>CONFIRM</span>
+          <span>CMD/CTRL + ENTER</span>
         </div>
 
-        <div className="door-context-panel__actions">
-          <button type="button" className="door-context-panel__enter" onClick={handleSubmit}>
-            <span>▶</span>
-            ENTER DOOR
-          </button>
-        </div>
+        <button
+          type="button"
+          className="door-context-panel__enter"
+          onClick={handleSubmit}
+        >
+          <span className="door-context-panel__enter-icon">▶</span>
+          <span>ENTER DOOR</span>
+        </button>
       </div>
     </section>
   );
