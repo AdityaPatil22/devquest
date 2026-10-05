@@ -11,6 +11,7 @@ import { DoorOptionsOverlay } from './DoorOptionsOverlay/DoorOptionsOverlay';
 import { WaitingOverlay } from './WaitingOverlay/WaitingOverlay';
 import { TrophySummary } from './TrophySummary/TrophySummary';
 import { DecisionBriefPanel } from './DecisionBriefPanel/DecisionBriefPanel';
+import { DecisionHistoryPanel } from './DecisionHistoryPanel/DecisionHistoryPanel';
 import { AIWorkstation } from './AIWorkstation/AIWorkstation';
 
 type BackendStatus = 'checking' | 'online' | 'offline';
@@ -495,13 +496,14 @@ export function GameUI() {
   }, [game, setState]);
 
   const showStartScreen = state.screen === 'start';
+  const showDecisionScreen = state.screen === 'decision';
+  const showTrophyScreen = state.screen === 'complete';
   const showDecisionUI =
-    state.screen === 'decision' &&
+    showDecisionScreen &&
     state.modal === null &&
     !state.aiThinking &&
     !state.corridorProcessing &&
     !state.finalDocumentGenerating;
-  const showGameplayUI = state.screen === 'decision' || state.screen === 'complete';
   const initialProblemWaiting = showStartScreen && Boolean(state.waitingMessage);
   const processingLabel =
     state.corridorProcessingStage === 'ready'
@@ -593,8 +595,8 @@ export function GameUI() {
 
   return (
     <>
-      <HUD />
-      {showGameplayUI && (
+      {showDecisionScreen && <HUD />}
+      {showDecisionScreen && (
         <div className="objective-indicator">
           <div className="objective-indicator__eyebrow">OBJECTIVE</div>
           <div className="objective-indicator__text">{state.objective || 'Explore the room'}</div>
@@ -620,8 +622,7 @@ export function GameUI() {
           </div>
         )
       )}
-      {((state.screen === 'decision' && !state.corridorProcessing && !state.finalDocumentGenerating) ||
-        state.screen === 'complete') && (
+      {showDecisionScreen && !state.corridorProcessing && !state.finalDocumentGenerating && (
         <DecisionBriefPanel
           question={state.question}
           description={state.description}
@@ -633,9 +634,11 @@ export function GameUI() {
           aiThinkingMessage={state.aiThinkingMessage}
         />
       )}
+      {showTrophyScreen && <DecisionHistoryPanel decisionHistory={state.decisionHistory} />}
       <DoorOptionsOverlay game={game} visible={showDecisionUI} />
       <InteractionPrompt
         visible={
+          showDecisionScreen &&
           state.doorNear &&
           state.modal === null &&
           !state.corridorProcessing &&
@@ -649,6 +652,7 @@ export function GameUI() {
       />
       <InteractionPrompt
         visible={
+          showDecisionScreen &&
           state.workstationNear &&
           state.corridorProcessing &&
           !state.workstationOpen &&
@@ -657,24 +661,24 @@ export function GameUI() {
         text={state.workstationType === 'ai-terminal' ? 'Press E to inspect terminal' : 'Press E to inspect workstation'}
       />
       <AIWorkstation
-        open={state.workstationOpen && !state.finalDocumentGenerating}
+        open={showDecisionScreen && state.workstationOpen && !state.finalDocumentGenerating}
         type={state.workstationType}
         stage={state.corridorProcessingStage}
         message={state.corridorProcessingMessage}
         onClose={closeWorkstation}
       />
       <InteractionPrompt
-        visible={state.trophyNear && !state.trophySummaryOpen && !state.finalDocumentGenerating}
+        visible={showTrophyScreen && state.trophyNear && !state.trophySummaryOpen && !state.finalDocumentGenerating}
         text="Press E to view summary"
       />
       <DoorContextModal
-        open={state.modal === 'door-context' && !state.finalDocumentGenerating}
+        open={showDecisionScreen && state.modal === 'door-context' && !state.finalDocumentGenerating}
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}
       />
       <WaitingOverlay
-        open={state.modal === 'waiting' && !state.aiThinking && !state.finalDocumentGenerating}
+        open={showDecisionScreen && state.modal === 'waiting' && !state.aiThinking && !state.finalDocumentGenerating}
         message={state.waitingMessage}
       />
       <TrophySummary
