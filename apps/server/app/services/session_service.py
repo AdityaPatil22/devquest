@@ -179,9 +179,7 @@ class SessionService:
             node_id = msg["nodeId"]
             option_id = msg["optionId"]
 
-            raw_context = msg.get(
-                "context",
-            )
+            raw_context = msg.get("context")
 
             context = (
                 raw_context.strip()

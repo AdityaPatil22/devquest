@@ -596,69 +596,64 @@ Never reconstruct important session state from memory when the server can provid
 
 **---**
 
-**# Event Loop**
+# Event Loop
 
-The event loop is a persistent long-polling loop that remains active for the entire DevQuest interview.
+The event loop is mandatory and must remain active for the entire DevQuest session.
 
-Start polling immediately after the session ID is known.
+After obtaining the session_id, immediately begin polling:
 
-Always use the session-specific endpoint:
+GET /api/skill/events/pending/long-poll?session_id=<sid>&timeout=30
 
-\`\`\`bash
-curl -s "http\://localhost:8000/api/skill/events/pending/long-poll?session_id=\<sid>&timeout=30"
-\`\`\`
+The loop must behave as:
 
-Never rely on the conversation with the player as the signal that an event has occurred.
-
-The polling flow is:
-
-\`\`\`text
-Start / resume session
+Start or resume session
 ↓
-Obtain session ID
+Obtain session_id
 ↓
-Start long polling immediately
+Immediately long-poll
 ↓
-Wait for player event
+Receive event
 ↓
-Event received
-↓
-Process event immediately
+Process event completely
 ↓
 Perform the required action
 ↓
-Return to long polling
+Immediately long-poll again
 ↓
-Repeat until session is complete
-\`\`\`
+Repeat until session completion
 
-When:
+When the response is:
 
-\`\`\`json
 {
-"event": null
+  "event": null
 }
-\`\`\`
 
-the long-poll request timed out without an event.
+immediately issue another long-poll request using the same session_id.
 
-Treat this as a normal timeout, not as session completion.
+Never stop polling because:
 
-Immediately issue the same long-poll request again:
+- the request timed out
+- PROBLEM_SUBMITTED was received
+- OPTION_SELECTED was received
+- Claude is generating a decision
+- the player is walking through the corridor
+- the player is inside an Options Room
 
-\`\`\`bash
-curl -s "http\://localhost:8000/api/skill/events/pending/long-poll?session_id=\<sid>&timeout=30"
-\`\`\`
+The only valid reasons to stop polling are:
 
-Do not stop polling after a timeout.
+- SESSION_COMPLETE was generated
+- the session_id is no longer valid
+- the DevQuest session has ended
 
-Do not stop polling after \`PROBLEM_SUBMITTED\`.
+The skill must maintain exactly one active polling loop for one DevQuest session.
 
-Do not stop polling after \`OPTION_SELECTED\`.
+Never wait for the player to send a conversational message after an in-game event.
 
-Do not stop polling after \`RECONSIDER\`.
+Never require the player to repeat an in-game problem or option selection in the terminal.
 
-After processing every event, return to the long-poll request unless the session has been completed or the session ID is no longer usable.
+Always use:
+
+GET /api/skill/events/pending/long-poll?session_id=<sid>&timeout=30
 
 The primary player events are:
 

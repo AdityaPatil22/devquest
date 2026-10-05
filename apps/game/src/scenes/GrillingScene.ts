@@ -5,7 +5,7 @@ import { SessionStore, type DecisionRecord } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { DECISION_SPAWN } from '../tilemaps/decisionRoomTilemap';
 import { CORRIDOR_MAP_TILE_SIZE, CORRIDOR_MAP_BOUNDS, CORRIDOR_MARKERS } from '../tilemaps/corridorTilemap';
-import type { ServerMessage, DecisionCreatedMsg, SessionCompleteMsg } from '../net/protocol';
+import type { ServerMessage, DecisionCreatedMsg, SessionCompleteMsg, SessionResumedMsg } from '../net/protocol';
 import { createSceneKeys, emitUI, type SceneKeys } from './support/sceneUi';
 import { DecisionDoors } from './grilling/DecisionDoors';
 import { GrillingWorld } from './grilling/GrillingWorld';
@@ -178,31 +178,13 @@ export class GrillingScene extends Phaser.Scene {
 
   private startCorridorProcessing(): void {
     this.stopCorridorProcessing();
-
-    const stages = [
-      'Request received',
-      'Analyzing selected path...',
-      'Preparing the next challenge...',
-    ];
-    let index = 0;
-
+  
     emitUI(this, {
       type: 'CORRIDOR_PROCESSING',
       visible: true,
-      stage: 'received',
-      message: stages[index],
+      stage: 'processing',
+      message: 'Claude is generating the next decision...',
     });
-
-    this.corridorProcessingTimer = setInterval(() => {
-      index = Math.min(index + 1, stages.length - 1);
-
-      emitUI(this, {
-        type: 'CORRIDOR_PROCESSING',
-        visible: true,
-        stage: index === 0 ? 'received' : 'processing',
-        message: stages[index],
-      });
-    }, 2500);
   }
 
   private stopCorridorProcessing(): void {
@@ -214,11 +196,11 @@ export class GrillingScene extends Phaser.Scene {
 
   private checkCorridorExit(): void {
     const corridor = this.world.activeCorridor;
-
-    if (!corridor || this.corridorExitReached) {
+  
+    if (!corridor || this.corridorExitReached || !this.corridorReady) {
       return;
     }
-
+  
     const marker = CORRIDOR_MARKERS.roomExit;
     const origin = {
       x: CORRIDOR_MAP_BOUNDS.minTileX * CORRIDOR_MAP_TILE_SIZE,
@@ -226,7 +208,7 @@ export class GrillingScene extends Phaser.Scene {
     };
     const exitX = corridor.x + marker.x + marker.width / 2 - origin.x;
     const exitY = corridor.y + marker.y + marker.height / 2 - origin.y;
-
+  
     if (
       Phaser.Math.Distance.Between(
         this.player.sprite.x,
@@ -324,12 +306,72 @@ export class GrillingScene extends Phaser.Scene {
         break;
       }
       case 'SESSION_RESUMED':
-        emitUI(this, { type: 'SESSION_RESUMED' });
+        this.restoreFromSession(msg);
         break;
       case 'ERROR':
         this.failWith(msg.message);
         break;
     }
+  }
+
+  private restoreFromSession(msg: SessionResumedMsg): void {
+    this.store.hydrate(msg.snapshot);
+  
+    if (msg.snapshot.phase === 'complete') {
+      this.stopCorridorProcessing();
+      this.player.stop();
+      this.scene.start('TrophyScene', { store: this.store });
+      return;
+    }
+  
+    const decision = this.store.getCurrentDecision();
+  
+    if (!decision) {
+      this.failWith('Unable to restore the current decision.');
+      return;
+    }
+  
+    this.currentNodeId = decision.nodeId;
+  
+    if (msg.snapshot.phase === 'awaiting_question') {
+      this.phase = GamePhase.CORRIDOR_PROCESSING;
+      this.pendingDecision = undefined;
+      this.corridorReady = false;
+      this.corridorExitReached = false;
+  
+      if (this.world.activeCorridor) {
+        this.world.lockCorridorExit(this.world.activeCorridor);
+      }
+  
+      this.startCorridorProcessing();
+  
+      emitUI(this, {
+        type: 'OBJECTIVE',
+        objective: 'Walk through the corridor',
+      });
+  
+      return;
+    }
+  
+    if (msg.snapshot.phase !== 'awaiting_selection') {
+      return;
+    }
+  
+    const restoredDecision: DecisionCreatedMsg = {
+      type: 'DECISION_CREATED',
+      nodeId: decision.nodeId,
+      question: decision.question,
+      description: decision.description,
+      options: decision.options,
+      recommendation: decision.recommendation,
+      round: decision.round,
+    };
+  
+    const room = this.world.activeRoom ?? this.world.buildDecisionRoom();
+  
+    this.showDecision(restoredDecision, room);
+  
+    emitUI(this, { type: 'SESSION_RESUMED' });
   }
 
   private onDecisionCreated(decision: DecisionCreatedMsg): void {
@@ -362,12 +404,23 @@ export class GrillingScene extends Phaser.Scene {
       this.pendingDecision = decision;
       this.corridorReady = true;
       this.stopCorridorProcessing();
+    
+      if (this.world.activeCorridor) {
+        this.world.unlockCorridorExit(this.world.activeCorridor);
+      }
+    
       emitUI(this, {
         type: 'CORRIDOR_PROCESSING',
         visible: true,
         stage: 'ready',
-        message: 'Next decision ready',
+        message: 'Next decision ready — corridor exit unlocked',
       });
+    
+      emitUI(this, {
+        type: 'OBJECTIVE',
+        objective: 'Reach the corridor exit',
+      });
+    
       this.tryCommitPendingDecision();
       return;
     }
@@ -402,13 +455,25 @@ export class GrillingScene extends Phaser.Scene {
 
   private failWith(message: string): void {
     this.stopCorridorProcessing();
+    this.pendingDecision = undefined;
+    this.corridorReady = false;
+    this.corridorExitReached = false;
+  
+    if (this.world.activeCorridor) {
+      this.world.lockCorridorExit(this.world.activeCorridor);
+    }
+  
+    this.phase = GamePhase.EXPLORING_DOORS;
+  
     this.corridorInteractions?.reset();
+  
     emitUI(this, {
       type: 'CORRIDOR_PROCESSING',
       visible: false,
       stage: 'ready',
       message,
     });
+  
     emitUI(this, { type: 'AI_THINKING', visible: false });
     emitUI(this, { type: 'ERROR', message });
   }
