@@ -10,7 +10,7 @@ SERVER_PORT="${DEVQUEST_PORT:-8000}"
 GAME_PORT="${DEVQUEST_GAME_PORT:-5173}"
 
 SERVER_URL="http://${SERVER_HOST}:${SERVER_PORT}"
-GAME_URL="http://127.0.0.1:${GAME_PORT}"
+GAME_URL="http://localhost:${GAME_PORT}"
 
 cleanup() {
     echo
@@ -97,8 +97,8 @@ if ! curl -fsS "${GAME_URL}" >/dev/null 2>&1; then
 fi
 
 echo
-echo "DevQuest is running:"
-echo "${GAME_URL}"
+echo "DevQuest is ready at http://localhost:${GAME_PORT}"
+echo "Open this URL in your browser to begin."
 echo
 echo "Press Ctrl+C to stop."
 

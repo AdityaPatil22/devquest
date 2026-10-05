@@ -389,20 +389,38 @@ Never create a new session because:
 When `/devquest <topic>` is invoked:
 
 1. Clear ports `8000` and `5173`.
-2. Start the FastAPI server.
-3. Verify the server health endpoint.
-4. Start the Phaser game.
-5. Verify the game at `http://localhost:5173`.
-6. Create or resume exactly one DevQuest session.
-7. Preserve its `session_id`.
-8. Start the long-polling loop immediately.
-9. Keep polling for the entire session.
+2. Start both DevQuest services using the repository startup script:
+
+```bash
+bash plugin/scripts/start.sh
+```
+
+3. Wait until the startup script confirms:
+   - FastAPI is reachable at `http://127.0.0.1:8000/api/health`.
+   - Phaser is reachable at `http://127.0.0.1:5173`.
+4. Do not start the long-polling loop before both services are ready.
+5. Tell the user:
+
+```text
+DevQuest is ready at http://localhost:5173
+Open this URL in your browser to begin.
+```
+
+6. Wait for the player to open `http://localhost:5173` and for the game WebSocket connection to become available.
+7. Create or resume exactly one DevQuest session.
+8. Preserve its `session_id`.
+9. Start exactly one long-polling loop.
+10. Keep polling for the entire session.
 
 If no topic is supplied, the player enters the problem through the BootScene input.
 
 The game remains the source of the actual `PROBLEM_SUBMITTED` event.
 
 Never require the player to repeat the problem in the terminal.
+
+Do not start long-polling before the frontend has been started successfully.
+
+Do not assume that `http://localhost:5173` is available merely because the FastAPI server is running.
 
 # Resume
 
@@ -485,6 +503,46 @@ The only valid reasons to stop polling are:
 Maintain exactly one active polling loop for one DevQuest session.
 
 Never wait for a conversational message from the player after an in-game event.
+
+# Polling Startup Guard
+
+Long-polling must only begin after the DevQuest runtime has been started successfully.
+
+The required startup order is:
+
+```text
+Clear ports
+    ↓
+Start FastAPI
+    ↓
+Verify FastAPI /api/health
+    ↓
+Start Phaser/Vite
+    ↓
+Verify http://localhost:5173
+    ↓
+Tell user to open http://localhost:5173
+    ↓
+Wait for the game WebSocket connection
+    ↓
+Create or resume session
+    ↓
+Start long-polling
+```
+
+Never start the long-polling loop while the frontend is still starting.
+
+Never assume that the frontend is running because the backend is healthy.
+
+If the frontend fails to start, stop the DevQuest session and report the startup failure instead of starting long-polling.
+
+The game must be opened by the user at:
+
+```text
+http://localhost:5173
+```
+
+Once the browser connects to the game WebSocket, continue with the normal DevQuest session flow.
 
 # Events
 
