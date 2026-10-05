@@ -89,6 +89,9 @@ export interface SessionCompleteMsg {
 export interface ErrorMsg {
   type: 'ERROR';
   message: string;
+  sessionId?: string;
+  phase?: string;
+  currentNodeId?: string;
 }
 
 export type ServerMessage =

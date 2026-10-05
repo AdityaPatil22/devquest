@@ -15,17 +15,11 @@ import {
 } from '../tilemaps/trophyRoomTilemap';
 
 import { CORRIDOR_TILEMAP_KEY, CORRIDOR_TILEMAP_PATH } from '../tilemaps/corridorTilemap';
-
 import { OPTION_ROOM_TILEMAP_KEYS, OPTION_ROOM_TILEMAP_PATHS } from '../tilemaps/optionRoomTilemap';
-
 import { Player } from '../entities/Player';
-
 import { WebSocketClient, type WebSocketStatus } from '../net/WebSocketClient';
-
 import { SessionStore } from '../state/SessionStore';
-
 import type { ServerMessage, SessionResumedMsg, DecisionCreatedMsg } from '../net/protocol';
-
 import { emitUI } from './support/sceneUi';
 
 export class BootScene extends Phaser.Scene {
@@ -196,11 +190,8 @@ export class BootScene extends Phaser.Scene {
   private handleMessage(msg: ServerMessage): void {
     if (msg.type === 'SESSION_STARTED') {
       this.ws.setSessionId(msg.sessionId);
-
       this.store.setSession(msg.sessionId);
-
       this.restoring = false;
-
       this.submittingProblem = false;
 
       emitUI(this, {
@@ -211,18 +202,27 @@ export class BootScene extends Phaser.Scene {
       emitUI(this, {
         type: 'START_SCREEN_READY',
       });
-
       return;
     }
 
     if (msg.type === 'SESSION_RESUMED') {
       this.restoreSession(msg);
-
       return;
     }
 
     if (msg.type === 'DECISION_CREATED') {
       this.restoreDecision(msg);
+    }
+
+    if (msg.type === 'ERROR') {
+      this.submittingProblem = false;
+    
+      emitUI(this, {
+        type: 'ERROR',
+        message: msg.message,
+      });
+    
+      return;
     }
   }
 

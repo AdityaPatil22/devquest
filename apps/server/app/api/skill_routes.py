@@ -91,7 +91,7 @@ class FinishPayload(BaseModel):
 
 @router.get("/events/pending")
 async def get_pending_events(
-    session_id: str | None = None,
+    session_id: str,
 ):
     """Skill polls this to get player actions."""
 
@@ -111,7 +111,7 @@ async def get_pending_events(
 
 @router.get("/events/pending/long-poll")
 async def get_pending_events_long_poll(
-    session_id: str | None = None,
+    session_id: str,
     timeout: int = 30,
 ):
     """Long-poll until a player event arrives."""

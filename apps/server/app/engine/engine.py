@@ -65,13 +65,20 @@ class DecisionEngine:
         depends_on: str | None = None,
         description: str = "",
     ) -> EngineEvent:
-        if session.phase not in {
-            SessionPhase.AWAITING_QUESTION,
-            SessionPhase.AWAITING_PROBLEM,
-        }:
+        if session.phase != SessionPhase.AWAITING_QUESTION:
             raise ValueError(
                 f"Cannot create decision while session is in "
                 f"phase '{session.phase.value}'"
+            )
+
+        next_round = session.current_round + 1
+
+        if next_round > 7:
+            raise ValueError("Maximum of 7 decision rounds has been reached")
+
+        if round_num != next_round:
+            raise ValueError(
+                f"Invalid decision round '{round_num}'. Expected '{next_round}'"
             )
 
         opts = [

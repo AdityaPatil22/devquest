@@ -25,6 +25,8 @@ export interface WorldSegment {
   objects: Phaser.GameObjects.GameObject[];
   colliders: Phaser.Physics.Arcade.Collider[];
   doors: DoorObject[];
+  exitBlocker?: Phaser.GameObjects.Rectangle;
+  exitCollider?: Phaser.Physics.Arcade.Collider;
 }
 
 export interface DoorObject {

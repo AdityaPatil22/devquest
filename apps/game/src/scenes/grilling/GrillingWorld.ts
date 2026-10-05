@@ -123,6 +123,7 @@ export class GrillingWorld {
       layers,
       colliders,
     });
+    this.lockCorridorExit(corridor);
     this.addCorridorInteractables(corridor, map);
     this.activeCorridor = corridor;
     this.openCorridorMarker(corridor, CORRIDOR_MARKERS.entrance);
@@ -184,6 +185,59 @@ export class GrillingWorld {
     this.activeRoom = room;
     this.activeCorridor = undefined;
     return room;
+  }
+
+  lockCorridorExit(corridor: WorldSegment): void {
+    if (corridor.exitBlocker) {
+      const body = corridor.exitBlocker.body as Phaser.Physics.Arcade.StaticBody | undefined;
+  
+      if (body) {
+        body.enable = true;
+      }
+  
+      return;
+    }
+  
+    const marker = CORRIDOR_MARKERS.roomExit;
+    const center = markerCenter(
+      marker,
+      CORRIDOR_MAP_BOUNDS,
+      CORRIDOR_MAP_TILE_SIZE,
+    );
+  
+    const blocker = this.scene.add.rectangle(
+      corridor.x + center.x,
+      corridor.y + center.y,
+      Math.max(marker.width + 12, 56),
+      Math.max(marker.height + 12, 70),
+      0x000000,
+      0,
+    );
+  
+    this.scene.physics.add.existing(blocker, true);
+  
+    const collider = this.scene.physics.add.collider(
+      this.playerSprite,
+      blocker,
+    );
+    
+    corridor.exitBlocker = blocker;
+    corridor.exitCollider = collider;
+    
+    corridor.objects.push(blocker);
+    corridor.colliders.push(collider);
+  }
+  
+  unlockCorridorExit(corridor: WorldSegment): void {
+    if (!corridor.exitBlocker) {
+      return;
+    }
+  
+    const body = corridor.exitBlocker.body as Phaser.Physics.Arcade.StaticBody | undefined;
+  
+    if (body) {
+      body.enable = false;
+    }
   }
 
   destroyAll(): void {
