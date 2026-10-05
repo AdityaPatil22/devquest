@@ -42,6 +42,10 @@ export type GameUIEvent =
       message: string;
     }
   | {
+      type: 'FINAL_DOCUMENT_GENERATING';
+      message: string;
+    }
+  | {
       type: 'WORKSTATION_PROXIMITY';
       visible: boolean;
       workstation?: 'ai-workstation' | 'ai-terminal';

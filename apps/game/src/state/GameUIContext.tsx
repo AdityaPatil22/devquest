@@ -30,6 +30,8 @@ export interface UIState {
   corridorProcessing: boolean;
   corridorProcessingStage: 'received' | 'processing' | 'ready';
   corridorProcessingMessage?: string;
+  finalDocumentGenerating: boolean;
+  finalDocumentGeneratingMessage?: string;
   workstationNear: boolean;
   workstationType?: 'ai-workstation' | 'ai-terminal';
   workstationOpen: boolean;
@@ -63,6 +65,8 @@ const initialState: UIState = {
   corridorProcessing: false,
   corridorProcessingStage: 'processing',
   corridorProcessingMessage: undefined,
+  finalDocumentGenerating: false,
+  finalDocumentGeneratingMessage: undefined,
   workstationNear: false,
   workstationType: undefined,
   workstationOpen: false,

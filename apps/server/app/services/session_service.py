@@ -244,6 +244,26 @@ class SessionService:
             event.to_ws_message(),
         )
 
+    async def skill_start_document_generation(
+        self,
+        session_id: str,
+    ) -> None:
+        session = self.engine.get_session(
+            session_id,
+        )
+
+        if not session:
+            return
+
+        event = self.engine.start_document_generation(
+            session,
+        )
+
+        await self.ws_manager.send_to_session(
+            session_id,
+            event.to_ws_message(),
+        )
+
     async def skill_finish(
         self,
         session_id: str,

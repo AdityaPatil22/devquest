@@ -79,6 +79,11 @@ export interface DecisionCreatedMsg {
   dependsOn?: string;
 }
 
+export interface FinalDocumentGeneratingMsg {
+  type: 'FINAL_DOCUMENT_GENERATING';
+  message: string;
+}
+
 export interface SessionCompleteMsg {
   type: 'SESSION_COMPLETE';
   summary: string;
@@ -98,5 +103,6 @@ export type ServerMessage =
   | SessionStartedMsg
   | SessionResumedMsg
   | DecisionCreatedMsg
+  | FinalDocumentGeneratingMsg
   | SessionCompleteMsg
   | ErrorMsg;

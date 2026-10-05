@@ -5,7 +5,13 @@ import { SessionStore, type DecisionRecord } from '../state/SessionStore';
 import { WebSocketClient } from '../net/WebSocketClient';
 import { DECISION_SPAWN } from '../tilemaps/decisionRoomTilemap';
 import { CORRIDOR_MAP_TILE_SIZE, CORRIDOR_MAP_BOUNDS, CORRIDOR_MARKERS } from '../tilemaps/corridorTilemap';
-import type { ServerMessage, DecisionCreatedMsg, SessionCompleteMsg, SessionResumedMsg } from '../net/protocol';
+import type {
+  ServerMessage,
+  DecisionCreatedMsg,
+  FinalDocumentGeneratingMsg,
+  SessionCompleteMsg,
+  SessionResumedMsg,
+} from '../net/protocol';
 import { createSceneKeys, emitUI, type SceneKeys } from './support/sceneUi';
 import { DecisionDoors } from './grilling/DecisionDoors';
 import { GrillingWorld } from './grilling/GrillingWorld';
@@ -289,6 +295,9 @@ export class GrillingScene extends Phaser.Scene {
       case 'DECISION_CREATED':
         this.onDecisionCreated(msg);
         break;
+      case 'FINAL_DOCUMENT_GENERATING':
+        this.onFinalDocumentGenerating(msg);
+        break;
       case 'SESSION_COMPLETE': {
         const complete = msg as SessionCompleteMsg;
         this.store.complete(complete.summary, complete.docContent);
@@ -305,12 +314,61 @@ export class GrillingScene extends Phaser.Scene {
     }
   }
 
+  private onFinalDocumentGenerating(msg: FinalDocumentGeneratingMsg): void {
+    this.phase = GamePhase.FINAL_DOCUMENT_GENERATING;
+    this.pendingDecision = undefined;
+    this.corridorReady = false;
+    this.corridorExitReached = false;
+    this.gameplayBlocked = true;
+    this.player.stop();
+    this.corridorInteractions?.close();
+
+    if (this.world.activeCorridor) {
+      this.world.lockCorridorExit(this.world.activeCorridor);
+    }
+
+    emitUI(this, { type: 'DOOR_PROXIMITY', visible: false });
+    emitUI(this, { type: 'DOOR_CONTEXT', visible: false });
+    emitUI(this, {
+      type: 'FINAL_DOCUMENT_GENERATING',
+      message: msg.message,
+    });
+    emitUI(this, {
+      type: 'OBJECTIVE',
+      objective: 'Reach the document',
+    });
+  }
+
   private restoreFromSession(msg: SessionResumedMsg): void {
     this.store.hydrate(msg.snapshot);
   
     if (msg.snapshot.phase === 'complete') {
       this.player.stop();
       this.scene.start('TrophyScene', { store: this.store });
+      return;
+    }
+
+    if (msg.snapshot.phase === 'document_generating') {
+      this.phase = GamePhase.FINAL_DOCUMENT_GENERATING;
+      this.pendingDecision = undefined;
+      this.corridorReady = false;
+      this.corridorExitReached = false;
+      this.gameplayBlocked = true;
+      this.player.stop();
+
+      if (this.world.activeCorridor) {
+        this.world.lockCorridorExit(this.world.activeCorridor);
+      }
+
+      emitUI(this, {
+        type: 'FINAL_DOCUMENT_GENERATING',
+        message: 'Claude has enough context and is generating your implementation plan...',
+      });
+      emitUI(this, {
+        type: 'OBJECTIVE',
+        objective: 'Reach the document',
+      });
+
       return;
     }
   
@@ -371,6 +429,10 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private onDecisionCreated(decision: DecisionCreatedMsg): void {
+    if (this.phase === GamePhase.FINAL_DOCUMENT_GENERATING) {
+      return;
+    }
+
     if (decision.nodeId === this.currentNodeId || decision.round <= this.store.totalRounds) {
       return;
     }

@@ -73,9 +73,6 @@ class DecisionEngine:
 
         next_round = session.current_round + 1
 
-        if next_round > 7:
-            raise ValueError("Maximum of 7 decision rounds has been reached")
-
         if round_num != next_round:
             raise ValueError(
                 f"Invalid decision round '{round_num}'. Expected '{next_round}'"
@@ -177,6 +174,33 @@ class DecisionEngine:
 
         session.move_to_awaiting_question()
 
+    def start_document_generation(
+        self,
+        session: Session,
+    ) -> EngineEvent:
+        if session.phase == SessionPhase.DOCUMENT_GENERATING:
+            return EngineEvent(
+                type=EventType.FINAL_DOCUMENT_GENERATING,
+                data={
+                    "message": "Claude has enough context and is generating your implementation plan...",
+                },
+            )
+
+        if session.phase != SessionPhase.AWAITING_QUESTION:
+            raise ValueError(
+                f"Cannot start document generation while session is in "
+                f"phase '{session.phase.value}'"
+            )
+
+        session.start_document_generation()
+
+        return EngineEvent(
+            type=EventType.FINAL_DOCUMENT_GENERATING,
+            data={
+                "message": "Claude has enough context and is generating your implementation plan...",
+            },
+        )
+
     def finish_session(
         self,
         session: Session,
@@ -184,6 +208,12 @@ class DecisionEngine:
         doc_content: str,
     ) -> EngineEvent:
         """Skill says the session is complete."""
+
+        if session.phase != SessionPhase.DOCUMENT_GENERATING:
+            raise ValueError(
+                f"Cannot finish session while session is in "
+                f"phase '{session.phase.value}'"
+            )
 
         session.finish(
             summary,

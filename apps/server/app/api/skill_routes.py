@@ -73,8 +73,14 @@ class DecisionPayload(BaseModel):
     depends_on: str | None = None
 
 
+class FinishGeneratingPayload(BaseModel):
+    """Skill says final document generation has started."""
+
+    session_id: str
+
+
 class FinishPayload(BaseModel):
-    """Skill says the session is complete."""
+    """Skill submits the generated final implementation plan."""
 
     session_id: str
 
@@ -190,11 +196,26 @@ async def create_decision(
     }
 
 
+@router.post("/finish/generating")
+async def start_document_generation(
+    payload: FinishGeneratingPayload,
+):
+    """Skill signals that the final implementation plan is being generated."""
+
+    await session_service.skill_start_document_generation(
+        session_id=payload.session_id,
+    )
+
+    return {
+        "status": "sent",
+    }
+
+
 @router.post("/finish")
 async def finish_session(
     payload: FinishPayload,
 ):
-    """Skill says the grilling is done."""
+    """Skill submits the final implementation plan."""
 
     await session_service.skill_finish(
         session_id=payload.session_id,

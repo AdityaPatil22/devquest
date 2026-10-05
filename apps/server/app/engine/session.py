@@ -14,6 +14,7 @@ class SessionPhase(str, Enum):
     AWAITING_PROBLEM = "awaiting_problem"
     AWAITING_QUESTION = "awaiting_question"
     AWAITING_SELECTION = "awaiting_selection"
+    DOCUMENT_GENERATING = "document_generating"
     COMPLETE = "complete"
 
 
@@ -69,6 +70,13 @@ class Session:
     ) -> None:
         self.phase = (
             SessionPhase.AWAITING_QUESTION
+        )
+
+    def start_document_generation(
+        self,
+    ) -> None:
+        self.phase = (
+            SessionPhase.DOCUMENT_GENERATING
         )
 
     def advance_round(self) -> None:
