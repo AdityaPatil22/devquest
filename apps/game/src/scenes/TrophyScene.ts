@@ -123,7 +123,7 @@ export class TrophyScene extends Phaser.Scene {
 
     this.player.sprite.setCollideWorldBounds(true);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-    this.cameras.main.setZoom(1.2);
+    this.cameras.main.setZoom(1.1);
 
 
     if (this.wallsLayer) {

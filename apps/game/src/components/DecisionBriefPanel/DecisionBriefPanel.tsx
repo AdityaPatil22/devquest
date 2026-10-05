@@ -38,10 +38,6 @@ export function DecisionBriefPanel({
 }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  if (!question) {
-    return null;
-  }
-
   const recommendedOption = recommendation
     ? options.find((option) => option.id === recommendation.option)
     : undefined;
@@ -90,7 +86,7 @@ export function DecisionBriefPanel({
           Scrollable panel body
           ───────────────────────────── */}
 
-      <div className="decision-brief-panel__body">
+      <div className="decision-brief-panel__body" onWheel={(event) => event.stopPropagation()}>
         <section className="decision-brief-panel__question">
           <h2>{question}</h2>
 
@@ -183,10 +179,6 @@ export function DecisionBriefPanel({
                   </div>
 
                   {option.description && <p>{option.description}</p>}
-
-                  {isRecommended && (
-                    <span className="decision-brief-panel__recommended-label">RECOMMENDED</span>
-                  )}
                 </article>
               );
             })}
@@ -242,7 +234,6 @@ export function DecisionBriefPanel({
             <summary className="decision-brief-panel__history-summary">
               <div>
                 <span>DECISION HISTORY</span>
-
                 <small>Previous choices</small>
               </div>
 

@@ -269,6 +269,7 @@ export class GrillingScene extends Phaser.Scene {
     this.corridorReady = false;
 
     emitUI(this, { type: 'DOOR_PROXIMITY', visible: false });
+    emitUI(this, { type: 'DOOR_CONTEXT', visible: false });
     emitUI(this, {
       type: 'CORRIDOR_PROCESSING',
       visible: true,

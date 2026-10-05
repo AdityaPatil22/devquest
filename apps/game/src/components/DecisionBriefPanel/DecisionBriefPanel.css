@@ -196,20 +196,32 @@
    Scrollable body
    ───────────────────────────────────────── */
 
-.decision-brief-panel__body {
-  flex: 1 1 auto;
-
-  min-height: 0;
-
-  overflow-y: auto;
-
-  overscroll-behavior: contain;
+  .decision-brief-panel__body {
+    flex: 1 1 0;
+  
+    min-height: 0;
+  
+    overflow-y: scroll;
+  
+    overflow-x: hidden;
+  
+    overscroll-behavior: contain;
+  
+    touch-action: pan-y;
+  
+    pointer-events: auto;
+  
+    -webkit-overflow-scrolling: touch;
 
   padding: 18px;
 
   scrollbar-width: thin;
 
   scrollbar-color: rgba(141, 141, 255, 0.28) transparent;
+}
+
+.decision-brief-panel {
+  pointer-events: auto;
 }
 
 .decision-brief-panel__body::-webkit-scrollbar {

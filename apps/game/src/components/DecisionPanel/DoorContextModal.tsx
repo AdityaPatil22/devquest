@@ -91,15 +91,6 @@ export function DoorContextModal({ option, open, onSubmit, onCancel }: Props) {
             <span className="door-context-panel__door-label">{option.label}</span>
           </div>
         </div>
-
-        <button
-          type="button"
-          className="door-context-panel__close"
-          aria-label="Go back"
-          onClick={onCancel}
-        >
-          ×
-        </button>
       </header>
 
       {option.description && (
@@ -108,42 +99,19 @@ export function DoorContextModal({ option, open, onSubmit, onCancel }: Props) {
 
       <div className="door-context-panel__divider" />
 
-      <label className="door-context-panel__label" htmlFor="door-context-input">
-        ADD CONTEXT
-      </label>
-
-      <p className="door-context-panel__prompt">
-        Anything else Claude should consider before you commit to this path?
-      </p>
-
-      <textarea
-        ref={textareaRef}
-        id="door-context-input"
-        value={context}
-        onChange={(event) => setContext(event.target.value)}
-        placeholder="I was also thinking..."
-        rows={4}
-      />
-
       <div className="door-context-panel__footer">
         <div className="door-context-panel__hint">
-          <span>ESC</span>
-          <span>BACK</span>
-
-          <span>⌘ / CTRL + ENTER</span>
-          <span>CONFIRM</span>
+          <span>CMD/CTRL + ENTER</span>
         </div>
 
-        <div className="door-context-panel__actions">
-          <button type="button" className="door-context-panel__back" onClick={onCancel}>
-            BACK
-          </button>
-
-          <button type="button" className="door-context-panel__enter" onClick={handleSubmit}>
-            <span>▶</span>
-            ENTER DOOR
-          </button>
-        </div>
+        <button
+          type="button"
+          className="door-context-panel__enter"
+          onClick={handleSubmit}
+        >
+          <span className="door-context-panel__enter-icon">▶</span>
+          <span>ENTER DOOR</span>
+        </button>
       </div>
     </section>
   );

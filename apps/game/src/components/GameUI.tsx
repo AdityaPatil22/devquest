@@ -522,9 +522,9 @@ export function GameUI() {
           <section className="start-screen__intro">
             <div className="start-screen__eyebrow">AI ENGINEERING PLANNING WORKSPACE</div>
             <h1>
-              Think it through.
+              Start unsure
               <br />
-              Then build the plan.
+              Leave with a plan
             </h1>
             <p className="start-screen__description">
               DevQuest works with you to turn an engineering problem into a concrete implementation
@@ -622,7 +622,7 @@ export function GameUI() {
           </div>
         )
       )}
-      {showDecisionScreen && !state.corridorProcessing && !state.finalDocumentGenerating && (
+      {showDecisionScreen && (
         <DecisionBriefPanel
           question={state.question}
           description={state.description}
@@ -672,7 +672,12 @@ export function GameUI() {
         text="Press E to view summary"
       />
       <DoorContextModal
-        open={showDecisionScreen && state.modal === 'door-context' && !state.finalDocumentGenerating}
+        open={
+          showDecisionScreen &&
+          state.modal === 'door-context' &&
+          !state.corridorProcessing &&
+          !state.finalDocumentGenerating
+        }
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}
