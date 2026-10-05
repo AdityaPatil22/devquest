@@ -302,15 +302,17 @@ export function GameUI() {
             ...previous,
             screen: 'decision',
             modal: null,
+            waitingMessage: undefined,
+            aiThinking: false,
+            aiThinkingMessage: undefined,
+            corridorProcessing: false,
+            corridorProcessingStage: 'processing',
+            corridorProcessingMessage: undefined,
             finalDocumentGenerating: true,
             finalDocumentGeneratingMessage:
               typeof event.message === 'string'
                 ? event.message
-                : 'Claude has all the context it needs and is generating your final implementation plan...',
-            corridorProcessing: false,
-            corridorProcessingMessage: undefined,
-            aiThinking: false,
-            aiThinkingMessage: undefined,
+                : 'Claude is generating your implementation plan...',
             workstationNear: false,
             workstationType: undefined,
             workstationOpen: false,
@@ -516,15 +518,15 @@ export function GameUI() {
         </header>
         <main className="start-screen__content">
           <section className="start-screen__intro">
-            <div className="start-screen__eyebrow">AI ENGINEERING DECISION SIMULATOR</div>
+            <div className="start-screen__eyebrow">AI ENGINEERING PLANNING WORKSPACE</div>
             <h1>
               Think it through.
               <br />
-              Then get grilled.
+              Then build the plan.
             </h1>
             <p className="start-screen__description">
-              DevQuest takes an engineering decision, challenges your assumptions, and makes you
-              navigate the trade-offs one decision at a time.
+              DevQuest works with you to turn an engineering problem into a concrete implementation
+              plan, one decision at a time.
             </p>
             <div className="start-screen__instructions">
               <div className="start-screen__section-title">HOW IT WORKS</div>
@@ -533,21 +535,21 @@ export function GameUI() {
                   <span>01</span>
                   <div>
                     <strong>Enter your problem</strong>
-                    <p>Describe the engineering decision you are facing.</p>
+                    <p>Describe the engineering feature, system, or decision you are working on.</p>
                   </div>
                 </div>
                 <div className="instruction">
                   <span>02</span>
                   <div>
                     <strong>Choose a door</strong>
-                    <p>Each door represents a different path or trade-off.</p>
+                    <p>Each door represents a different technical path or trade-off.</p>
                   </div>
                 </div>
                 <div className="instruction">
                   <span>03</span>
                   <div>
-                    <strong>Get challenged</strong>
-                    <p>Keep making decisions until the final recommendation.</p>
+                    <strong>Build the plan</strong>
+                    <p>Resolve the decisions that shape the implementation.</p>
                   </div>
                 </div>
               </div>
@@ -618,7 +620,8 @@ export function GameUI() {
           </div>
         )
       )}
-      {((state.screen === 'decision' && !state.corridorProcessing && !state.finalDocumentGenerating) || state.screen === 'complete') && (
+      {((state.screen === 'decision' && !state.corridorProcessing && !state.finalDocumentGenerating) ||
+        state.screen === 'complete') && (
         <DecisionBriefPanel
           question={state.question}
           description={state.description}
@@ -632,7 +635,12 @@ export function GameUI() {
       )}
       <DoorOptionsOverlay game={game} visible={showDecisionUI} />
       <InteractionPrompt
-        visible={state.doorNear && state.modal === null && !state.corridorProcessing && !state.finalDocumentGenerating}
+        visible={
+          state.doorNear &&
+          state.modal === null &&
+          !state.corridorProcessing &&
+          !state.finalDocumentGenerating
+        }
         text={
           state.nearDoorOption
             ? `Press E to enter ${state.nearDoorOption.label}`
@@ -640,22 +648,27 @@ export function GameUI() {
         }
       />
       <InteractionPrompt
-        visible={state.workstationNear && state.corridorProcessing && !state.workstationOpen && !state.finalDocumentGenerating}
+        visible={
+          state.workstationNear &&
+          state.corridorProcessing &&
+          !state.workstationOpen &&
+          !state.finalDocumentGenerating
+        }
         text={state.workstationType === 'ai-terminal' ? 'Press E to inspect terminal' : 'Press E to inspect workstation'}
       />
       <AIWorkstation
-        open={state.workstationOpen}
+        open={state.workstationOpen && !state.finalDocumentGenerating}
         type={state.workstationType}
         stage={state.corridorProcessingStage}
         message={state.corridorProcessingMessage}
         onClose={closeWorkstation}
       />
       <InteractionPrompt
-        visible={state.trophyNear && !state.trophySummaryOpen}
+        visible={state.trophyNear && !state.trophySummaryOpen && !state.finalDocumentGenerating}
         text="Press E to view summary"
       />
       <DoorContextModal
-        open={state.modal === 'door-context'}
+        open={state.modal === 'door-context' && !state.finalDocumentGenerating}
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}

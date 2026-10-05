@@ -74,11 +74,13 @@ class DecisionPayload(BaseModel):
 
 
 class FinishGeneratingPayload(BaseModel):
+    """Skill says final document generation has started."""
+
     session_id: str
 
 
 class FinishPayload(BaseModel):
-    """Skill says the session is complete."""
+    """Skill submits the generated final implementation plan."""
 
     session_id: str
 
@@ -198,6 +200,8 @@ async def create_decision(
 async def start_document_generation(
     payload: FinishGeneratingPayload,
 ):
+    """Skill signals that the final implementation plan is being generated."""
+
     await session_service.skill_start_document_generation(
         session_id=payload.session_id,
     )
@@ -211,7 +215,7 @@ async def start_document_generation(
 async def finish_session(
     payload: FinishPayload,
 ):
-    """Skill says the session is complete."""
+    """Skill submits the final implementation plan."""
 
     await session_service.skill_finish(
         session_id=payload.session_id,
