@@ -31,7 +31,6 @@ export class GrillingScene extends Phaser.Scene {
   private corridorInteractions!: CorridorInteractionManager;
   private pendingDecision?: DecisionCreatedMsg;
   private corridorExitReached = false;
-  private corridorProcessingTimer?: ReturnType<typeof setInterval>;
   private corridorReady = false;
   private unsubscribeWs?: () => void;
   private playerMoving = false;
@@ -53,7 +52,6 @@ export class GrillingScene extends Phaser.Scene {
     this.currentNodeId = data.decision.nodeId;
     this.data.set('decision', data.decision);
     this.data.set('restored', data.restored ?? false);
-    this.stopCorridorProcessing();
     this.pendingDecision = undefined;
     this.corridorExitReached = false;
     this.corridorReady = false;
@@ -130,7 +128,6 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.stopCorridorProcessing();
     this.unsubscribeWs?.();
     this.unsubscribeWs = undefined;
     this.corridorInteractions?.reset();
@@ -181,21 +178,12 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private startCorridorProcessing(): void {
-    this.stopCorridorProcessing();
-  
     emitUI(this, {
       type: 'CORRIDOR_PROCESSING',
       visible: true,
       stage: 'processing',
       message: 'Claude is generating the next decision...',
     });
-  }
-
-  private stopCorridorProcessing(): void {
-    if (this.corridorProcessingTimer) {
-      clearInterval(this.corridorProcessingTimer);
-      this.corridorProcessingTimer = undefined;
-    }
   }
 
   private checkCorridorExit(): void {
@@ -242,7 +230,6 @@ export class GrillingScene extends Phaser.Scene {
       return;
     }
 
-    this.stopCorridorProcessing();
     this.pendingDecision = undefined;
     this.corridorReady = false;
     this.corridorExitReached = false;
@@ -304,7 +291,6 @@ export class GrillingScene extends Phaser.Scene {
         break;
       case 'SESSION_COMPLETE': {
         const complete = msg as SessionCompleteMsg;
-        this.stopCorridorProcessing();
         this.store.complete(complete.summary, complete.docContent);
         this.player.stop();
         this.scene.start('TrophyScene', { store: this.store });
@@ -323,7 +309,6 @@ export class GrillingScene extends Phaser.Scene {
     this.store.hydrate(msg.snapshot);
   
     if (msg.snapshot.phase === 'complete') {
-      this.stopCorridorProcessing();
       this.player.stop();
       this.scene.start('TrophyScene', { store: this.store });
       return;
@@ -373,11 +358,15 @@ export class GrillingScene extends Phaser.Scene {
       round: decision.round,
     };
   
-    const room = this.world.activeRoom ?? this.world.buildDecisionRoom();
-  
+    this.world.destroyAll();
+    this.doors.reset();
+    this.corridorInteractions.reset();
+
+    const room = this.world.buildDecisionRoom();
+
     this.showDecision(restoredDecision, room);
     this.gameplayBlocked = false;
-  
+
     emitUI(this, { type: 'SESSION_RESUMED' });
   }
 
@@ -411,7 +400,6 @@ export class GrillingScene extends Phaser.Scene {
       this.pendingDecision = decision;
       this.corridorReady = true;
       this.gameplayBlocked = false;
-      this.stopCorridorProcessing();
     
       if (this.world.activeCorridor) {
         this.world.unlockCorridorExit(this.world.activeCorridor);
@@ -462,7 +450,6 @@ export class GrillingScene extends Phaser.Scene {
   }
 
   private failWith(message: string): void {
-    this.stopCorridorProcessing();
     this.pendingDecision = undefined;
     this.corridorReady = false;
     this.corridorExitReached = false;
