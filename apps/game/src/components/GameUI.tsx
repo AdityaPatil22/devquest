@@ -127,6 +127,8 @@ export function GameUI() {
             corridorProcessing: false,
             corridorProcessingStage: 'processing',
             corridorProcessingMessage: undefined,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationType: undefined,
             workstationOpen: false,
@@ -147,6 +149,8 @@ export function GameUI() {
             corridorProcessing: false,
             corridorProcessingStage: 'processing',
             corridorProcessingMessage: undefined,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationType: undefined,
             workstationOpen: false,
@@ -163,6 +167,8 @@ export function GameUI() {
             modal: null,
             waitingMessage:
               typeof event.message === 'string' ? event.message : 'Generating your first decision...',
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             error: undefined,
           }));
           break;
@@ -191,6 +197,8 @@ export function GameUI() {
             corridorProcessing: false,
             corridorProcessingStage: 'processing',
             corridorProcessingMessage: undefined,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationType: undefined,
             workstationOpen: false,
@@ -232,6 +240,8 @@ export function GameUI() {
             corridorProcessing: false,
             corridorProcessingStage: 'processing',
             corridorProcessingMessage: undefined,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationType: undefined,
             workstationOpen: false,
@@ -253,69 +263,132 @@ export function GameUI() {
           }));
           break;
         case 'AI_THINKING':
-          setState((previous) => ({
-            ...previous,
-            aiThinking: Boolean(event.visible),
-            aiThinkingMessage:
-              typeof event.message === 'string' ? event.message : 'Preparing the next decision...',
-            objective: event.visible ? 'Walk through the corridor' : previous.objective,
-            modal: event.visible ? null : previous.modal,
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              aiThinking: Boolean(event.visible),
+              aiThinkingMessage:
+                typeof event.message === 'string' ? event.message : 'Preparing the next decision...',
+              objective: event.visible ? 'Walk through the corridor' : previous.objective,
+              modal: event.visible ? null : previous.modal,
+            };
+          });
           break;
         case 'CORRIDOR_PROCESSING':
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              corridorProcessing: Boolean(event.visible),
+              corridorProcessingStage:
+                event.stage === 'ready' ? 'ready' : event.stage === 'received' ? 'received' : 'processing',
+              corridorProcessingMessage:
+                typeof event.message === 'string' ? event.message : undefined,
+              workstationNear: Boolean(event.visible) ? previous.workstationNear : false,
+              workstationType: Boolean(event.visible) ? previous.workstationType : undefined,
+              workstationOpen: Boolean(event.visible) ? previous.workstationOpen : false,
+            };
+          });
+          break;
+        case 'FINAL_DOCUMENT_GENERATING':
           setState((previous) => ({
             ...previous,
-            corridorProcessing: Boolean(event.visible),
-            corridorProcessingStage:
-              event.stage === 'ready' ? 'ready' : event.stage === 'received' ? 'received' : 'processing',
-            corridorProcessingMessage:
-              typeof event.message === 'string' ? event.message : undefined,
-            workstationNear: Boolean(event.visible) ? previous.workstationNear : false,
-            workstationType: Boolean(event.visible) ? previous.workstationType : undefined,
-            workstationOpen: Boolean(event.visible) ? previous.workstationOpen : false,
+            screen: 'decision',
+            modal: null,
+            finalDocumentGenerating: true,
+            finalDocumentGeneratingMessage:
+              typeof event.message === 'string'
+                ? event.message
+                : 'Claude has all the context it needs and is generating your final implementation plan...',
+            corridorProcessing: false,
+            corridorProcessingMessage: undefined,
+            aiThinking: false,
+            aiThinkingMessage: undefined,
+            workstationNear: false,
+            workstationType: undefined,
+            workstationOpen: false,
+            objective: 'Reach the document',
+            error: undefined,
           }));
           break;
         case 'WORKSTATION_PROXIMITY':
-          setState((previous) => ({
-            ...previous,
-            workstationNear: Boolean(event.visible),
-            workstationType:
-              event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
-                ? event.workstation
-                : undefined,
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              workstationNear: Boolean(event.visible),
+              workstationType:
+                event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
+                  ? event.workstation
+                  : undefined,
+            };
+          });
           break;
         case 'WORKSTATION_OPEN':
-          setState((previous) => ({
-            ...previous,
-            workstationOpen: Boolean(event.visible),
-            workstationType:
-              event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
-                ? event.workstation
-                : previous.workstationType,
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              workstationOpen: Boolean(event.visible),
+              workstationType:
+                event.workstation === 'ai-terminal' || event.workstation === 'ai-workstation'
+                  ? event.workstation
+                  : previous.workstationType,
+            };
+          });
           break;
         case 'PLAYER_MOVING':
           break;
         case 'OBJECTIVE':
-          setState((previous) => ({
-            ...previous,
-            objective: typeof event.objective === 'string' ? event.objective : previous.objective,
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              objective: typeof event.objective === 'string' ? event.objective : previous.objective,
+            };
+          });
           break;
         case 'WAITING':
-          setState((previous) => ({
-            ...previous,
-            modal: 'waiting',
-            waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              modal: 'waiting',
+              waitingMessage: typeof event.message === 'string' ? event.message : 'Waiting...',
+            };
+          });
           break;
         case 'NEXT_DECISION_LOADING':
-          setState((previous) => ({
-            ...previous,
-            modal: 'waiting',
-            waitingMessage: 'Preparing the next decision...',
-          }));
+          setState((previous) => {
+            if (previous.finalDocumentGenerating) {
+              return previous;
+            }
+
+            return {
+              ...previous,
+              modal: 'waiting',
+              waitingMessage: 'Preparing the next decision...',
+            };
+          });
           break;
         case 'SESSION_COMPLETE':
           setState((previous) => ({
@@ -328,6 +401,8 @@ export function GameUI() {
             aiThinking: false,
             aiThinkingMessage: undefined,
             corridorProcessing: false,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationOpen: false,
             objective: 'Session complete',
@@ -342,6 +417,8 @@ export function GameUI() {
             aiThinking: false,
             aiThinkingMessage: undefined,
             corridorProcessing: false,
+            finalDocumentGenerating: false,
+            finalDocumentGeneratingMessage: undefined,
             workstationNear: false,
             workstationOpen: false,
           }));
@@ -420,7 +497,8 @@ export function GameUI() {
     state.screen === 'decision' &&
     state.modal === null &&
     !state.aiThinking &&
-    !state.corridorProcessing;
+    !state.corridorProcessing &&
+    !state.finalDocumentGenerating;
   const showGameplayUI = state.screen === 'decision' || state.screen === 'complete';
   const initialProblemWaiting = showStartScreen && Boolean(state.waitingMessage);
   const processingLabel =
@@ -520,16 +598,27 @@ export function GameUI() {
           <div className="objective-indicator__text">{state.objective || 'Explore the room'}</div>
         </div>
       )}
-      {state.corridorProcessing && !state.workstationOpen && (
+      {state.finalDocumentGenerating ? (
         <div className="corridor-processing-indicator">
           <span className="corridor-processing-indicator__dot" />
           <span className="corridor-processing-indicator__label">
-            {processingLabel}
-            {state.corridorProcessingMessage ? ` — ${state.corridorProcessingMessage}` : ''}
+            DOCUMENT GENERATING
+            {state.finalDocumentGeneratingMessage ? ` — ${state.finalDocumentGeneratingMessage}` : ''}
           </span>
         </div>
+      ) : (
+        state.corridorProcessing &&
+        !state.workstationOpen && (
+          <div className="corridor-processing-indicator">
+            <span className="corridor-processing-indicator__dot" />
+            <span className="corridor-processing-indicator__label">
+              {processingLabel}
+              {state.corridorProcessingMessage ? ` — ${state.corridorProcessingMessage}` : ''}
+            </span>
+          </div>
+        )
       )}
-      {((state.screen === 'decision' && !state.corridorProcessing) || state.screen === 'complete') && (
+      {((state.screen === 'decision' && !state.corridorProcessing && !state.finalDocumentGenerating) || state.screen === 'complete') && (
         <DecisionBriefPanel
           question={state.question}
           description={state.description}
@@ -543,7 +632,7 @@ export function GameUI() {
       )}
       <DoorOptionsOverlay game={game} visible={showDecisionUI} />
       <InteractionPrompt
-        visible={state.doorNear && state.modal === null && !state.corridorProcessing}
+        visible={state.doorNear && state.modal === null && !state.corridorProcessing && !state.finalDocumentGenerating}
         text={
           state.nearDoorOption
             ? `Press E to enter ${state.nearDoorOption.label}`
@@ -551,7 +640,7 @@ export function GameUI() {
         }
       />
       <InteractionPrompt
-        visible={state.workstationNear && state.corridorProcessing && !state.workstationOpen}
+        visible={state.workstationNear && state.corridorProcessing && !state.workstationOpen && !state.finalDocumentGenerating}
         text={state.workstationType === 'ai-terminal' ? 'Press E to inspect terminal' : 'Press E to inspect workstation'}
       />
       <AIWorkstation
@@ -572,7 +661,7 @@ export function GameUI() {
         onCancel={cancelDoorContext}
       />
       <WaitingOverlay
-        open={state.modal === 'waiting' && !state.aiThinking}
+        open={state.modal === 'waiting' && !state.aiThinking && !state.finalDocumentGenerating}
         message={state.waitingMessage}
       />
       <TrophySummary

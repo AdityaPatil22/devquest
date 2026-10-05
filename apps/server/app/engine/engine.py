@@ -177,6 +177,39 @@ class DecisionEngine:
 
         session.move_to_awaiting_question()
 
+    def start_document_generation(
+        self,
+        session: Session,
+    ) -> EngineEvent:
+        if session.phase == SessionPhase.DOCUMENT_GENERATING:
+            return EngineEvent(
+                type=EventType.FINAL_DOCUMENT_GENERATING,
+                data={
+                    "message": (
+                        "Claude has all the context it needs and is generating "
+                        "your final implementation plan..."
+                    ),
+                },
+            )
+
+        if session.phase != SessionPhase.AWAITING_QUESTION:
+            raise ValueError(
+                f"Cannot start document generation while session is in "
+                f"phase '{session.phase.value}'"
+            )
+
+        session.start_document_generation()
+
+        return EngineEvent(
+            type=EventType.FINAL_DOCUMENT_GENERATING,
+            data={
+                "message": (
+                    "Claude has all the context it needs and is generating "
+                    "your final implementation plan..."
+                ),
+            },
+        )
+
     def finish_session(
         self,
         session: Session,

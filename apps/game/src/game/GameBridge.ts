@@ -41,6 +41,7 @@ export type GameUIEvent =
       stage: 'received' | 'processing' | 'ready';
       message: string;
     }
+  | { type: 'FINAL_DOCUMENT_GENERATING'; message: string }
   | {
       type: 'WORKSTATION_PROXIMITY';
       visible: boolean;

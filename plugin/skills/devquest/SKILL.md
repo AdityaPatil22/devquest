@@ -539,23 +539,15 @@ When the decision tree is complete:
 1. Retrieve the full session.
 2. Synthesize the player's selected decisions.
 3. Derive the resulting engineering architecture.
-4. Create a concrete implementation plan.
-5. Include testing, trade-offs, risks, and unresolved questions where relevant.
-6. POST the result to `/api/skill/finish`.
-7. Allow the game to transition to the Trophy Room.
+4. POST the final document generation event:
 
-The final document must reflect the player's actual choices, not Claude's original recommendations.
+```bash
+curl -X POST http://localhost:8000/api/skill/finish/generating \
+-H "Content-Type: application/json" \
+-d '{
+  "session_id": "<sid>"
+}'
 
-Do not produce an interview transcript.
-
-Do not include:
-
-- Decision Chain.
-- Q1/Q2/Q3 transcript.
-- Repeated option explanations.
-- Repeated recommendations.
-- Hidden model reasoning.
-- Questions already answered during the interview.
 
 Use this structure:
 
