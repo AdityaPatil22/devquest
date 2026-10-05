@@ -622,7 +622,7 @@ export function GameUI() {
           </div>
         )
       )}
-      {showDecisionScreen && !state.corridorProcessing && !state.finalDocumentGenerating && (
+      {showDecisionScreen && (
         <DecisionBriefPanel
           question={state.question}
           description={state.description}
@@ -672,7 +672,12 @@ export function GameUI() {
         text="Press E to view summary"
       />
       <DoorContextModal
-        open={showDecisionScreen && state.modal === 'door-context' && !state.finalDocumentGenerating}
+        open={
+          showDecisionScreen &&
+          state.modal === 'door-context' &&
+          !state.corridorProcessing &&
+          !state.finalDocumentGenerating
+        }
         option={state.selectedOption}
         onSubmit={submitDoorContext}
         onCancel={cancelDoorContext}

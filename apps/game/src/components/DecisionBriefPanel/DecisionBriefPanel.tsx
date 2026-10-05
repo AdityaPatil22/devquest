@@ -38,10 +38,6 @@ export function DecisionBriefPanel({
 }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  if (!question) {
-    return null;
-  }
-
   const recommendedOption = recommendation
     ? options.find((option) => option.id === recommendation.option)
     : undefined;
@@ -242,7 +238,6 @@ export function DecisionBriefPanel({
             <summary className="decision-brief-panel__history-summary">
               <div>
                 <span>DECISION HISTORY</span>
-
                 <small>Previous choices</small>
               </div>
 
