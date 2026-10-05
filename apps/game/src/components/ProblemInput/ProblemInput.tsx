@@ -34,12 +34,12 @@ export function ProblemInput({ waiting, message, error, onSubmit }: Props) {
 
   return (
     <section className="problem-input">
-      <div className="problem-input__eyebrow">START A GRILLING</div>
+      <div className="problem-input__eyebrow">START A SESSION</div>
 
-      <h2>What do you want to be grilled on?</h2>
+      <h2>What is the engineering problem you want to solve?</h2>
 
       <p className="problem-input__description">
-        Describe the engineering decision you want DevQuest to challenge.
+        Describe the engineering decision you want DevQuest to challenge/grill you on
       </p>
 
       {waiting ? (
@@ -56,10 +56,6 @@ export function ProblemInput({ waiting, message, error, onSubmit }: Props) {
         </div>
       ) : (
         <>
-          <label className="problem-input__label" htmlFor="devquest-problem">
-            ENGINEERING PROBLEM
-          </label>
-
           <textarea
             id="devquest-problem"
             value={problem}
