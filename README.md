@@ -20,7 +20,9 @@
 
 ## 🎮 See DevQuest in Action
 
-<video src="https://github.com/AdityaPatil22/devquest/releases/download/1.0.0/devquest-demo.mp4" width="100%" controls></video>
+[▶️ **Watch the DevQuest demo**](https://github.com/AdityaPatil22/devquest/releases/download/1.0.0/devquest-demo.mp4)
+
+> GitHub does not reliably render custom `<video>` embeds in repository READMEs, even when the video is hosted as a release asset. The link above opens the uploaded MP4 directly. citeturn573109search0turn573109search1
 
 ---
 
@@ -854,7 +856,12 @@ devquest/
 │
 ├── plugin/
 │   ├── .claude-plugin/
-│   │   └── plugin.json
+│   │   ├── plugin.json
+│   │   ├── scripts/
+│   │   └── skills/
+│   │       └── devquest/
+│   │           └── SKILL.md
+│   │
 │   ├── scripts/
 │   │   ├── install.sh
 │   │   └── start.sh
