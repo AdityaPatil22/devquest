@@ -1422,3 +1422,32 @@ GAME PRESENTATION
 ```
 
 Keep that boundary intact.
+
+# 30 DevQuest Contributor Guide
+
+## Read First
+
+- [Architecture](docs/architecture.md)
+- [Gameplay](docs/gameplay.md)
+- [Development](docs/development.md)
+- [Networking](docs/networking.md)
+- [Plugin](docs/plugin.md)
+- [Releasing](docs/releasing.md)
+
+## Core Rules
+
+- Claude Code owns engineering reasoning.
+- FastAPI owns authoritative session state.
+- React owns presentation.
+- Phaser owns the game world.
+- Keep the Decision Room → Corridor → Options Room loop intact.
+- Keep the four-option protocol contract intact.
+- Do not duplicate architecture or gameplay documentation here.
+
+## Common Commands
+
+```bash
+make install
+make dev
+make test
+make build

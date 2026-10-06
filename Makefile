@@ -8,7 +8,7 @@ dev:
 	@make dev-game
 
 dev-game:
-	cd apps/game && npm run dev
+	cd apps/game && VITE_SHOW_DEV_TOOLBAR=true npm run dev 
 
 dev-server:
 	cd apps/server && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
