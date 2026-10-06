@@ -1,28 +1,20 @@
 # DevQuest
 
-<p align="center">
+<p >
   <strong>Turn engineering decisions into a playable experience.</strong>
 </p>
 
-<p align="center">
+<p >
   DevQuest is an interactive engineering planning simulator built for Claude Code.
   It turns an ambiguous technical problem into a sequence of concrete decisions,
   then visualizes those decisions as a 2D game world.
-</p>
-
-<p align="center">
-  <a href="https://github.com/AdityaPatil22/devquest">GitHub</a>
-  ·
-  <a href="https://github.com/AdityaPatil22/devquest/issues">Issues</a>
 </p>
 
 ---
 
 ## 🎮 See DevQuest in Action
 
-[▶️ **Watch the DevQuest demo**](https://github.com/AdityaPatil22/devquest/releases/download/1.0.0/devquest-demo.mp4)
-
-> GitHub does not reliably render custom `<video>` embeds in repository READMEs, even when the video is hosted as a release asset. The link above opens the uploaded MP4 directly. citeturn573109search0turn573109search1
+<video src="https://github.com/user-attachments/assets/106921ac-e9d9-4bcd-b1fc-8ea15fad3792" width="100%" controls></video>
 
 ---
 
