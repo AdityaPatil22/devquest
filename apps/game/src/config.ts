@@ -3,6 +3,6 @@
 export const GAME_WIDTH = window.innerWidth;
 export const GAME_HEIGHT = window.innerHeight;
 
-export const PLAYER_SPEED = 200;
+export const PLAYER_SPEED = 300;
 
 export const WS_URL = import.meta.env.VITE_WS_URL ?? `ws://${window.location.host}/ws`;

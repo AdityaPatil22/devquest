@@ -10,9 +10,6 @@ interface Props {
 }
 
 export function TrophySummary({ open, problem, summary, docContent, onClose }: Props) {
-  if (!open) {
-    return null;
-  }
   useEffect(() => {
     if (!open) {
       return;
@@ -31,15 +28,49 @@ export function TrophySummary({ open, problem, summary, docContent, onClose }: P
     };
   }, [open, onClose]);
 
+  const downloadDocument = () => {
+    if (!docContent) {
+      return;
+    }
+
+    const blob = new Blob([docContent], {
+      type: 'text/markdown;charset=utf-8',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'devquest-implementation-plan.md';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  };
+
+  if (!open) {
+    return null;
+  }
+
   return (
     <div className="trophy-summary-backdrop">
       <div className="trophy-summary">
         <div className="trophy-summary-header">
           <h1>INVESTIGATION</h1>
 
-          <button className="trophy-summary-close" onClick={onClose} aria-label="Close summary">
-            ×
-          </button>
+          <div className="trophy-summary-header__actions">
+            {docContent && (
+              <button className="trophy-summary-download" onClick={downloadDocument}>
+                DOWNLOAD PLAN
+              </button>
+            )}
+
+            <button className="trophy-summary-close" onClick={onClose} aria-label="Close summary">
+              ×
+            </button>
+          </div>
         </div>
 
         {docContent && (

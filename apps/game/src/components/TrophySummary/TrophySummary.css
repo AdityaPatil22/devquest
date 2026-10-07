@@ -51,12 +51,41 @@
   font-weight: 700;
 }
 
-.trophy-summary-close {
+.trophy-summary-header__actions {
   position: absolute;
   right: 0;
   top: 50%;
 
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
   transform: translateY(-50%);
+}
+
+.trophy-summary-download {
+  padding: 8px 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+
+  background: rgba(255, 255, 255, 0.06);
+
+  color: #ffffff;
+
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  cursor: pointer;
+}
+
+.trophy-summary-download:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.trophy-summary-close {
+  position: static;
 
   width: 32px;
   height: 32px;
